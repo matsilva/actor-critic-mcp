@@ -4,19 +4,8 @@ This project aims to solve the overall issue of temporal difference problems in 
 
 \*\* Note that while the current implementation is an MCP, it is enirely possible to implement this via agents(standalone, or even embedded in the mcp or agent).
 
-See [notes/next_steps.md](notes/next_steps.md) for current implementation state and proposed next steps.
-
-**What is a temporal difference problem?**
-
-An example: When an AI wins or loses a game of chess, it may not remember the moves it made in the game that lead to the win or los. This is a temporal difference problem.
-This then goes in hand with the credit assignment problem. Which
-
-What is a credit assignment problem?
-To build upon the example above, how to credit which moves led to the win or loss?
-
-So combining the two problems, the AI agent needs to remember the moves it made in the game, and credit which moves led to the win or loss.
-
-This was a sticky problem for some time, but was largely solved by implementing an actor critic model. Where an actor makes its moves based on the critic's feedback. If the critic thinks the actors move will lead to a win, the actor will make that move. If the critic thinks the actors move will lead to a loss, the actor will not make the move and try to think of a better move.
+- See [notes/next_steps.md](notes/next_steps.md) for current implementation state and proposed next steps.
+- See [What is a temporal difference problem?](#what-is-a-temporal-difference-problem) for a more detailed explanation.]
 
 ### Temporal Difference Problems (AI Agent Context Gaps)
 
@@ -61,7 +50,7 @@ This was a sticky problem for some time, but was largely solved by implementing 
 
 ---
 
-**What is a temporal difference problem?**
+### What is a temporal difference problem?\*\*
 
 An example: when an AI wins or loses a game of chess, it might not remember the specific moves it made earlier in the game that led to that outcome. This is a temporal difference problem, the result comes much later than the decisions that influenced it.
 
