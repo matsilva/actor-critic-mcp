@@ -5,7 +5,7 @@ This project aims to solve the overall issue of temporal difference problems in 
 \*\* Note that while the current implementation is an MCP, it is enirely possible to implement this via agents(standalone, or even embedded in the mcp or agent).
 
 - See [notes/next_steps.md](notes/next_steps.md) for current implementation state and proposed next steps.
-- See [What is a temporal difference problem?](#what-is-a-temporal-difference-problem) for a more detailed explanation.]
+- See [What is a temporal difference problem?](#what-is-a-temporal-difference-problem) for a more detailed explanation.
 
 ### Temporal Difference Problems (AI Agent Context Gaps)
 
