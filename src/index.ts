@@ -319,6 +319,7 @@ async function main() {
   // ------------------------------------------------------------------
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  console.log('ActorCritic MCP server running on stdio');
 }
 
 main().catch((err) => {
