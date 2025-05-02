@@ -1,0 +1,21 @@
+{
+  "name": "actor-critic-mcp",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@types/node": "^22.15.3"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.0",
+    "nanoid": "^5.1.5",
+    "uuid": "^11.1.0",
+    "zod": "^3.24.3"
+  }
+}
