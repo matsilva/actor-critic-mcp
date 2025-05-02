@@ -1,4 +1,4 @@
-# Actor-Critic MCP: Longer-Term Memory for AI Agents
+# Actor-Critic MCP: Solving Temporal Difference Problems in AI Agents
 
 This project aims to solve the overall issue of temporal difference problems in AI agents. More specifically for software development agents.
 
