@@ -6,6 +6,18 @@ This project aims to solve the overall issue of temporal difference problems in 
 
 See [notes/next_steps.md](notes/next_steps.md) for current implementation state and proposed next steps.
 
+**What is a temporal difference problem?**
+
+An example: When an AI wins or loses a game of chess, it may not remember the moves it made in the game that lead to the win or los. This is a temporal difference problem.
+This then goes in hand with the credit assignment problem. Which
+
+What is a credit assignment problem?
+To build upon the example above, how to credit which moves led to the win or loss?
+
+So combining the two problems, the AI agent needs to remember the moves it made in the game, and credit which moves led to the win or loss.
+
+This was a sticky problem for some time, but was largely solved by implementing an actor critic model. Where an actor makes its moves based on the critic's feedback. If the critic thinks the actors move will lead to a win, the actor will make that move. If the critic thinks the actors move will lead to a loss, the actor will not make the move and try to think of a better move.
+
 ### Temporal Difference Problems (AI Agent Context Gaps)
 
 1. **Forgetting prior definitions**  
@@ -46,3 +58,44 @@ See [notes/next_steps.md](notes/next_steps.md) for current implementation state 
 
 13. **Forgetting open questions or deferred work**  
     Design questions marked “to be determined” or deferred get buried without resolution due to lack of follow-up tracking or re-surfacing.
+
+---
+
+**What is a temporal difference problem?**
+
+An example: when an AI wins or loses a game of chess, it might not remember the specific moves it made earlier in the game that led to that outcome. This is a temporal difference problem, the result comes much later than the decisions that influenced it.
+
+This ties directly into another concept: the credit assignment problem.
+
+---
+
+**What is the credit assignment problem?**
+
+To build on the example above: how does the AI figure out which specific moves actually contributed to the win or loss? Not all moves mattered equally. The AI needs to assign credit (or blame) across a timeline of actions.
+
+---
+
+**How do the two connect?**
+
+The temporal difference problem is about **delayed consequences**. Decisions made now might not show their results until much later.
+The credit assignment problem is about **figuring out which of those decisions mattered most** when the result finally does come.
+
+Together, they form one of the most challenging problems in long-horizon reasoning.
+
+---
+
+**How was this solved?**
+
+This was a sticky problem for a long time, but one of the more effective approaches turned out to be the actor–critic model.
+
+Here’s how it works:
+
+- The **actor** is responsible for making decisions (moves, in the chess example).
+- The **critic** provides feedback. It evaluates whether those decisions seem likely to lead to a good outcome.
+- If the critic believes the actor’s move is good, the actor continues. If not, the actor tries a better move.
+
+Over time, the actor learns which moves tend to lead to good results, even if the payoff comes much later. This model helps the AI assign value to intermediate steps, instead of only learning from the final outcome.
+
+---
+
+I am hoping to apply these concepts to AI agents in software development, which I believe is largely missing from existing coding agents.
