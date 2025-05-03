@@ -1,6 +1,5 @@
 import { v4 as uuid } from 'uuid';
 import { KnowledgeGraphManager, ArtifactRef, DagNode } from '../KnowledgeGraph.ts';
-import { RevisionCounter } from './RevisionCounter.ts';
 import { CFG } from '../config.ts';
 
 export type ThinkDecision = (typeof Actor.THINK_DECISION)[keyof typeof Actor.THINK_DECISION];
@@ -17,7 +16,7 @@ export class Actor {
     thought: string;
     needsMore?: boolean;
     branchLabel?: string;
-    tags?: string[];
+    tags: string[];
     artifacts?: Partial<ArtifactRef>[];
   }): Promise<{ node: DagNode; decision: ThinkDecision }> {
     const { thought, needsMore, branchLabel, tags, artifacts } = input;

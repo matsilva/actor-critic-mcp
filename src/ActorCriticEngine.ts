@@ -8,16 +8,18 @@ import { z } from 'zod';
 // Actor–Critic engine ----------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-/**
- * actor_think – add a new thought node to the design graph.
+const THOUGH_DESCRIPTION = ` add a new thought node to the knowledge graph.
  * Use for any creative/planning step, requirement capture, task breakdown, etc.
- * Include `branchLabel` on the FIRST node of an alternative approach.
- */
+ * Include 'tags' for any relevant categories. requirement, task, risk, design …
+ * Include 'branchLabel' on the FIRST node of an alternative approach.
+ * Include 'artifacts' for any generated artificts. Design docs. Mermaid diagrams, etc.
+ `;
+
 export const ActorThinkSchema = {
-  thought: z.string().describe('The actual design idea / reasoning step.'),
+  thought: z.string().describe(THOUGH_DESCRIPTION),
   needsMore: z.boolean().optional().describe('Set true if more actor steps are expected before a critic check.'),
   branchLabel: z.string().optional().describe('Human‑friendly label for a new branch.'),
-  tags: z.array(z.string()).optional().describe('Arbitrary tags: requirement, task, risk, …'),
+  tags: z.array(z.string()).describe('tags: requirement, task, risk, design …'),
   artifacts: z
     .array(
       z.object({
@@ -28,14 +30,14 @@ export const ActorThinkSchema = {
       })
     )
     .optional()
-    .describe('Supporting files / links.'),
+    .describe('generated artificts. Design docs. Mermaid diagrams, etc.'),
 };
 
 export interface ActorThinkInput {
   thought: string;
   needsMore?: boolean;
   branchLabel?: string;
-  tags?: string[];
+  tags: string[];
   artifacts?: Partial<ArtifactRef>[];
 }
 

@@ -32,8 +32,6 @@ export interface DagNode {
   children: string[];
   needsMore?: boolean;
   createdAt: string; // ISO timestamp for durability
-
-  // v0.4 additions
   branchLabel?: string; // friendly label for this branch head
   tags?: string[]; // free‑form categories ("design", "task", …)
   artifacts?: ArtifactRef[]; // attached artefacts
