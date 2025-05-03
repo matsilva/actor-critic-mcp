@@ -1,6 +1,9 @@
+import { execa } from 'execa';
+import { to } from 'await-to-js';
 import { v4 as uuid } from 'uuid';
 import { KnowledgeGraphManager, DagNode } from '../KnowledgeGraph.ts';
 import { RevisionCounter } from './RevisionCounter.ts';
+import path from 'node:path';
 import { z } from 'zod';
 
 export const CriticSchema = { actorNodeId: z.string().describe('ID of the actor node to critique.') };
@@ -40,10 +43,34 @@ export class Critic {
     if (!target || (target as DagNode).role !== 'actor') throw new Error('invalid target for critic');
 
     let verdict: DagNode['verdict'] = 'approved';
-    if (!(target as DagNode).thought.trim()) verdict = 'needs_revision';
+    let reason: DagNode['verdictReason'] | undefined;
+
+    if ((target as DagNode).thought.trim() === '') verdict = 'needs_revision';
     if (this.revisionCounter.isAtMaxRevisions(actorNodeId)) verdict = 'reject';
-    const { needsFix, reason } = missingArtifactGuard(target as DagNode);
-    if (needsFix) verdict = 'needs_revision';
+    const artifactGuard = missingArtifactGuard(target as DagNode);
+    if (artifactGuard.needsFix) verdict = 'needs_revision';
+    if (artifactGuard.reason) reason = artifactGuard.reason;
+
+    if (verdict === 'approved') {
+      const criticDir = path.resolve(import.meta.dirname, '..', '..', 'agents', 'critic');
+      const targetJson = JSON.stringify(target);
+      const [criticError, output] = await to(
+        execa('uv', ['run', 'agent.py', '--quiet', '--agent', 'default', '--message', targetJson], {
+          cwd: criticDir,
+        })
+      );
+
+      if (criticError) {
+        throw criticError;
+      }
+      try {
+        const json = JSON.parse(output.stdout) as { verdict: DagNode['verdict']; verdictReason?: string };
+        verdict = json.verdict;
+        reason = json.verdictReason;
+      } catch (err) {
+        console.error('Failed to parse JSON from uv mcp-server-fetch:', err);
+      }
+    }
 
     const criticNode: DagNode = {
       id: uuid(),

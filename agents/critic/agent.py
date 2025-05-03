@@ -52,10 +52,9 @@ The actor must follow these schema requirements:
 
 ## Your Review Process
 When reviewing an actor node:
-1. Check if the thought is empty (requires revision)
-2. Check if the node has reached max revisions (reject)
-3. Set the appropriate verdict: 'approved', 'needs_revision', or 'reject'
-4. Provide a clear verdictReason when requesting revisions
+1. Set the appropriate verdict: 'approved', 'needs_revision', or 'reject'
+2. Provide a clear verdictReason when requesting revisions
+3. respond with a single line response with the json format: {"verdict": "approved|needs_revision|reject", "verdictReason": "reason for revision if needed"}
 
 ## Specific Checks to Perform
 - File References: Detect file paths/names in thought to ensure relevant artifacts are attached
