@@ -7,19 +7,46 @@ import { z } from 'zod';
 // -----------------------------------------------------------------------------
 // Actor–Critic engine ----------------------------------------------------------
 // -----------------------------------------------------------------------------
+const FILE_RX = /[\\w./-]+\\.(ts|tsx|js|jsx|json|css|md)/gi;
 
-const THOUGH_DESCRIPTION = ` add a new thought node to the knowledge graph.
- * Use for any creative/planning step, requirement capture, task breakdown, etc.
- * Include 'tags' for any relevant categories. requirement, task, risk, design …
- * Include 'branchLabel' on the FIRST node of an alternative approach.
- * Include 'artifacts' for any generated artificts. Design docs. Mermaid diagrams, etc.
- `;
+const THOUGHT_DESCRIPTION = `
+Add a new thought node to the knowledge‑graph.
+
+• Use for any creative / planning step, requirement capture, task break‑down, etc.  
+• **Always include at least one 'tag'** so future searches can find this node
+  – e.g. requirement, task, risk, design, definition.  
+• **If your thought references a file you just created or modified**, list it in
+  the 'artifacts' array so the graph stores a durable link.  
+• Use 'branchLabel' **only** on the first node of an alternative approach.  
+• Think of 'tags' + 'artifacts' as the breadcrumbs that future you (or another
+  agent) will follow to avoid duplicate work or forgotten decisions.
+`.trim();
 
 export const ActorThinkSchema = {
-  thought: z.string().describe(THOUGH_DESCRIPTION),
-  needsMore: z.boolean().optional().describe('Set true if more actor steps are expected before a critic check.'),
-  branchLabel: z.string().optional().describe('Human‑friendly label for a new branch.'),
-  tags: z.array(z.string()).describe('tags: requirement, task, risk, design …'),
+  thought: z.string().describe(THOUGHT_DESCRIPTION),
+
+  needsMore: z
+    .boolean()
+    .optional()
+    .describe(
+      'Set true if more actor steps are expected before calling the critic. ' + 'Leave false when the current micro‑task is complete.'
+    ),
+
+  branchLabel: z
+    .string()
+    .optional()
+    .describe(
+      'Human‑friendly name for a NEW branch.  Only set on the first node of ' + 'an alternative design path (e.g. "event‑sourcing‑spike").'
+    ),
+
+  tags: z
+    .array(z.string())
+    .min(1, 'Add at least one semantic tag – requirement, task, risk, design …')
+    .describe(
+      'Semantic categories that make this node discoverable later.  Use ' +
+        '`definition` when you introduce a new API, schema, or interface.'
+    ),
+
   artifacts: z
     .array(
       z.object({
@@ -30,7 +57,7 @@ export const ActorThinkSchema = {
       })
     )
     .optional()
-    .describe('generated artificts. Design docs. Mermaid diagrams, etc.'),
+    .describe('Generated files or links (code, diagrams, docs).  ' + 'Mention every new or updated file here to keep the graph in sync.'),
 };
 
 export interface ActorThinkInput {
