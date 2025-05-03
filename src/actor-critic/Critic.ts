@@ -4,6 +4,7 @@ import { v4 as uuid } from 'uuid';
 import { KnowledgeGraphManager, DagNode } from '../KnowledgeGraph.ts';
 import { RevisionCounter } from './RevisionCounter.ts';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
 export const CriticSchema = { actorNodeId: z.string().describe('ID of the actor node to critique.') };
@@ -52,7 +53,9 @@ export class Critic {
     if (artifactGuard.reason) reason = artifactGuard.reason;
 
     if (verdict === 'approved') {
-      const criticDir = path.resolve(import.meta.dirname, '..', '..', 'agents', 'critic');
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+      const criticDir = path.resolve(__dirname, '..', '..', 'agents', 'critic');
       const targetJson = JSON.stringify(target);
       const [criticError, output] = await to(
         execa('uv', ['run', 'agent.py', '--quiet', '--agent', 'default', '--message', targetJson], {

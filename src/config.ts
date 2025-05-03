@@ -1,12 +1,15 @@
 import path from 'node:path';
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 // -----------------------------------------------------------------------------
 // Configuration ----------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-const dataDir = path.resolve(import.meta.dirname, '..', 'data');
-const defaultMemoryFilePath = path.resolve(dataDir, 'kg.json'); //todo: place in ~/.config/acdc - actor critic directed context
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const dataDir = path.resolve(__dirname, '..', 'data');
+const defaultMemoryFilePath = path.resolve(dataDir, 'kg.json');
 
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 if (!fs.existsSync(defaultMemoryFilePath)) fs.writeFileSync(defaultMemoryFilePath, '{}', 'utf8');
