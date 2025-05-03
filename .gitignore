@@ -4,3 +4,6 @@ node_modules
 data/
 
 notes/drafts
+
+agents/critic/fastagent.secrets.yaml
+agents/critic/fastagent.config.yaml
