@@ -6,7 +6,7 @@ import fs from 'node:fs';
 // -----------------------------------------------------------------------------
 
 const dataDir = path.resolve(import.meta.dirname, '..', 'data');
-const defaultMemoryFilePath = path.resolve(dataDir, 'memory.json'); //todo: place in ~/.config/acdc - actor critic directed context
+const defaultMemoryFilePath = path.resolve(dataDir, 'kg.json'); //todo: place in ~/.config/acdc - actor critic directed context
 
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 if (!fs.existsSync(defaultMemoryFilePath)) fs.writeFileSync(defaultMemoryFilePath, '{}', 'utf8');
