@@ -5,9 +5,9 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { ActorCriticEngine, ActorThinkSchema } from './ActorCriticEngine.ts';
 import { KnowledgeGraphManager } from './KnowledgeGraph.ts';
-import { Critic, CriticSchema } from './actor-critic/Critic.ts';
+import { Critic, CriticSchema } from './agents/Critic.ts';
 import { RevisionCounter } from './actor-critic/RevisionCounter.ts';
-import { Actor } from './actor-critic/Actor.ts';
+import { Actor } from './agents/Actor.ts';
 import { CFG } from './config.ts';
 
 //TODO:
@@ -72,14 +72,70 @@ async function main() {
     {
       branchId: z.string().describe('Branch id OR label'),
     },
-    async (args) => ({
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(await engine.summarizeBranch(args.branchId), null, 2),
-        },
-      ],
-    }),
+    async (args) => {
+      try {
+        const summary = await engine.summarizeBranch(args.branchId);
+
+        if (summary) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(summary, null, 2),
+              },
+            ],
+          };
+        } else {
+          // If summarization failed, get the branch information to provide context
+          const branches = kg.listBranches();
+          const targetBranch = branches.find(
+            (b) => b.branchId === args.branchId || b.head.branchLabel === args.branchId,
+          );
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  {
+                    error: true,
+                    message:
+                      'Summarization failed. This could be due to insufficient nodes, already summarized content, or an error in the summarization process.',
+                    branchInfo: targetBranch
+                      ? {
+                          branchId: targetBranch.branchId,
+                          label: targetBranch.head.branchLabel,
+                          depth: targetBranch.depth,
+                        }
+                      : null,
+                    tip: 'Check console logs for detailed error information.',
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+          };
+        }
+      } catch (error) {
+        console.error(`[summarize_branch] Error:`, error);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  error: true,
+                  message: `Summarization error: ${error instanceof Error ? error.message : String(error)}`,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }
+    },
   );
 
   // ------------------------------------------------------------------

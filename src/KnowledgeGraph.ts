@@ -45,6 +45,18 @@ export interface SummaryNode extends DagNode {
   summarizedSegment: string[]; // IDs of the nodes that were summarized
 }
 
+export interface SummarizationResult {
+  summary: SummaryNode | null;
+  success: boolean;
+  errorCode?:
+    | 'BRANCH_NOT_FOUND'
+    | 'INSUFFICIENT_NODES'
+    | 'ALREADY_SUMMARIZED'
+    | 'SUMMARIZATION_ERROR';
+  errorMessage?: string;
+  details?: string;
+}
+
 export class KnowledgeGraphManager {
   public static WINDOW = CFG.WINDOW;
 
@@ -208,11 +220,20 @@ export class KnowledgeGraphManager {
   /**
    * Summarizes the oldest segment of nodes in a branch.
    * @param branchId ID of the branch to summarize
+   * @returns A SummarizationResult object containing the summary or error information
    */
-  async summarizeBranch(branchId: string): Promise<SummaryNode | null> {
+  async summarizeBranch(branchId: string): Promise<SummarizationResult> {
     // Get the branch head
     const head = this.getNode(branchId);
-    if (!head) return null;
+    if (!head) {
+      console.error(`[summarizeBranch] Branch not found: ${branchId}`);
+      return {
+        summary: null,
+        success: false,
+        errorCode: 'BRANCH_NOT_FOUND',
+        errorMessage: `Branch with ID or label "${branchId}" not found`,
+      };
+    }
 
     // Collect all nodes in the branch
     const branchNodes: DagNode[] = [];
@@ -226,11 +247,27 @@ export class KnowledgeGraphManager {
     // Reverse to get chronological order
     branchNodes.reverse();
 
+    // Log branch information for debugging
+    console.log(`[summarizeBranch] Branch ${branchId} has ${branchNodes.length} nodes`);
+
+    // Check if the branch has enough nodes to meet the summarization threshold
+    if (branchNodes.length < KnowledgeGraphManager.SUMMARIZATION_THRESHOLD) {
+      return {
+        summary: null,
+        success: false,
+        errorCode: 'INSUFFICIENT_NODES',
+        errorMessage: `Branch has only ${branchNodes.length} nodes, which is below the summarization threshold of ${KnowledgeGraphManager.SUMMARIZATION_THRESHOLD}`,
+        details: `Current nodes: ${branchNodes.length}, Required: ${KnowledgeGraphManager.SUMMARIZATION_THRESHOLD}`,
+      };
+    }
+
     // Check if we already have summaries for this branch
     const existingSummaries = branchNodes.filter(
       (node): node is SummaryNode =>
         node.role === 'summary' && node.summarizedSegment !== undefined,
     );
+
+    console.log(`[summarizeBranch] Branch has ${existingSummaries.length} existing summaries`);
 
     // Determine which nodes need to be summarized
     let nodesToSummarize: DagNode[] = [];
@@ -265,19 +302,61 @@ export class KnowledgeGraphManager {
 
     // If there are nodes to summarize, create a summary
     if (nodesToSummarize.length > 0) {
-      return await this.createSummary(nodesToSummarize);
+      console.log(`[summarizeBranch] Summarizing ${nodesToSummarize.length} nodes`);
+      try {
+        const summaryNode = await this.createSummary(nodesToSummarize);
+        return {
+          summary: summaryNode,
+          success: true,
+        };
+      } catch (error) {
+        console.error(`[summarizeBranch] Error creating summary:`, error);
+        return {
+          summary: null,
+          success: false,
+          errorCode: 'SUMMARIZATION_ERROR',
+          errorMessage: 'Error occurred during summarization process',
+          details: error instanceof Error ? error.message : String(error),
+        };
+      }
     }
 
-    return null;
+    // If we reach here, all nodes have already been summarized
+    return {
+      summary: null,
+      success: false,
+      errorCode: 'ALREADY_SUMMARIZED',
+      errorMessage: 'All nodes in this branch have already been summarized',
+      details: `Branch has ${existingSummaries.length} summaries covering all summarizable nodes`,
+    };
   }
 
   /**
    * Creates a summary for a segment of nodes.
    * @param nodes Nodes to summarize
+   * @throws Error if summarization fails
    */
   async createSummary(nodes: DagNode[]): Promise<SummaryNode> {
+    if (!nodes || nodes.length === 0) {
+      throw new Error('Cannot create summary: No nodes provided');
+    }
+
+    console.log(`[createSummary] Creating summary for ${nodes.length} nodes`);
+
     const agent = this.getSummarizationAgent();
     const result = await agent.summarize(nodes);
+
+    // Check for errors in the summarization result
+    if (result.error) {
+      console.error(`[createSummary] Summarization agent error:`, result.error);
+      throw new Error(`Summarization failed: ${result.error}`);
+    }
+
+    // Validate the summary content
+    if (!result.summary || result.summary.trim() === '') {
+      console.error(`[createSummary] Summarization agent returned empty summary`);
+      throw new Error('Summarization failed: Empty summary returned');
+    }
 
     // Create a summary node
     const summaryNode: SummaryNode = {
@@ -290,6 +369,8 @@ export class KnowledgeGraphManager {
       summarizedSegment: nodes.map((node) => node.id),
       tags: ['summary'],
     };
+
+    console.log(`[createSummary] Created summary node with ID ${summaryNode.id}`);
 
     // Persist the summary node
     this.createEntity(summaryNode);
