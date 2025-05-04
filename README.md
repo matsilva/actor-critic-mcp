@@ -98,7 +98,7 @@ For a comprehensive setup and usage guide, see [QUICKSTART.md](QUICKSTART.md).
 4. **MCP Integration**:
    - Start the MCP server: `npx -y tsx path/to/actor-critic-mcp/src`
 5. **Usage**:
-   - Example prompt: "Use actor-critic tool to plan and implement..."
+   - Example prompt: "Use actor critic tool to plan and implement..."
 
 > **⚠️ Experimental Disclaimer**: Back up your data, monitor API costs, and expect occasional issues.
 
