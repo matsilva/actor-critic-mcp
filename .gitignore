@@ -5,5 +5,5 @@ data/
 
 notes/drafts
 
-agents/critic/fastagent.secrets.yaml
-agents/critic/fastagent.config.yaml
+agents/**/fastagent.secrets.yaml
+agents/**/fastagent.config.yaml

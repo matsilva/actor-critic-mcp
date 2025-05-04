@@ -136,7 +136,9 @@ export class KnowledgeGraphManager {
     // look for summaries to include
     if (curr) {
       // Find summaries that cover the older nodes
-      const summaries = this.allDagNodes().filter((n): n is SummaryNode => n.role === 'summary' && n.summarizedSegment.includes(curr!.id));
+      const summaries = this.allDagNodes().filter(
+        (n): n is SummaryNode => !!(n.role === 'summary' && n?.summarizedSegment?.includes(curr!.id))
+      );
 
       // Add relevant summaries to the beginning of the path
       if (summaries.length > 0) {
