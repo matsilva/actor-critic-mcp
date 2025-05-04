@@ -62,15 +62,15 @@ graph TD
 
 High‑level flow: caller → MCP → KG + Actor/Critic loop
 
-- **Coding Agent**  
+- **Coding Agent**
   Calls the actor critic mcp
-- **Knowledge Graph**  
+- **Knowledge Graph**
   Compact summaries + full artefacts; fast semantic lookup; survives crashes.
-- **Actor**  
+- **Actor**
   Generates the next code / plan node. Writes links into the graph.
-- **Critic**  
+- **Critic**
   Scores each node against long‑horizon goals; updates value estimates; can veto or request revision.
-- **Hot‑Context Stream**  
+- **Hot‑Context Stream**
   Only the freshest, highest‑value nodes return to the LLM to keep within token budgets.
 
 ## Current status
@@ -79,25 +79,28 @@ See **[`notes/next_steps.md`](notes/next_steps.md)** for details
 
 See initial trial run:
 
-### Quickstart guide
+### Quickstart Guide
 
-Experimental disclaimer... back your stuff up, watch your costs, ymmv.
+For a comprehensive setup and usage guide, see [QUICKSTART.md](QUICKSTART.md).
 
-Clone this repo and cd to the repo
+**Quick Overview:**
 
-Setup agents
+1. **Prerequisites**: Node.js v18+, Python 3.11+, uv package manager
+2. **Installation**:
+   ```bash
+   git clone https://github.com/matsilva/actor-critic-mcp.git
+   cd actor-critic-mcp
+   npm install
+   ```
+3. **Agent Setup**:
+   - Configure critic and summarize agents with API keys
+   - Install Python dependencies with `uv sync`
+4. **MCP Integration**:
+   - Start the MCP server: `npx -y tsx path/to/actor-critic-mcp/src`
+5. **Usage**:
+   - Example prompt: "Use actor-critic tool to plan and implement..."
 
-- cd agents/critic and uv sync. Add desired model and api keys (if applicable) and config
-- cd agents/summarize and uv sync. Add desired model and api keys (if applicable) and config
-
-Setup MCP
-
-- npm install
-- add as mcp server via npx -y tsx path/to/actor-critic-mcp/src
-
-Using MCP
-
-- example prompt: "use actor critic tool to plan and implement ...xyz
+> **⚠️ Experimental Disclaimer**: Back up your data, monitor API costs, and expect occasional issues.
 
 ## Background
 
@@ -106,8 +109,8 @@ So it is helpful to understand these concepts in order to solve the context gaps
 
 **TLDR;**
 
-TD = delayed reward.  
-Credit assignment = which earlier step deserves the reward.  
+TD = delayed reward.
+Credit assignment = which earlier step deserves the reward.
 Actor–Critic solves both: Actor acts, Critic scores, value propagates back.
 
 ### What is a temporal difference problem?
