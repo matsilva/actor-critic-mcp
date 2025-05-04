@@ -18,12 +18,7 @@ Before getting started, ensure you have the following installed:
 - **Node.js** (v18+)
 - **Python** (v3.11+)
 - **uv** - A modern Python package manager
-  ```bash
-  # Install uv using the official installer
-  curl -sSf https://install.python-poetry.org | python3 -
-  # Or with pip
-  pip install uv
-  ```
+  See [uv installation instructions](https://docs.astral.sh/uv/getting-started/installation)
 - **API Keys** for your preferred LLM provider (Anthropic, OpenAI, etc.)
 
 ## Installation
@@ -43,6 +38,7 @@ The project consists of two main components:
 - **Agent Components** (Python): Critic and Summarization agents that evaluate and condense information
 
 Key directories:
+
 ```
 src/                # MCP server and core components
 ├── actor-critic/   # Actor, Critic, and RevisionCounter implementations
@@ -103,6 +99,7 @@ Edit `fastagent.secrets.yaml` to add your API keys (same as for the critic agent
 ### 3. Understanding uv sync
 
 The `uv sync` command:
+
 - Reads dependencies from `pyproject.toml`
 - Creates/updates a virtual environment
 - Installs all required packages
@@ -148,11 +145,13 @@ The Actor-Critic system provides several tools that the AI agent can use:
 ### Example Workflow
 
 1. **Planning Phase**:
+
    ```
    Use actor-critic to plan a new feature for...
    ```
 
 2. **Implementation Phase**:
+
    ```
    Continue implementing the feature using actor-critic...
    ```
