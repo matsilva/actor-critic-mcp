@@ -75,17 +75,29 @@ High‑level flow: caller → MCP → KG + Actor/Critic loop
 
 ## Current status
 
-| Area                                | State          |
-| ----------------------------------- | -------------- |
-| KG schema & basic mcp tools         | ✔ working     |
-| Sequential thinker (Actor v0)       | ✔ working     |
-| Basic Critic with rule‑based reward | 🚧 in progress |
+See **[`notes/next_steps.md`](notes/next_steps.md)** for details
 
-See **[`notes/next_steps.md`](notes/next_steps.md)** for detail.
+See initial trial run:
 
-I am still developing & testing this out in my workflows.
+### Quickstart guide
 
-After I put some more miles on it, I will add the quick start instructions to this README.
+Experimental disclaimer... back your stuff up, watch your costs, ymmv.
+
+Clone this repo and cd to the repo
+
+Setup agents
+
+- cd agents/critic and uv sync. Add desired model and api keys (if applicable) and config
+- cd agents/summarize and uv sync. Add desired model and api keys (if applicable) and config
+
+Setup MCP
+
+- npm install
+- add as mcp server via npx -y tsx path/to/actor-critic-mcp/src
+
+Using MCP
+
+- example prompt: "use actor critic tool to plan and implement ...xyz
 
 ## Background
 
