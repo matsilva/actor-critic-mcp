@@ -60,6 +60,17 @@ async function main() {
     content: [{ type: 'text', text: JSON.stringify(kg.exportPlan(a.filterTag), null, 2) }],
   }));
 
+  /** summarize_branch – generate a summary for a specific branch */
+  server.tool(
+    'summarize_branch',
+    {
+      branchId: z.string().describe('Branch id OR label'),
+    },
+    async (args) => ({
+      content: [{ type: 'text', text: JSON.stringify(await engine.summarizeBranch(args.branchId), null, 2) }],
+    })
+  );
+
   // ------------------------------------------------------------------
   // Transport: stdio JSON‑over‑MCP -----------------------------------
   // ------------------------------------------------------------------

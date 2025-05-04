@@ -12,12 +12,12 @@ const FILE_RX = /[\\w./-]+\\.(ts|tsx|js|jsx|json|css|md)/gi;
 const THOUGHT_DESCRIPTION = `
 Add a new thought node to the knowledge‑graph.
 
-• Use for any creative / planning step, requirement capture, task break‑down, etc.  
+• Use for any creative / planning step, requirement capture, task break‑down, etc.
 • **Always include at least one 'tag'** so future searches can find this node
-  – e.g. requirement, task, risk, design, definition.  
+  – e.g. requirement, task, risk, design, definition.
 • **If your thought references a file you just created or modified**, list it in
-  the 'artifacts' array so the graph stores a durable link.  
-• Use 'branchLabel' **only** on the first node of an alternative approach.  
+  the 'artifacts' array so the graph stores a durable link.
+• Use 'branchLabel' **only** on the first node of an alternative approach.
 • Think of 'tags' + 'artifacts' as the breadcrumbs that future you (or another
   agent) will follow to avoid duplicate work or forgotten decisions.
 `.trim();
@@ -73,11 +73,30 @@ export class ActorCriticEngine {
   /* --------------------------- public API --------------------------- */
   async actorThink(input: ActorThinkInput): Promise<DagNode> {
     const { node, decision } = await this.actor.think(input);
+
+    // Trigger summarization check after adding a new node
+    await this.kg.checkAndTriggerSummarization();
+
     if (decision === Actor.THINK_DECISION.NEEDS_REVIEW) return await this.criticReview(node.id);
     return node;
   }
 
   async criticReview(actorNodeId: string): Promise<DagNode> {
-    return await this.critic.review(actorNodeId);
+    const criticNode = await this.critic.review(actorNodeId);
+
+    // Trigger summarization check after adding a critic node
+    await this.kg.checkAndTriggerSummarization();
+
+    return criticNode;
+  }
+
+  /**
+   * Explicitly triggers summarization for a specific branch.
+   * This can be used to generate summaries on demand.
+   * @param branchIdOrLabel Branch ID or label
+   */
+  async summarizeBranch(branchIdOrLabel: string): Promise<DagNode | null> {
+    const branchId = this.kg.labelIndex.get(branchIdOrLabel) ?? branchIdOrLabel;
+    return await this.kg.summarizeBranch(branchId);
   }
 }
