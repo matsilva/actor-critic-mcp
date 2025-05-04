@@ -1,17 +1,23 @@
 ### Current State
 
-- [x] ActorCriticEngine
-- [x] Actor
-- [x] Critic
-- [x] RevisionCounter
-- [x] KnowledgeGraphManager
-- [x] MCP Server (stdio)
-- [x] MCP Tools
-  - [x] actor_think
-  - [x] critic_review
-  - [x] list_branches
-  - [x] resume
-  - [x] export_plan
+- [x] MCP
+  - [x] ActorCriticEngine
+    - [x] Critic wrapper
+    - [x] Actor wrapper
+    - [x] RevisionCounter
+    - [x] KnowledgeGraphManager
+  - [x] MCP Server (stdio)
+  - [x] MCP Tools
+    - [x] actor_think
+    - [x] critic_review
+    - [x] list_branches
+    - [x] summarize_branch
+    - [x] resume
+    - [x] export_plan
+- [x] Agents
+  - [x] Actor
+  - [x] Critic
+  - [x] Summarization
 
 ### Next Steps
 
@@ -51,7 +57,7 @@ These tools are essential for addressing the temporal difference problem by allo
 
 This feature helps maintain high-level understanding as context scrolls out of the LLM's token window.
 
-- [ ] **Create Summarization Agent**
+- [x] **Create Summarization Agent**
 
   - Implementation: Standalone agent using fastagent
   - Location: Create `src/agents/summarize_agent.ts`
