@@ -130,7 +130,7 @@ You can test that the MCP server is running correctly by using it with an AI age
 When interacting with an AI agent that has access to the Actor-Critic MCP, you can use prompts like:
 
 ```
-Use the actor-critic tool to plan and implement a feature that...
+Use the actor critic tool to plan and implement a feature that...
 ```
 
 The Actor-Critic system provides several tools that the AI agent can use:
@@ -141,24 +141,25 @@ The Actor-Critic system provides several tools that the AI agent can use:
 - `resume`: Fetches recent context for a branch
 - `export_plan`: Exports the current graph, optionally filtered by tag
 - `summarize_branch`: Generates a summary for a specific branch
+  ...
 
 ### Example Workflow
 
 1. **Planning Phase**:
 
    ```
-   Use actor-critic to plan a new feature for...
+   Use actor critic to plan a new feature for...
    ```
 
 2. **Implementation Phase**:
 
    ```
-   Continue implementing the feature using actor-critic...
+   Continue implementing the feature using actor critic...
    ```
 
-3. **Review Phase**:
+3. **Summary Phase**:
    ```
-   Review the implementation using actor-critic...
+   Use summarize_branch tools and create a summary for the work done so far.
    ```
 
 ## Troubleshooting
@@ -168,7 +169,7 @@ The Actor-Critic system provides several tools that the AI agent can use:
 #### Agent Configuration Problems
 
 **Issue**: "Failed to parse JSON from uv mcp-server-fetch"  
-**Solution**: Check that your agent configuration files are correctly set up and API keys are valid.
+**Solution**: Check that the agent configuration files are correctly set up and API keys are valid. You can run `fast-agent check` to verify from the agent directory.
 
 #### Python Environment Issues
 
