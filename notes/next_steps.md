@@ -154,6 +154,15 @@ This ensures agents make effective use of the memory system.
   - Details:
     - ability to create and switch between kg projects
 
+- [ ] **Implement tidy agent**
+
+  - Purpose: Clean up codebase based on knowledge graph
+  - Implementation: Add new agent or tool
+  - Details:
+    - Compare knowledge graph to actual code changes (can have actor list final files in summary and compare to files from the git diff)
+    - Identify unused or duplicated code
+    - Suggest cleanup actions
+
 - [ ] **Implement Branch Reconciliation**
 
   - Purpose: Ensure final decisions are consolidated across branches
