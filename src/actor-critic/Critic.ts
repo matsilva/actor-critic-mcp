@@ -7,7 +7,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
-export const CriticSchema = { actorNodeId: z.string().describe('ID of the actor node to critique.') };
+export const CriticSchema = {
+  actorNodeId: z.string().describe('ID of the actor node to critique.'),
+};
 
 /**
  * FILE_RX — detects a file path or filename with a wide range of extensions.
@@ -31,17 +33,22 @@ function missingArtifactGuard(actorNode: DagNode): { needsFix: boolean; reason?:
   if (mentionsFile && !hasArtifacts) {
     return {
       needsFix: true,
-      reason: 'Thought references a file but provided no artifacts array.  Add an artifacts array with a durable link.',
+      reason:
+        'Thought references a file but provided no artifacts array.  Add an artifacts array with a durable link.',
     };
   }
   return { needsFix: false };
 }
 
 export class Critic {
-  constructor(private readonly kg: KnowledgeGraphManager, private readonly revisionCounter: RevisionCounter) {}
+  constructor(
+    private readonly kg: KnowledgeGraphManager,
+    private readonly revisionCounter: RevisionCounter,
+  ) {}
   async review(actorNodeId: string): Promise<DagNode> {
     const target = this.kg.getNode(actorNodeId);
-    if (!target || (target as DagNode).role !== 'actor') throw new Error('invalid target for critic');
+    if (!target || (target as DagNode).role !== 'actor')
+      throw new Error('invalid target for critic');
 
     let verdict: DagNode['verdict'] = 'approved';
     let reason: DagNode['verdictReason'] | undefined;
@@ -60,14 +67,17 @@ export class Critic {
       const [criticError, output] = await to(
         execa('uv', ['run', 'agent.py', '--quiet', '--agent', 'default', '--message', targetJson], {
           cwd: criticDir,
-        })
+        }),
       );
 
       if (criticError) {
         throw criticError;
       }
       try {
-        const json = JSON.parse(output.stdout) as { verdict: DagNode['verdict']; verdictReason?: string };
+        const json = JSON.parse(output.stdout) as {
+          verdict: DagNode['verdict'];
+          verdictReason?: string;
+        };
         verdict = json.verdict;
         reason = json.verdictReason;
       } catch (err) {
@@ -77,7 +87,12 @@ export class Critic {
 
     const criticNode: DagNode = {
       id: uuid(),
-      thought: verdict === 'approved' ? '✔ Approved' : verdict === 'needs_revision' ? '✏ Needs revision' : '✗ Rejected',
+      thought:
+        verdict === 'approved'
+          ? '✔ Approved'
+          : verdict === 'needs_revision'
+            ? '✏ Needs revision'
+            : '✗ Rejected',
       role: 'critic',
       verdict,
       ...(reason && { verdictReason: reason }),
@@ -88,7 +103,8 @@ export class Critic {
       createdAt: new Date().toISOString(),
     };
 
-    const relType = verdict === 'approved' ? 'approves' : verdict === 'needs_revision' ? 'criticises' : 'rejects';
+    const relType =
+      verdict === 'approved' ? 'approves' : verdict === 'needs_revision' ? 'criticises' : 'rejects';
     this.kg.createEntity(criticNode);
     this.kg.createRelation(actorNodeId, criticNode.id, relType);
     await this.kg.flush();

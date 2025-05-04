@@ -42,7 +42,9 @@ async function main() {
    * or sooner if the agent is uncertain.
    */
   server.tool('critic_review', CriticSchema, async (a) => ({
-    content: [{ type: 'text', text: JSON.stringify(await engine.criticReview(a.actorNodeId), null, 2) }],
+    content: [
+      { type: 'text', text: JSON.stringify(await engine.criticReview(a.actorNodeId), null, 2) },
+    ],
   }));
 
   /** list_branches – quick overview for navigation */
@@ -56,9 +58,13 @@ async function main() {
   }));
 
   /** export_plan – dump the current graph, optionally filtered by tag */
-  server.tool('export_plan', { filterTag: z.string().optional().describe('Return only nodes containing this tag.') }, async (a) => ({
-    content: [{ type: 'text', text: JSON.stringify(kg.exportPlan(a.filterTag), null, 2) }],
-  }));
+  server.tool(
+    'export_plan',
+    { filterTag: z.string().optional().describe('Return only nodes containing this tag.') },
+    async (a) => ({
+      content: [{ type: 'text', text: JSON.stringify(kg.exportPlan(a.filterTag), null, 2) }],
+    }),
+  );
 
   /** summarize_branch – generate a summary for a specific branch */
   server.tool(
@@ -67,8 +73,13 @@ async function main() {
       branchId: z.string().describe('Branch id OR label'),
     },
     async (args) => ({
-      content: [{ type: 'text', text: JSON.stringify(await engine.summarizeBranch(args.branchId), null, 2) }],
-    })
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(await engine.summarizeBranch(args.branchId), null, 2),
+        },
+      ],
+    }),
   );
 
   // ------------------------------------------------------------------

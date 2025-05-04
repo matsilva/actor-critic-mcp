@@ -21,7 +21,10 @@ export class SummarizationAgent {
    * @param pythonCommand Python command to use (defaults to 'uv')
    * @param pythonArgs Additional arguments for the Python command (defaults to ['run'])
    */
-  constructor(private readonly pythonCommand: string = 'uv', private readonly pythonArgs: string[] = ['run']) {
+  constructor(
+    private readonly pythonCommand: string = 'uv',
+    private readonly pythonArgs: string[] = ['run'],
+  ) {
     // Get the path to the summarize agent directory
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
@@ -43,7 +46,7 @@ export class SummarizationAgent {
         execa(this.pythonCommand, [...this.pythonArgs, 'agent.py', '--summarize'], {
           cwd: this.agentPath,
           input: nodesJson,
-        })
+        }),
       );
 
       // Handle execution errors
