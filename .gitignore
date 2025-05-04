@@ -1,9 +1,6 @@
 node_modules
 .DS_Store
-
 data/
-
 notes/drafts
-
 agents/**/fastagent.secrets.yaml
 agents/**/fastagent.config.yaml

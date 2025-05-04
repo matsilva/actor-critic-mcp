@@ -29,14 +29,16 @@ export const ActorThinkSchema = {
     .boolean()
     .optional()
     .describe(
-      'Set true if more actor steps are expected before calling the critic. ' + 'Leave false when the current micro‑task is complete.'
+      'Set true if more actor steps are expected before calling the critic. ' +
+        'Leave false when the current micro‑task is complete.',
     ),
 
   branchLabel: z
     .string()
     .optional()
     .describe(
-      'Human‑friendly name for a NEW branch.  Only set on the first node of ' + 'an alternative design path (e.g. "event‑sourcing‑spike").'
+      'Human‑friendly name for a NEW branch.  Only set on the first node of ' +
+        'an alternative design path (e.g. "event‑sourcing‑spike").',
     ),
 
   tags: z
@@ -44,7 +46,7 @@ export const ActorThinkSchema = {
     .min(1, 'Add at least one semantic tag – requirement, task, risk, design …')
     .describe(
       'Semantic categories that make this node discoverable later.  Use ' +
-        '`definition` when you introduce a new API, schema, or interface.'
+        '`definition` when you introduce a new API, schema, or interface.',
     ),
 
   artifacts: z
@@ -54,10 +56,13 @@ export const ActorThinkSchema = {
         uri: z.string().optional(),
         contentType: z.string().optional(),
         hash: z.string().optional(),
-      })
+      }),
     )
     .optional()
-    .describe('Generated files or links (code, diagrams, docs).  ' + 'Mention every new or updated file here to keep the graph in sync.'),
+    .describe(
+      'Generated files or links (code, diagrams, docs).  ' +
+        'Mention every new or updated file here to keep the graph in sync.',
+    ),
 };
 
 export interface ActorThinkInput {
@@ -69,7 +74,11 @@ export interface ActorThinkInput {
 }
 
 export class ActorCriticEngine {
-  constructor(private readonly kg: KnowledgeGraphManager, private readonly critic: Critic, private readonly actor: Actor) {}
+  constructor(
+    private readonly kg: KnowledgeGraphManager,
+    private readonly critic: Critic,
+    private readonly actor: Actor,
+  ) {}
   /* --------------------------- public API --------------------------- */
   async actorThink(input: ActorThinkInput): Promise<DagNode> {
     const { node, decision } = await this.actor.think(input);

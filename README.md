@@ -77,8 +77,8 @@ High‑level flow: caller → MCP → KG + Actor/Critic loop
 
 | Area                                | State          |
 | ----------------------------------- | -------------- |
-| KG schema & basic mcp tools         | ✔ working      |
-| Sequential thinker (Actor v0)       | ✔ working      |
+| KG schema & basic mcp tools         | ✔ working     |
+| Sequential thinker (Actor v0)       | ✔ working     |
 | Basic Critic with rule‑based reward | 🚧 in progress |
 
 See **[`notes/next_steps.md`](notes/next_steps.md)** for detail.

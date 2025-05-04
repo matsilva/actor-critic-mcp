@@ -78,7 +78,11 @@ export class KnowledgeGraphManager {
 
   async flush() {
     if (!this.dirty) return;
-    await fs.writeFile(this.filePath, JSON.stringify({ entities: this.entities, relations: this.relations }), 'utf8');
+    await fs.writeFile(
+      this.filePath,
+      JSON.stringify({ entities: this.entities, relations: this.relations }),
+      'utf8',
+    );
     this.dirty = false;
   }
 
@@ -106,7 +110,9 @@ export class KnowledgeGraphManager {
 
   getHeads(): DagNode[] {
     const hasOutgoing = new Set(this.relations.map((r) => r.from));
-    return Object.values(this.entities).filter((n): n is DagNode => 'role' in n && !hasOutgoing.has(n.id));
+    return Object.values(this.entities).filter(
+      (n): n is DagNode => 'role' in n && !hasOutgoing.has(n.id),
+    );
   }
 
   allDagNodes(): DagNode[] {
@@ -114,7 +120,12 @@ export class KnowledgeGraphManager {
   }
 
   listBranches(): BranchHead[] {
-    return this.getHeads().map((head) => ({ branchId: head.id, label: head.branchLabel, head, depth: this.depth(head.id) }));
+    return this.getHeads().map((head) => ({
+      branchId: head.id,
+      label: head.branchLabel,
+      head,
+      depth: this.depth(head.id),
+    }));
   }
 
   resume(branchIdOrLabel: string): string {
@@ -137,7 +148,8 @@ export class KnowledgeGraphManager {
     if (curr) {
       // Find summaries that cover the older nodes
       const summaries = this.allDagNodes().filter(
-        (n): n is SummaryNode => !!(n.role === 'summary' && n?.summarizedSegment?.includes(curr!.id))
+        (n): n is SummaryNode =>
+          !!(n.role === 'summary' && n?.summarizedSegment?.includes(curr!.id)),
       );
 
       // Add relevant summaries to the beginning of the path
@@ -154,7 +166,9 @@ export class KnowledgeGraphManager {
   }
 
   exportPlan(filterTag?: string): unknown {
-    const nodes = this.allDagNodes().filter((n) => (filterTag ? n.tags?.includes(filterTag) : true));
+    const nodes = this.allDagNodes().filter((n) =>
+      filterTag ? n.tags?.includes(filterTag) : true,
+    );
     return nodes.map((n) => ({
       id: n.id,
       thought: n.thought,
@@ -214,7 +228,8 @@ export class KnowledgeGraphManager {
 
     // Check if we already have summaries for this branch
     const existingSummaries = branchNodes.filter(
-      (node): node is SummaryNode => node.role === 'summary' && node.summarizedSegment !== undefined
+      (node): node is SummaryNode =>
+        node.role === 'summary' && node.summarizedSegment !== undefined,
     );
 
     // Determine which nodes need to be summarized
@@ -222,7 +237,10 @@ export class KnowledgeGraphManager {
 
     if (existingSummaries.length === 0) {
       // If no summaries exist, summarize the oldest chunk
-      nodesToSummarize = branchNodes.slice(0, Math.min(KnowledgeGraphManager.SUMMARY_CHUNK_SIZE, branchNodes.length));
+      nodesToSummarize = branchNodes.slice(
+        0,
+        Math.min(KnowledgeGraphManager.SUMMARY_CHUNK_SIZE, branchNodes.length),
+      );
     } else {
       // Find the newest summary
       const newestSummary = existingSummaries.reduce((newest, current) => {
@@ -234,8 +252,14 @@ export class KnowledgeGraphManager {
       // Find nodes that were created after the newest summary but are old enough to summarize
       const summaryIndex = branchNodes.findIndex((node) => node.id === newestSummary.id);
 
-      if (summaryIndex !== -1 && branchNodes.length - summaryIndex > KnowledgeGraphManager.SUMMARIZATION_THRESHOLD) {
-        nodesToSummarize = branchNodes.slice(summaryIndex + 1, summaryIndex + 1 + KnowledgeGraphManager.SUMMARY_CHUNK_SIZE);
+      if (
+        summaryIndex !== -1 &&
+        branchNodes.length - summaryIndex > KnowledgeGraphManager.SUMMARIZATION_THRESHOLD
+      ) {
+        nodesToSummarize = branchNodes.slice(
+          summaryIndex + 1,
+          summaryIndex + 1 + KnowledgeGraphManager.SUMMARY_CHUNK_SIZE,
+        );
       }
     }
 
