@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.0.2] - 2025-05-04
+
+* chore: slight tweak to readme
+* chore: add more quickstart refinements
+* chore: adds uv installation docs link
+* feat: add quickstart docs
+* chore: update configs and readme quickstart draft
+* chore: release v0.0.1
+
 ## [0.0.1] - 2025-05-04
 
 * chore: update version and add tidy agent next steps
