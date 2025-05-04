@@ -1,0 +1,1 @@
+fast-agent-mcp>=0.2.20

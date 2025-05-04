@@ -1,0 +1,9 @@
+[project]
+name = "critic"
+version = "0.1.0"
+description = "An Actor-Critic MCP agent"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+"fast-agent-mcp>=0.2.20"
+]
