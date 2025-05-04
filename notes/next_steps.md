@@ -147,6 +147,13 @@ This ensures agents make effective use of the memory system.
 
 ## 6. Additional Enhancements
 
+- [ ] **Implement projects**
+
+  - Purpose: Organize knowledge graphs(kg) by projects
+  - Implementation: Add project management tools
+  - Details:
+    - ability to create and switch between kg projects
+
 - [ ] **Implement Branch Reconciliation**
 
   - Purpose: Ensure final decisions are consolidated across branches
