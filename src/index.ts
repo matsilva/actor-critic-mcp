@@ -3,12 +3,12 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { ActorCriticEngine, ActorThinkSchema } from './ActorCriticEngine.ts';
-import { KnowledgeGraphManager } from './KnowledgeGraph.ts';
+import { ActorCriticEngine, ActorThinkSchema } from './engine/ActorCriticEngine.ts';
+import { KnowledgeGraphManager } from './engine/KnowledgeGraph.ts';
 import { Critic, CriticSchema } from './agents/Critic.ts';
-import { RevisionCounter } from './actor-critic/RevisionCounter.ts';
+import { RevisionCounter } from './engine/RevisionCounter.ts';
 import { Actor } from './agents/Actor.ts';
-import { SummarizationAgent } from './agents/summarize_agent.ts';
+import { SummarizationAgent } from './agents/Summarize.ts';
 import { CFG } from './config.ts';
 
 //TODO:

@@ -3,7 +3,7 @@ import { to } from 'await-to-js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { v4 as uuid } from 'uuid';
-import { DagNode, KnowledgeGraphManager, SummaryNode } from '../KnowledgeGraph.ts';
+import { DagNode, KnowledgeGraphManager, SummaryNode } from '../engine/KnowledgeGraph.ts';
 
 export interface SummarizationResult {
   summary: string | SummaryNode | null;

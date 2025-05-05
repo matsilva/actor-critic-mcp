@@ -1,7 +1,7 @@
-import { Critic } from './agents/Critic.ts';
-import { Actor } from './agents/Actor.ts';
+import { Critic } from '../agents/Critic.ts';
+import { Actor } from '../agents/Actor.ts';
 import { KnowledgeGraphManager, ArtifactRef, DagNode } from './KnowledgeGraph.ts';
-import { SummarizationAgent } from './agents/summarize_agent.ts';
+import { SummarizationAgent } from '../agents/Summarize.ts';
 import { z } from 'zod';
 // -----------------------------------------------------------------------------
 // Actor–Critic engine ----------------------------------------------------------

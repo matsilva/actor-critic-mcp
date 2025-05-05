@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid';
-import { KnowledgeGraphManager, ArtifactRef, DagNode } from '../KnowledgeGraph.ts';
+import { KnowledgeGraphManager, ArtifactRef, DagNode } from '../engine/KnowledgeGraph.ts';
 import { CFG } from '../config.ts';
 
 export type ThinkDecision = (typeof Actor.THINK_DECISION)[keyof typeof Actor.THINK_DECISION];

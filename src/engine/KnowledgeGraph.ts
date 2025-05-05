@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import { v4 as uuid } from 'uuid';
-import { CFG } from './config.ts';
+import { CFG } from '../config.ts';
 
 // -----------------------------------------------------------------------------
 // Minimal JSON‑file Knowledge Graph adapter ------------------------------------
