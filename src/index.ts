@@ -8,6 +8,7 @@ import { KnowledgeGraphManager } from './KnowledgeGraph.ts';
 import { Critic, CriticSchema } from './agents/Critic.ts';
 import { RevisionCounter } from './actor-critic/RevisionCounter.ts';
 import { Actor } from './agents/Actor.ts';
+import { SummarizationAgent } from './agents/summarize_agent.ts';
 import { CFG } from './config.ts';
 
 //TODO:
@@ -20,12 +21,20 @@ import { CFG } from './config.ts';
 // -----------------------------------------------------------------------------
 
 async function main() {
+  // Create KnowledgeGraphManager first
   const kg = new KnowledgeGraphManager(CFG.MEMORY_FILE_PATH);
   await kg.init();
+
+  // Create SummarizationAgent with KnowledgeGraphManager
+  const summarizationAgent = new SummarizationAgent(kg);
+
+  // Create other dependencies
   const revisionCounter = new RevisionCounter(RevisionCounter.MAX_REVISION_CYCLES);
   const critic = new Critic(kg, revisionCounter);
   const actor = new Actor(kg);
-  const engine = new ActorCriticEngine(kg, critic, actor);
+
+  // Create ActorCriticEngine with all dependencies
+  const engine = new ActorCriticEngine(kg, critic, actor, summarizationAgent);
 
   const server = new McpServer({ name: 'actor-critic-mcp', version: '0.4.0' });
 

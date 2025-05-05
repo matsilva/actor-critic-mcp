@@ -1,6 +1,7 @@
 import { Critic } from './agents/Critic.ts';
 import { Actor } from './agents/Actor.ts';
 import { KnowledgeGraphManager, ArtifactRef, DagNode } from './KnowledgeGraph.ts';
+import { SummarizationAgent } from './agents/summarize_agent.ts';
 import { z } from 'zod';
 // -----------------------------------------------------------------------------
 // Actor–Critic engine ----------------------------------------------------------
@@ -75,13 +76,14 @@ export class ActorCriticEngine {
     private readonly kg: KnowledgeGraphManager,
     private readonly critic: Critic,
     private readonly actor: Actor,
+    private readonly summarizationAgent: SummarizationAgent,
   ) {}
   /* --------------------------- public API --------------------------- */
   async actorThink(input: ActorThinkInput): Promise<DagNode> {
     const { node, decision } = await this.actor.think(input);
 
     // Trigger summarization check after adding a new node
-    await this.kg.checkAndTriggerSummarization();
+    await this.summarizationAgent.checkAndTriggerSummarization();
 
     if (decision === Actor.THINK_DECISION.NEEDS_REVIEW) return await this.criticReview(node.id);
     return node;
@@ -91,7 +93,7 @@ export class ActorCriticEngine {
     const criticNode = await this.critic.review(actorNodeId);
 
     // Trigger summarization check after adding a critic node
-    await this.kg.checkAndTriggerSummarization();
+    await this.summarizationAgent.checkAndTriggerSummarization();
 
     return criticNode;
   }
@@ -104,7 +106,7 @@ export class ActorCriticEngine {
    */
   async summarizeBranch(branchIdOrLabel: string): Promise<DagNode | null> {
     const branchId = this.kg.labelIndex.get(branchIdOrLabel) ?? branchIdOrLabel;
-    const result = await this.kg.summarizeBranch(branchId);
+    const result = await this.summarizationAgent.summarizeBranch(branchId);
 
     // Log the result for debugging
     if (!result.success) {
@@ -116,6 +118,6 @@ export class ActorCriticEngine {
       }
     }
 
-    return result.summary;
+    return result.summary as DagNode | null;
   }
 }
