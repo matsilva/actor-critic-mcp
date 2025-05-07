@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { KnowledgeGraphManager, DagNode, ArtifactRef } from './KnowledgeGraph';
+import { ProjectManager } from './ProjectManager';
 import fs from 'node:fs/promises';
 import { v4 as uuid } from 'uuid';
 
@@ -18,6 +19,7 @@ vi.mock('node:fs/promises', () => {
 describe('KnowledgeGraphManager', () => {
   const testFilePath = '/test/path/kg.json';
   let kg: KnowledgeGraphManager;
+  let projectManager: ProjectManager;
 
   // Helper function to create a test node
   function createTestNode(
@@ -43,6 +45,17 @@ describe('KnowledgeGraphManager', () => {
     };
   }
 
+  // Mock ProjectManager class
+  class MockProjectManager {
+    getCurrentProject = vi.fn().mockReturnValue('default');
+    getCurrentProjectPath = vi.fn().mockReturnValue(testFilePath);
+    getProjectPath = vi.fn().mockReturnValue(testFilePath);
+    listProjects = vi.fn().mockReturnValue(['default']);
+    validateProjectName = vi.fn();
+    switchProject = vi.fn();
+    createProject = vi.fn();
+  }
+
   beforeEach(() => {
     // Reset mocks
     vi.resetAllMocks();
@@ -50,8 +63,11 @@ describe('KnowledgeGraphManager', () => {
     // Mock readFile to return empty JSON by default
     vi.mocked(fs.readFile).mockResolvedValue('{}');
 
-    // Create a new KnowledgeGraphManager instance
-    kg = new KnowledgeGraphManager(testFilePath);
+    // Create a new MockProjectManager instance
+    projectManager = new MockProjectManager();
+
+    // Create a new KnowledgeGraphManager instance with MockProjectManager
+    kg = new KnowledgeGraphManager(projectManager as unknown as ProjectManager);
   });
 
   afterEach(() => {

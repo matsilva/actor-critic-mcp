@@ -5,6 +5,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { ActorCriticEngine, ActorThinkSchema } from './engine/ActorCriticEngine.ts';
 import { KnowledgeGraphManager } from './engine/KnowledgeGraph.ts';
+import { ProjectManager } from './engine/ProjectManager.ts';
 import { Critic, CriticSchema } from './agents/Critic.ts';
 import { RevisionCounter } from './engine/RevisionCounter.ts';
 import { Actor } from './agents/Actor.ts';
@@ -21,8 +22,11 @@ import { CFG } from './config.ts';
 // -----------------------------------------------------------------------------
 
 async function main() {
-  // Create KnowledgeGraphManager first
-  const kg = new KnowledgeGraphManager(CFG.MEMORY_FILE_PATH);
+  // Create ProjectManager first
+  const projectManager = new ProjectManager();
+
+  // Create KnowledgeGraphManager with ProjectManager
+  const kg = new KnowledgeGraphManager(projectManager);
   await kg.init();
 
   // Create SummarizationAgent with KnowledgeGraphManager
@@ -144,6 +148,115 @@ async function main() {
           ],
         };
       }
+    },
+  );
+
+  /** list_projects – list all available knowledge graph projects */
+  server.tool('list_projects', {}, async () => {
+    const current = projectManager.getCurrentProject();
+    const projects = projectManager.listProjects();
+
+    console.log(
+      `[list_projects] Current project: ${current}, Available projects: ${projects.join(', ')}`,
+    );
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              current,
+              projects,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  });
+
+  /** switch_project – switch to a different knowledge graph project */
+  server.tool(
+    'switch_project',
+    {
+      projectName: z
+        .string()
+        .min(1, 'Project name cannot be empty')
+        .max(50, 'Project name is too long (max 50 characters)')
+        .regex(
+          /^[a-zA-Z0-9_-]+$/,
+          'Project name can only contain letters, numbers, dashes, and underscores',
+        )
+        .describe('Name of the project to switch to'),
+    },
+    async (a) => {
+      console.log(`[switch_project] Attempting to switch to project: ${a.projectName}`);
+
+      const result = await kg.switchProject(a.projectName);
+
+      // Reload dependencies if project switch was successful
+      if (result.success) {
+        // Reinitialize the summarization agent with the updated knowledge graph
+        summarizationAgent.init();
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                success: result.success,
+                message: result.message,
+                current: projectManager.getCurrentProject(),
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    },
+  );
+
+  /** create_project – create a new knowledge graph project */
+  server.tool(
+    'create_project',
+    {
+      projectName: z
+        .string()
+        .min(1, 'Project name cannot be empty')
+        .max(50, 'Project name is too long (max 50 characters)')
+        .regex(
+          /^[a-zA-Z0-9_-]+$/,
+          'Project name can only contain letters, numbers, dashes, and underscores',
+        )
+        .describe('Name of the new project to create'),
+    },
+    async (a) => {
+      console.log(`[create_project] Attempting to create project: ${a.projectName}`);
+
+      const result = await projectManager.createProject(a.projectName);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                success: result.success,
+                message: result.message,
+                current: projectManager.getCurrentProject(),
+                projects: projectManager.listProjects(),
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
     },
   );
 
