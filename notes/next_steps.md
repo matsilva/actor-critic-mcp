@@ -163,6 +163,12 @@ This ensures agents make effective use of the memory system.
     - Identify unused or duplicated code
     - Suggest cleanup actions
 
+- [ ] **Implement ndjson for knowledgegraph persistence**
+
+  - Purpose: easy analysis and querying
+  - Motivation: as the knowledge graph grows, it becomes more difficult to analyze and query the data in its current format, since it all needs to be loaded into memory.
+  - Implementation: Rework knowledgegraph apis to use ndjson/streaming as needed
+
 - [ ] **Implement Branch Reconciliation**
 
   - Purpose: Ensure final decisions are consolidated across branches

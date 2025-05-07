@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import { v4 as uuid } from 'uuid';
 import { CFG } from '../config.ts';
+import { ProjectManager } from './ProjectManager.ts';
 
 // -----------------------------------------------------------------------------
 // Minimal JSON‑file Knowledge Graph adapter ------------------------------------
@@ -65,7 +66,15 @@ export class KnowledgeGraphManager {
 
   public labelIndex: Map<string, string> = new Map(); // branchLabel ➜ nodeId
 
-  constructor(private readonly filePath: string) {}
+  private filePath: string;
+
+  /**
+   * Creates a new KnowledgeGraphManager instance
+   * @param projectManager The project manager to use for project operations
+   */
+  constructor(private readonly projectManager: ProjectManager) {
+    this.filePath = projectManager.getCurrentProjectPath();
+  }
 
   async init() {
     try {
@@ -73,19 +82,75 @@ export class KnowledgeGraphManager {
       const json = JSON.parse(blob);
       this.entities = json.entities ?? {};
       this.relations = json.relations ?? [];
+      console.log(`[KnowledgeGraphManager] Initialized with file: ${this.filePath}`);
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+        console.error(`[KnowledgeGraphManager] Error initializing from ${this.filePath}:`, err);
+        throw err;
+      }
+      console.log(
+        `[KnowledgeGraphManager] No existing file found at ${this.filePath}, starting fresh`,
+      );
+    }
+  }
+
+  /**
+   * Switch to a different project and load its data
+   * @param projectName Name of the project to switch to
+   * @returns Object with success status and message
+   */
+  async switchProject(projectName: string): Promise<{ success: boolean; message: string }> {
+    try {
+      // First, flush any pending changes to the current project
+      await this.flush();
+      console.log(
+        `[KnowledgeGraphManager] Flushed changes to current project: ${this.projectManager.getCurrentProject()}`,
+      );
+
+      // Use the project manager to switch projects
+      const result = await this.projectManager.switchProject(projectName);
+      if (!result.success) {
+        return result;
+      }
+
+      // Update the file path to the new project's file
+      const newFilePath = this.projectManager.getCurrentProjectPath();
+      console.log(`[KnowledgeGraphManager] Switching from ${this.filePath} to ${newFilePath}`);
+      this.filePath = newFilePath;
+
+      // Clear current data
+      this.entities = {};
+      this.relations = [];
+      this.labelIndex.clear();
+      this.dirty = false;
+
+      // Load the new project data
+      await this.init();
+
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(
+        `[KnowledgeGraphManager] Error switching to project ${projectName}:`,
+        errorMessage,
+      );
+      return { success: false, message: `Error switching to project: ${errorMessage}` };
     }
   }
 
   async flush() {
     if (!this.dirty) return;
-    await fs.writeFile(
-      this.filePath,
-      JSON.stringify({ entities: this.entities, relations: this.relations }),
-      'utf8',
-    );
-    this.dirty = false;
+    try {
+      await fs.writeFile(
+        this.filePath,
+        JSON.stringify({ entities: this.entities, relations: this.relations }),
+        'utf8',
+      );
+      this.dirty = false;
+    } catch (error) {
+      console.error(`[KnowledgeGraphManager] Error flushing to ${this.filePath}:`, error);
+      throw error;
+    }
   }
 
   // ----------------------------- entities ----------------------------------
