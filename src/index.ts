@@ -196,12 +196,6 @@ async function main() {
 
       const result = await kg.switchProject(a.projectName);
 
-      // Reload dependencies if project switch was successful
-      if (result.success) {
-        // Reinitialize the summarization agent with the updated knowledge graph
-        summarizationAgent.init();
-      }
-
       return {
         content: [
           {
