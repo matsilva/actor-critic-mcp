@@ -1,8 +1,8 @@
 import { execa } from 'execa';
 import { to } from 'await-to-js';
 import { v4 as uuid } from 'uuid';
-import { KnowledgeGraphManager, DagNode } from '../KnowledgeGraph.ts';
-import { RevisionCounter } from './RevisionCounter.ts';
+import { KnowledgeGraphManager, DagNode } from '../engine/KnowledgeGraph.ts';
+import { RevisionCounter } from '../actor-critic/RevisionCounter.ts';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';

@@ -1,7 +1,6 @@
 import fs from 'node:fs/promises';
 import { v4 as uuid } from 'uuid';
-import { CFG } from './config.ts';
-import { SummarizationAgent } from './agents/summarize_agent.ts';
+import { CFG } from '../config.ts';
 
 // -----------------------------------------------------------------------------
 // Minimal JSON‑file Knowledge Graph adapter ------------------------------------
@@ -45,21 +44,24 @@ export interface SummaryNode extends DagNode {
   summarizedSegment: string[]; // IDs of the nodes that were summarized
 }
 
+export interface SummarizationResult {
+  summary: SummaryNode | null;
+  success: boolean;
+  errorCode?:
+    | 'BRANCH_NOT_FOUND'
+    | 'INSUFFICIENT_NODES'
+    | 'ALREADY_SUMMARIZED'
+    | 'SUMMARIZATION_ERROR';
+  errorMessage?: string;
+  details?: string;
+}
+
 export class KnowledgeGraphManager {
   public static WINDOW = CFG.WINDOW;
-
-  // Number of nodes after which to trigger summarization
-  private static SUMMARIZATION_THRESHOLD = 20;
-
-  // Maximum number of nodes to include in a summary
-  private static SUMMARY_CHUNK_SIZE = 10;
 
   private entities: Record<string, DagNode | ArtifactRef> = {};
   private relations: { from: string; to: string; type: string }[] = [];
   private dirty = false;
-
-  // Summarization agent instance
-  private summarizationAgent: SummarizationAgent | null = null;
 
   public labelIndex: Map<string, string> = new Map(); // branchLabel ➜ nodeId
 
@@ -178,125 +180,6 @@ export class KnowledgeGraphManager {
       parents: n.parents,
       artifacts: n.artifacts?.map((a) => ({ name: a.name, uri: a.uri })),
     }));
-  }
-
-  /**
-   * Gets or creates the summarization agent.
-   */
-  private getSummarizationAgent(): SummarizationAgent {
-    if (!this.summarizationAgent) {
-      this.summarizationAgent = new SummarizationAgent();
-    }
-    return this.summarizationAgent;
-  }
-
-  /**
-   * Checks if summarization is needed and triggers it if necessary.
-   * This should be called after adding new nodes to the graph.
-   */
-  async checkAndTriggerSummarization(): Promise<void> {
-    const branches = this.listBranches();
-
-    for (const branch of branches) {
-      // Only summarize branches that have enough nodes
-      if (branch.depth >= KnowledgeGraphManager.SUMMARIZATION_THRESHOLD) {
-        await this.summarizeBranch(branch.branchId);
-      }
-    }
-  }
-
-  /**
-   * Summarizes the oldest segment of nodes in a branch.
-   * @param branchId ID of the branch to summarize
-   */
-  async summarizeBranch(branchId: string): Promise<SummaryNode | null> {
-    // Get the branch head
-    const head = this.getNode(branchId);
-    if (!head) return null;
-
-    // Collect all nodes in the branch
-    const branchNodes: DagNode[] = [];
-    let current: DagNode | undefined = head;
-
-    while (current) {
-      branchNodes.push(current);
-      current = current.parents[0] ? this.getNode(current.parents[0]) : undefined;
-    }
-
-    // Reverse to get chronological order
-    branchNodes.reverse();
-
-    // Check if we already have summaries for this branch
-    const existingSummaries = branchNodes.filter(
-      (node): node is SummaryNode =>
-        node.role === 'summary' && node.summarizedSegment !== undefined,
-    );
-
-    // Determine which nodes need to be summarized
-    let nodesToSummarize: DagNode[] = [];
-
-    if (existingSummaries.length === 0) {
-      // If no summaries exist, summarize the oldest chunk
-      nodesToSummarize = branchNodes.slice(
-        0,
-        Math.min(KnowledgeGraphManager.SUMMARY_CHUNK_SIZE, branchNodes.length),
-      );
-    } else {
-      // Find the newest summary
-      const newestSummary = existingSummaries.reduce((newest, current) => {
-        const newestDate = new Date(newest.createdAt);
-        const currentDate = new Date(current.createdAt);
-        return currentDate > newestDate ? current : newest;
-      }, existingSummaries[0]);
-
-      // Find nodes that were created after the newest summary but are old enough to summarize
-      const summaryIndex = branchNodes.findIndex((node) => node.id === newestSummary.id);
-
-      if (
-        summaryIndex !== -1 &&
-        branchNodes.length - summaryIndex > KnowledgeGraphManager.SUMMARIZATION_THRESHOLD
-      ) {
-        nodesToSummarize = branchNodes.slice(
-          summaryIndex + 1,
-          summaryIndex + 1 + KnowledgeGraphManager.SUMMARY_CHUNK_SIZE,
-        );
-      }
-    }
-
-    // If there are nodes to summarize, create a summary
-    if (nodesToSummarize.length > 0) {
-      return await this.createSummary(nodesToSummarize);
-    }
-
-    return null;
-  }
-
-  /**
-   * Creates a summary for a segment of nodes.
-   * @param nodes Nodes to summarize
-   */
-  async createSummary(nodes: DagNode[]): Promise<SummaryNode> {
-    const agent = this.getSummarizationAgent();
-    const result = await agent.summarize(nodes);
-
-    // Create a summary node
-    const summaryNode: SummaryNode = {
-      id: uuid(),
-      thought: result.summary,
-      role: 'summary',
-      parents: [nodes[nodes.length - 1].id], // Link to the newest node in the segment
-      children: [],
-      createdAt: new Date().toISOString(),
-      summarizedSegment: nodes.map((node) => node.id),
-      tags: ['summary'],
-    };
-
-    // Persist the summary node
-    this.createEntity(summaryNode);
-    this.createRelation(nodes[nodes.length - 1].id, summaryNode.id, 'has_summary');
-    await this.flush();
-
-    return summaryNode;
   }
 
   /* ------------------------- helpers ------------------------------- */

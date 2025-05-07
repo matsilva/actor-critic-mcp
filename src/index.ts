@@ -3,11 +3,12 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { ActorCriticEngine, ActorThinkSchema } from './ActorCriticEngine.ts';
-import { KnowledgeGraphManager } from './KnowledgeGraph.ts';
-import { Critic, CriticSchema } from './actor-critic/Critic.ts';
-import { RevisionCounter } from './actor-critic/RevisionCounter.ts';
-import { Actor } from './actor-critic/Actor.ts';
+import { ActorCriticEngine, ActorThinkSchema } from './engine/ActorCriticEngine.ts';
+import { KnowledgeGraphManager } from './engine/KnowledgeGraph.ts';
+import { Critic, CriticSchema } from './agents/Critic.ts';
+import { RevisionCounter } from './engine/RevisionCounter.ts';
+import { Actor } from './agents/Actor.ts';
+import { SummarizationAgent } from './agents/Summarize.ts';
 import { CFG } from './config.ts';
 
 //TODO:
@@ -20,12 +21,20 @@ import { CFG } from './config.ts';
 // -----------------------------------------------------------------------------
 
 async function main() {
+  // Create KnowledgeGraphManager first
   const kg = new KnowledgeGraphManager(CFG.MEMORY_FILE_PATH);
   await kg.init();
+
+  // Create SummarizationAgent with KnowledgeGraphManager
+  const summarizationAgent = new SummarizationAgent(kg);
+
+  // Create other dependencies
   const revisionCounter = new RevisionCounter(RevisionCounter.MAX_REVISION_CYCLES);
   const critic = new Critic(kg, revisionCounter);
   const actor = new Actor(kg);
-  const engine = new ActorCriticEngine(kg, critic, actor);
+
+  // Create ActorCriticEngine with all dependencies
+  const engine = new ActorCriticEngine(kg, critic, actor, summarizationAgent);
 
   const server = new McpServer({ name: 'actor-critic-mcp', version: '0.4.0' });
 
@@ -72,14 +81,70 @@ async function main() {
     {
       branchId: z.string().describe('Branch id OR label'),
     },
-    async (args) => ({
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(await engine.summarizeBranch(args.branchId), null, 2),
-        },
-      ],
-    }),
+    async (args) => {
+      try {
+        const summary = await engine.summarizeBranch(args.branchId);
+
+        if (summary) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(summary, null, 2),
+              },
+            ],
+          };
+        } else {
+          // If summarization failed, get the branch information to provide context
+          const branches = kg.listBranches();
+          const targetBranch = branches.find(
+            (b) => b.branchId === args.branchId || b.head.branchLabel === args.branchId,
+          );
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  {
+                    error: true,
+                    message:
+                      'Summarization failed. This could be due to insufficient nodes, already summarized content, or an error in the summarization process.',
+                    branchInfo: targetBranch
+                      ? {
+                          branchId: targetBranch.branchId,
+                          label: targetBranch.head.branchLabel,
+                          depth: targetBranch.depth,
+                        }
+                      : null,
+                    tip: 'Check console logs for detailed error information.',
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+          };
+        }
+      } catch (error) {
+        console.error(`[summarize_branch] Error:`, error);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  error: true,
+                  message: `Summarization error: ${error instanceof Error ? error.message : String(error)}`,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }
+    },
   );
 
   // ------------------------------------------------------------------

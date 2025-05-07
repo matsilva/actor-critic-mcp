@@ -1,13 +1,11 @@
-import { v4 as uuid } from 'uuid';
-import { Critic } from './actor-critic/Critic.ts';
-import { Actor } from './actor-critic/Actor.ts';
+import { Critic } from '../agents/Critic.ts';
+import { Actor } from '../agents/Actor.ts';
 import { KnowledgeGraphManager, ArtifactRef, DagNode } from './KnowledgeGraph.ts';
-import { CFG } from './config.ts';
+import { SummarizationAgent } from '../agents/Summarize.ts';
 import { z } from 'zod';
 // -----------------------------------------------------------------------------
 // Actor–Critic engine ----------------------------------------------------------
 // -----------------------------------------------------------------------------
-const FILE_RX = /[\\w./-]+\\.(ts|tsx|js|jsx|json|css|md)/gi;
 
 const THOUGHT_DESCRIPTION = `
 Add a new thought node to the knowledge‑graph.
@@ -78,13 +76,14 @@ export class ActorCriticEngine {
     private readonly kg: KnowledgeGraphManager,
     private readonly critic: Critic,
     private readonly actor: Actor,
+    private readonly summarizationAgent: SummarizationAgent,
   ) {}
   /* --------------------------- public API --------------------------- */
   async actorThink(input: ActorThinkInput): Promise<DagNode> {
     const { node, decision } = await this.actor.think(input);
 
     // Trigger summarization check after adding a new node
-    await this.kg.checkAndTriggerSummarization();
+    await this.summarizationAgent.checkAndTriggerSummarization();
 
     if (decision === Actor.THINK_DECISION.NEEDS_REVIEW) return await this.criticReview(node.id);
     return node;
@@ -94,7 +93,7 @@ export class ActorCriticEngine {
     const criticNode = await this.critic.review(actorNodeId);
 
     // Trigger summarization check after adding a critic node
-    await this.kg.checkAndTriggerSummarization();
+    await this.summarizationAgent.checkAndTriggerSummarization();
 
     return criticNode;
   }
@@ -103,9 +102,22 @@ export class ActorCriticEngine {
    * Explicitly triggers summarization for a specific branch.
    * This can be used to generate summaries on demand.
    * @param branchIdOrLabel Branch ID or label
+   * @returns The summary node if successful, or null with error information if unsuccessful
    */
   async summarizeBranch(branchIdOrLabel: string): Promise<DagNode | null> {
     const branchId = this.kg.labelIndex.get(branchIdOrLabel) ?? branchIdOrLabel;
-    return await this.kg.summarizeBranch(branchId);
+    const result = await this.summarizationAgent.summarizeBranch(branchId);
+
+    // Log the result for debugging
+    if (!result.success) {
+      console.log(
+        `[summarizeBranch] Summarization failed: ${result.errorCode} - ${result.errorMessage}`,
+      );
+      if (result.details) {
+        console.log(`[summarizeBranch] Details: ${result.details}`);
+      }
+    }
+
+    return result.summary as DagNode | null;
   }
 }

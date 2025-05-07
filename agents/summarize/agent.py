@@ -66,17 +66,54 @@ async def main():
             try:
                 # Parse the input as JSON
                 nodes_data = json.loads(input_data)
-                
+
+                # Validate input
+                if (
+                    not nodes_data
+                    or not isinstance(nodes_data, list)
+                    or len(nodes_data) == 0
+                ):
+                    print(
+                        json.dumps(
+                            {
+                                "error": "Invalid input: Expected non-empty array of nodes",
+                                "summary": "",
+                            }
+                        )
+                    )
+                    return
+
                 # Format the nodes data for the agent
                 formatted_input = json.dumps(nodes_data, indent=2)
-                
-                # Send the formatted input to the agent for summarization
-                response = await agent.send(f"Please summarize the following knowledge graph segment:\n\n{formatted_input}")
-                
-                # Print the response
-                print(response)
+
+                try:
+                    # Send the formatted input to the agent for summarization
+                    response = await agent.send(
+                        f"Please summarize the following knowledge graph segment:\n\n{formatted_input}"
+                    )
+
+                    # Try to parse the response as JSON
+                    try:
+                        json_response = json.loads(response)
+                        # If it's already JSON, just print it
+                        print(response)
+                    except json.JSONDecodeError:
+                        # If it's not JSON, wrap it in a JSON object
+                        print(json.dumps({"summary": response}))
+                except Exception as e:
+                    # Handle any errors during summarization
+                    print(
+                        json.dumps(
+                            {"error": f"Summarization failed: {str(e)}", "summary": ""}
+                        )
+                    )
             except json.JSONDecodeError:
-                print(json.dumps({"error": "Invalid JSON input"}))
+                print(json.dumps({"error": "Invalid JSON input", "summary": ""}))
+            except Exception as e:
+                # Catch any other exceptions
+                print(
+                    json.dumps({"error": f"Unexpected error: {str(e)}", "summary": ""})
+                )
         else:
             # Interactive mode for testing
             await agent.interactive()
