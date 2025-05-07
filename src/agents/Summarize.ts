@@ -50,16 +50,6 @@ export class SummarizationAgent {
   }
 
   /**
-   * Initializes or reinitializes the agent.
-   * This can be called when switching projects to reset internal state.
-   */
-  init(): void {
-    console.log(
-      `[SummarizationAgent] Initialized for project: ${this.knowledgeGraph.getCurrentProject()}`,
-    );
-  }
-
-  /**
    * Summarizes a segment of nodes from the knowledge graph.
    * @param nodes Array of DagNode objects to summarize
    * @returns A promise that resolves to a SummarizationResult with just the summary text
