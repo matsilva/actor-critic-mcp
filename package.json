@@ -1,6 +1,6 @@
 {
   "name": "actor-critic-mcp",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "main": "index.js",
   "type": "module",
   "scripts": {

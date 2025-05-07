@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.0] - 2025-05-07
+
+* feat: fix import and refactor structure
+* feat: add kg unit tests
+* feat: refactor summarization logic out of knowledge graph
+* chore: add vitest
+* feat: add initial fix
+* chore: release v0.0.2
+
 ## [0.0.2] - 2025-05-04
 
 * chore: slight tweak to readme
