@@ -92,6 +92,7 @@ describe('KnowledgeGraphManager Project Management', () => {
 
       expect(projectManager.getCurrentProject()).toBe('testproject');
       expect(projectManager.getCurrentProjectPath()).toBe('/test/path/kg.testproject.json');
+      expect(kg.getCurrentProject()).toBe('testproject');
     });
 
     it('should switch to an existing project', async () => {

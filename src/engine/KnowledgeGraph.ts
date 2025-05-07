@@ -95,6 +95,14 @@ export class KnowledgeGraphManager {
   }
 
   /**
+   * Get the name of the current active project
+   * @returns The current project name
+   */
+  getCurrentProject(): string {
+    return this.projectManager.getCurrentProject();
+  }
+
+  /**
    * Switch to a different project and load its data
    * @param projectName Name of the project to switch to
    * @returns Object with success status and message
@@ -104,7 +112,7 @@ export class KnowledgeGraphManager {
       // First, flush any pending changes to the current project
       await this.flush();
       console.log(
-        `[KnowledgeGraphManager] Flushed changes to current project: ${this.projectManager.getCurrentProject()}`,
+        `[KnowledgeGraphManager] Flushed changes to current project: ${this.getCurrentProject()}`,
       );
 
       // Use the project manager to switch projects
