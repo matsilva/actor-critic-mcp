@@ -39,42 +39,7 @@ That's it! The setup script will:
 npm run start
 ```
 
-### Using the CLI
-
-CodeLoops comes with a convenient CLI for managing the server:
-
-```bash
-# Run the CLI in interactive mode
-npm run cli
-
-# Or install globally for easier access
-npm install -g .
-codeloops
-```
-
-#### CLI Commands
-
-| Command            | Description                    |
-| ------------------ | ------------------------------ |
-| `codeloops`        | Start the interactive CLI menu |
-| `codeloops start`  | Start the CodeLoops server     |
-| `codeloops stop`   | Stop the running server        |
-| `codeloops status` | Check if the server is running |
-| `codeloops setup`  | Run the setup script           |
-
-The interactive CLI provides a simple menu for managing your CodeLoops server:
-
-```
-CodeLoops CLI
-
-1. Start server
-2. Stop server
-3. Check server status
-4. Run setup
-5. Exit
-```
-
-This makes it easy to start and stop the server without remembering specific commands.
+This simple command will start the CodeLoops server directly.
 
 ## 🔌 Using with AI Coding Agents
 

@@ -103,38 +103,20 @@ echo -e "${BOLD}${BLUE}Current directory: $(pwd)${NC}\n"
 # Test 1: Check if setup.sh exists and is executable
 check_executable "scripts/setup.sh"
 
-# Test 2: Check if cli.js exists and is executable
-check_executable "cli.js"
-
-# Test 3: Test setup script prerequisites check
+# Test 2: Test setup script prerequisites check
 run_test "Setup script prerequisites check" \
          "bash scripts/setup.sh | head -n 20" \
          "Checking prerequisites"
 
-# Test 4: Test CLI help output
-run_test "CLI status command" \
-         "node cli.js status" \
-         "Server is not running"
-
-# Test 5: Test package.json scripts
+# Test 3: Test package.json scripts
 run_test "Package.json scripts" \
          "grep -A 10 '\"scripts\"' package.json" \
          "\"setup\": \"bash scripts/setup.sh\""
 
-# Test 6: Test QUICKSTART.md content
+# Test 4: Test QUICKSTART.md content
 run_test "QUICKSTART.md content" \
          "grep -A 5 'Get Started in Seconds' QUICKSTART.md" \
          "CodeLoops enhances AI coding agents"
-
-# Test 7: Test CLI interactive mode (just check if it starts)
-run_test "CLI interactive mode" \
-         "echo '5' | node cli.js | head -n 20" \
-         "CodeLoops CLI"
-
-# Test 8: Test global installation configuration
-run_test "Global installation configuration" \
-         "grep -A 3 '\"bin\"' package.json" \
-         "\"codeloops\": \"./cli.js\""
 
 # Print test summary
 echo -e "\n${BOLD}${BLUE}Test Summary${NC}"

@@ -194,12 +194,4 @@ echo -e "  ${BOLD}npx -y tsx src${NC}"
 echo -e "\n${BOLD}Once started, you can use CodeLoops with your AI coding agent by:${NC}"
 echo -e "1. Configuring your agent to use the MCP server"
 echo -e "2. Using prompts like: ${BOLD}\"Use the CodeLoops tool to plan and implement...\"${NC}"
-echo -e "\n${BOLD}Would you like to start the server now? (y/n)${NC}"
-read -r START_SERVER
-
-if [[ $START_SERVER =~ ^[Yy]$ ]]; then
-  echo -e "${GREEN}Starting CodeLoops server...${NC}"
-  npx -y tsx src
-else
-  echo -e "${YELLOW}Server not started. You can start it later with:${NC} ${BOLD}npx -y tsx src${NC}"
-fi
+echo -e "${YELLOW}Server not started. You can start it later with:${NC} ${BOLD}npx -y tsx src${NC}"

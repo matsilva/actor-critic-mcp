@@ -3,16 +3,12 @@
   "version": "0.2.0",
   "main": "index.js",
   "type": "module",
-  "bin": {
-    "codeloops": "./cli.js"
-  },
   "scripts": {
     "test": "vitest run",
     "format": "prettier --write .",
     "prepare": "husky",
     "setup": "bash scripts/setup.sh",
     "start": "npx -y tsx src",
-    "cli": "node cli.js",
     "test-quickstart": "bash scripts/test-quickstart.sh"
   },
   "lint-staged": {
