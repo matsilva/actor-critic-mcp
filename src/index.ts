@@ -10,12 +10,6 @@ import { Critic, CriticSchema } from './agents/Critic.ts';
 import { RevisionCounter } from './engine/RevisionCounter.ts';
 import { Actor } from './agents/Actor.ts';
 import { SummarizationAgent } from './agents/Summarize.ts';
-import { CFG } from './config.ts';
-
-//TODO:
-// now that components are refactored...
-// 1 by 1 improve each component based on the temporal difference problems
-// additionally create new components needed to solve the problems
 
 // -----------------------------------------------------------------------------
 // MCP Server -------------------------------------------------------------------

@@ -1,6 +1,7 @@
 import { v4 as uuid } from 'uuid';
 import { KnowledgeGraphManager, ArtifactRef, DagNode } from '../engine/KnowledgeGraph.ts';
 import { CFG } from '../config.ts';
+import { ActorThinkInput } from '../engine/ActorCriticEngine.ts';
 
 export type ThinkDecision = (typeof Actor.THINK_DECISION)[keyof typeof Actor.THINK_DECISION];
 
@@ -12,13 +13,9 @@ export class Actor {
   };
   constructor(private readonly kg: KnowledgeGraphManager) {}
 
-  async think(input: {
-    thought: string;
-    needsMore?: boolean;
-    branchLabel?: string;
-    tags: string[];
-    artifacts?: Partial<ArtifactRef>[];
-  }): Promise<{ node: DagNode; decision: ThinkDecision }> {
+  async think(
+    input: ActorThinkInput & { artifacts?: Partial<ArtifactRef>[] },
+  ): Promise<{ node: DagNode; decision: ThinkDecision }> {
     const { thought, needsMore, branchLabel, tags, artifacts } = input;
 
     const parents = this.kg.getHeads().map((h) => h.id);
