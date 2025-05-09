@@ -71,6 +71,17 @@ export class ActorCriticEngine {
     private readonly summarizationAgent: SummarizationAgent,
   ) {}
   /* --------------------------- public API --------------------------- */
+  /**
+   * Adds a new thought node to the knowledge graph and automatically triggers
+   * critic review when appropriate.
+   *
+   * The critic review is automatically triggered when:
+   * 1. A certain number of steps have been taken (configured by CRITIC_EVERY_N_STEPS)
+   * 2. The actor indicates the thought doesn't need more work (needsMore=false)
+   *
+   * @param input The actor thought input
+   * @returns Either the actor node (if no review was triggered) or the critic node (if review was triggered)
+   */
   async actorThink(input: ActorThinkInput): Promise<DagNode> {
     const { node, decision } = await this.actor.think(input);
 
@@ -81,6 +92,20 @@ export class ActorCriticEngine {
     return node;
   }
 
+  /**
+   * Manually triggers a critic review for a specific actor node.
+   *
+   * NOTE: In most cases, you don't need to call this directly as actorThink
+   * automatically triggers critic reviews when appropriate.
+   *
+   * This method is primarily useful for:
+   * - Manual intervention in the workflow
+   * - Forcing a review of a specific previous node
+   * - Debugging or testing purposes
+   *
+   * @param actorNodeId The ID of the actor node to review
+   * @returns The critic node
+   */
   async criticReview(actorNodeId: string): Promise<DagNode> {
     const criticNode = await this.critic.review(actorNodeId);
 

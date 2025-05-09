@@ -73,6 +73,21 @@ High‑level flow: caller → MCP → KG + Actor/Critic loop
 - **Hot‑Context Stream**
   Only the freshest, highest‑value nodes return to the LLM to keep within token budgets.
 
+### Actor-Critic Workflow
+
+The actor-critic system follows this workflow:
+
+1. The agent calls `actor_think` to add a new thought node to the knowledge graph
+2. The system automatically triggers a critic review when:
+   - A certain number of steps have been taken (configured by CRITIC_EVERY_N_STEPS)
+   - The actor indicates the thought doesn't need more work (needsMore=false)
+3. The critic evaluates the node and provides a verdict:
+   - `approved`: The node meets all requirements
+   - `needs_revision`: The node needs specific improvements
+   - `reject`: The node is fundamentally flawed or has reached max revision attempts
+
+In most cases, you don't need to call `critic_review` directly as it's automatically triggered by `actor_think` when appropriate. The `critic_review` tool is primarily useful for manual intervention, forcing a review of a specific previous node, or debugging purposes.
+
 ## Current status
 
 See **[`notes/next_steps.md`](notes/next_steps.md)** for details
