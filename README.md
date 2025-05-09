@@ -1,8 +1,12 @@
-# Actor–Critic MCP
+![CodeLoops](codeloops_banner.svg)
 
-Actor–Critic loop for coding agents, consolidating knowledge graph memory & sequential thinking into more useful tooling.
+# CodeLoops
+
+A feedback-driven system to improve coding agents through actor-critic loops, consolidating knowledge graph memory & sequential thinking into more useful tooling.
 
 ## Why this exists
+
+- [Read announcement](https://bytes.silvabyte.com/improving-coding-agents-an-early-look-at-codeloops-for-building-more-reliable-software/) to learn more.
 
 Modern coding agents forget what they wrote a few minutes ago **and** can’t trace which early design choice broke the build four moves later.
 
@@ -50,7 +54,7 @@ Have more problems to add? File an issue to suggest adding to the list.
 ## What this project is
 
 ```mermaid
-%% Actor–Critic MCP high‑level flow
+%% CodeLoops high‑level flow
 graph TD
   A[Caller Agent Copilot, Cursor, ...] --> B[MCP Server]
   B --> C[Knowledge-Graph Memory]
@@ -63,7 +67,7 @@ graph TD
 High‑level flow: caller → MCP → KG + Actor/Critic loop
 
 - **Coding Agent**
-  Calls the actor critic mcp
+  Calls the CodeLoops system
 - **Knowledge Graph**
   Compact summaries + full artefacts; fast semantic lookup; survives crashes.
 - **Actor**
@@ -122,15 +126,15 @@ For a comprehensive setup and usage guide, see [QUICKSTART.md](QUICKSTART.md).
 1. **Prerequisites**: Node.js v18+, Python 3.11+, uv package manager
 2. **Installation**:
    ```bash
-   git clone https://github.com/matsilva/actor-critic-mcp.git
-   cd actor-critic-mcp
+   git clone https://github.com/matsilva/codeloops.git
+   cd codeloops
    npm install
    ```
 3. **Agent Setup**:
    - Configure critic and summarize agents with API keys
    - Install Python dependencies with `uv sync`
 4. **MCP Integration**:
-   - Start the MCP server: `npx -y tsx path/to/actor-critic-mcp/src`
+   - Start the MCP server: `npx -y tsx path/to/codeloops/src`
 5. **Usage**:
    - Example prompt: "Use actor critic tool to plan and implement..."
 

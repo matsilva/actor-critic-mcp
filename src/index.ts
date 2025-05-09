@@ -1,5 +1,3 @@
-// actor-critic-mcp.ts – v0.4 (May 1 2025)
-
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
@@ -10,6 +8,7 @@ import { Critic, CriticSchema } from './agents/Critic.ts';
 import { RevisionCounter } from './engine/RevisionCounter.ts';
 import { Actor } from './agents/Actor.ts';
 import { SummarizationAgent } from './agents/Summarize.ts';
+import { version as VERSION } from '../package.json';
 
 // -----------------------------------------------------------------------------
 // MCP Server -------------------------------------------------------------------
@@ -34,7 +33,7 @@ async function main() {
   // Create ActorCriticEngine with all dependencies
   const engine = new ActorCriticEngine(kg, critic, actor, summarizationAgent);
 
-  const server = new McpServer({ name: 'actor-critic-mcp', version: '0.4.0' });
+  const server = new McpServer({ name: 'codeloops', version: VERSION });
 
   const ACTOR_THINK_DESCRIPTION = `
   Add a new thought node to the knowledge‑graph.
@@ -286,7 +285,7 @@ async function main() {
   // ------------------------------------------------------------------
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.log('ActorCritic MCP server running on stdio');
+  console.log('CodeLoops MCP server running on stdio');
 }
 
 main().catch((err) => {

@@ -1,7 +1,7 @@
 [project]
 name = "critic"
 version = "0.1.0"
-description = "An Actor-Critic MCP agent"
+description = "A CodeLoops critic agent"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

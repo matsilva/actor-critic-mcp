@@ -3,14 +3,14 @@ import json
 import sys
 from mcp_agent.core.fastagent import FastAgent
 
-fast = FastAgent("Actor-Critic Summarization Agent")
+fast = FastAgent("CodeLoops Summarization Agent")
 
 
 @fast.agent(
-    instruction="""You are the Summarization Agent in the Actor-Critic MCP system, responsible for creating concise summaries of knowledge graph segments.
+    instruction="""You are the Summarization Agent in the CodeLoops system, responsible for creating concise summaries of knowledge graph segments.
 
 ## System Architecture
-You are part of the Actor-Critic MCP system with these key components:
+You are part of the CodeLoops system with these key components:
 - KnowledgeGraphManager: Stores all nodes, artifacts, and relationships
 - Actor: Generates new thought nodes and code
 - Critic: Evaluates actor nodes and provides feedback
