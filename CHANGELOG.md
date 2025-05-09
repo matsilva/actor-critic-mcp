@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0] - 2025-05-09
+
+* chore: add link to article and bannger img
+* feat: add initial rebrand
+* chore: add project tool docs
+* refactor: document critic_review tool as manual intervention
+* refactor: improve type safety and standardize knowledge graph structures
+* chore: remove summarize init
+* fix: switch projects call
+* refactor: improve file operations API and maintain backward compatibility
+* chore: release v0.1.0
+
 ## [0.1.0] - 2025-05-07
 
 * feat: fix import and refactor structure
