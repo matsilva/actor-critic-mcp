@@ -141,7 +141,9 @@ The Actor-Critic system provides several tools that the AI agent can use:
 - `resume`: Fetches recent context for a branch
 - `export_plan`: Exports the current graph, optionally filtered by tag
 - `summarize_branch`: Generates a summary for a specific branch
-  ...
+- `list_projects`: Lists all available knowledge graph projects
+- `switch_project`: Switches to a different knowledge graph project
+- `create_project`: Creates a new knowledge graph project
 
 ### Actor-Critic Workflow
 
@@ -157,6 +159,29 @@ The actor-critic system follows this workflow:
    - `reject`: The node is fundamentally flawed or has reached max revision attempts
 
 **Important Note**: In most cases, you don't need to call `critic_review` directly as it's automatically triggered by `actor_think` when appropriate. The `critic_review` tool is primarily useful for manual intervention, forcing a review of a specific previous node, or debugging purposes.
+
+### Project Management
+
+The Actor-Critic system supports working with multiple knowledge graph projects, each with its own separate context:
+
+1. **Listing Projects**:
+
+   ```
+   Use the list_projects tool to see all available projects
+   ```
+
+2. **Switching Projects**:
+
+   ```
+   Use the switch_project tool to switch to the "my-feature" project
+   ```
+
+3. **Creating a New Project**:
+   ```
+   Use the create_project tool to create a new project called "new-feature"
+   ```
+
+Project names must be alphanumeric with optional dashes and underscores, and have a maximum length of 50 characters. Each project maintains its own separate knowledge graph, allowing you to work on different codebases or features without mixing contexts.
 
 ### Example Workflow
 

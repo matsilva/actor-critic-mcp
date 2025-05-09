@@ -88,6 +88,25 @@ The actor-critic system follows this workflow:
 
 In most cases, you don't need to call `critic_review` directly as it's automatically triggered by `actor_think` when appropriate. The `critic_review` tool is primarily useful for manual intervention, forcing a review of a specific previous node, or debugging purposes.
 
+### Project Management Tools
+
+The actor-critic system supports working with multiple knowledge graph projects:
+
+1. **`list_projects`**: Lists all available knowledge graph projects
+
+   - Returns the current active project and all available projects
+
+2. **`switch_project`**: Switches to a different knowledge graph project
+
+   - Parameter: `projectName` - Name of the project to switch to
+   - Project names must be alphanumeric with optional dashes/underscores
+
+3. **`create_project`**: Creates a new knowledge graph project
+   - Parameter: `projectName` - Name of the new project to create
+   - Same naming rules as `switch_project`
+
+These tools allow you to organize your work into separate projects, each with its own knowledge graph. This is useful for working on multiple codebases or features without mixing contexts.
+
 ## Current status
 
 See **[`notes/next_steps.md`](notes/next_steps.md)** for details
