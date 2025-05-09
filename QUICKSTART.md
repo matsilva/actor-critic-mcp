@@ -1,8 +1,8 @@
-# Actor-Critic MCP: Quickstart Guide
+# CodeLoops: Quickstart Guide
 
 ## Introduction
 
-Actor-Critic MCP is an experimental system that enhances AI coding agents with persistent memory and improved decision-making capabilities. It addresses two critical problems in AI coding assistants:
+CodeLoops is an experimental system that enhances AI coding agents with persistent memory and improved decision-making capabilities. It addresses two critical problems in AI coding assistants:
 
 1. **Memory Loss**: AI agents forget what they wrote minutes ago, leading to duplicated components and inconsistent designs
 2. **Credit Assignment**: AI agents can't trace which early design choices led to later problems
@@ -26,22 +26,22 @@ Before getting started, ensure you have the following installed:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/matsilva/actor-critic-mcp.git
-cd actor-critic-mcp
+git clone https://github.com/SilvaByte/codeloops.git
+cd codeloops
 ```
 
 ### 2. Project Structure Overview
 
 The project consists of two main components:
 
-- **MCP Server** (Node.js): Manages the Actor-Critic loop and Knowledge Graph
+- **MCP Server** (Node.js): Manages the CodeLoops system and Knowledge Graph
 - **Agent Components** (Python): Critic and Summarization agents that evaluate and condense information
 
 Key directories:
 
 ```
 src/                # MCP server and core components
-├── actor-critic/   # Actor, Critic, and RevisionCounter implementations
+├── engine/         # Core engine components including Actor, Critic, and RevisionCounter
 ├── agents/         # Agent integration code
 └── ...             # Other core components
 
@@ -107,11 +107,11 @@ The `uv sync` command:
 
 ## MCP Integration
 
-### 1. Register the Actor-Critic MCP Server
+### 1. Register the CodeLoops Server
 
 ```bash
 # From the project root directory
-npx -y tsx path/to/actor-critic-mcp/src
+npx -y tsx path/to/codeloops/src
 ```
 
 This starts the MCP server, which will listen for commands from AI agents.
@@ -127,13 +127,13 @@ You can test that the MCP server is running correctly by using it with an AI age
 
 ### Basic Usage
 
-When interacting with an AI agent that has access to the Actor-Critic MCP, you can use prompts like:
+When interacting with an AI agent that has access to CodeLoops, you can use prompts like:
 
 ```
-Use the actor critic tool to plan and implement a feature that...
+Use the CodeLoops tool to plan and implement a feature that...
 ```
 
-The Actor-Critic system provides several tools that the AI agent can use:
+The CodeLoops system provides several tools that the AI agent can use:
 
 - `actor_think`: Creates a new thought node in the knowledge graph (primary tool)
 - `critic_review`: Manually evaluates an actor node (rarely needed)
@@ -145,9 +145,9 @@ The Actor-Critic system provides several tools that the AI agent can use:
 - `switch_project`: Switches to a different knowledge graph project
 - `create_project`: Creates a new knowledge graph project
 
-### Actor-Critic Workflow
+### CodeLoops Workflow
 
-The actor-critic system follows this workflow:
+The CodeLoops system follows this workflow:
 
 1. The agent calls `actor_think` to add a new thought node to the knowledge graph
 2. The system automatically triggers a critic review when:
@@ -162,7 +162,7 @@ The actor-critic system follows this workflow:
 
 ### Project Management
 
-The Actor-Critic system supports working with multiple knowledge graph projects, each with its own separate context:
+The CodeLoops system supports working with multiple knowledge graph projects, each with its own separate context:
 
 1. **Listing Projects**:
 
@@ -188,13 +188,13 @@ Project names must be alphanumeric with optional dashes and underscores, and hav
 1. **Planning Phase**:
 
    ```
-   Use actor critic to plan a new feature for...
+   Use CodeLoops to plan a new feature for...
    ```
 
 2. **Implementation Phase**:
 
    ```
-   Continue implementing the feature using actor critic...
+   Continue implementing the feature using CodeLoops...
    ```
 
 3. **Summary Phase**:
@@ -219,13 +219,13 @@ Project names must be alphanumeric with optional dashes and underscores, and hav
 #### MCP Connection Problems
 
 **Issue**: MCP server not responding
-**Solution**: Ensure the MCP server is running with `npx -y tsx path/to/actor-critic-mcp/src`.
+**Solution**: Ensure the MCP server is running with `npx -y tsx path/to/codeloops/src`.
 
 ### Getting Help
 
 If you encounter issues not covered here:
 
-1. Check the [GitHub repository](https://github.com/matsilva/actor-critic-mcp) for open issues
+1. Check the [GitHub repository](https://github.com/matsilva/codeloops) for open issues
 2. File a new issue with details about your problem
 3. Review the source code for more detailed information about components
 

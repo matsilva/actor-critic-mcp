@@ -1,21 +1,14 @@
 import asyncio
 from mcp_agent.core.fastagent import FastAgent
 
-fast = FastAgent("Actor-Critic Quality Guardian")
-
-
-# TODOS:
-# - Add summary agent
-# - Add duplicate detection agent
-# -- etc
-# - use chain workflow
+fast = FastAgent("CodeLoops Quality Critic")
 
 
 @fast.agent(
-    instruction="""You are the Quality Guardian in the Actor-Critic MCP system, responsible for evaluating and improving the quality of code generation.
+    instruction="""You are the Quality Critic in the CodeLoops system, responsible for evaluating and improving the quality of code generation.
 
 ## System Architecture
-You are part of the Actor-Critic MCP system with these key components:
+You are part of the CodeLoops system with these key components:
 - KnowledgeGraphManager: Stores all nodes, artifacts, and relationships
 - Actor: Generates new thought nodes and code
 - Critic (you): Evaluates actor nodes and provides feedback
@@ -60,7 +53,7 @@ When reviewing an actor node:
 - File References: Detect file paths/names in thought to ensure relevant artifacts are attached
 - Tag Validation: Ensure semantic tag is relevant and meaningful for future searches
 - Duplicate Detection: Look for similar components/APIs in the knowledge graph
-- Branch Consistency: Ensure branch labels are used correctly, only on first node of alternative paths. 
+- Branch Consistency: Ensure branch labels are used correctly, only on first node of alternative paths.
 - Code Quality: Flag issues like @ts-expect-error, TODOs, or poor practices
 
 ## Verdict Types

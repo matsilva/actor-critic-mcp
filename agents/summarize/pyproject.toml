@@ -1,7 +1,7 @@
 [project]
 name = "summarize"
 version = "0.1.0"
-description = "branch summary agent"
+description = "CodeLoops branch summary agent"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
