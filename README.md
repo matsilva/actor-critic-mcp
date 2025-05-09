@@ -1,8 +1,12 @@
+![CodeLoops](codeloops_banner.svg)
+
 # CodeLoops
 
 A feedback-driven system to improve coding agents through actor-critic loops, consolidating knowledge graph memory & sequential thinking into more useful tooling.
 
 ## Why this exists
+
+- [Read announcement](https://bytes.silvabyte.com/improving-coding-agents-an-early-look-at-codeloops-for-building-more-reliable-software/) to learn more.
 
 Modern coding agents forget what they wrote a few minutes ago **and** can’t trace which early design choice broke the build four moves later.
 
