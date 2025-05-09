@@ -1,241 +1,163 @@
 # CodeLoops: Quickstart Guide
 
-## Introduction
+<div align="center">
+  <img src="codeloops_banner.svg" alt="CodeLoops Banner" width="600"/>
+  <p><strong>Enhance your AI coding agents with persistent memory and improved decision-making</strong></p>
+</div>
 
-CodeLoops is an experimental system that enhances AI coding agents with persistent memory and improved decision-making capabilities. It addresses two critical problems in AI coding assistants:
+## Get Started in Seconds
 
-1. **Memory Loss**: AI agents forget what they wrote minutes ago, leading to duplicated components and inconsistent designs
-2. **Credit Assignment**: AI agents can't trace which early design choices led to later problems
+CodeLoops enhances AI coding agents with persistent memory and improved decision-making capabilities. It solves two critical problems:
 
-The system uses an Actor-Critic architecture with a Knowledge Graph to maintain context across long coding sessions and improve decision quality over time.
+- **Memory Loss**: AI agents forget what they wrote minutes ago
+- **Credit Assignment**: AI agents can't trace which early design choices led to later problems
 
-> **⚠️ Experimental Disclaimer**: This project is in active development. Back up your data, monitor API costs, and expect occasional issues.
+> **⚠️ Experimental Disclaimer**: This project is in active development. Back up your data and monitor API costs.
 
-## Prerequisites
-
-Before getting started, ensure you have the following installed:
-
-- **Node.js** (v18+)
-- **Python** (v3.11+)
-- **uv** - A modern Python package manager
-  See [uv installation instructions](https://docs.astral.sh/uv/getting-started/installation)
-- **API Keys** for your preferred LLM provider (Anthropic, OpenAI, etc.)
-
-## Installation
-
-### 1. Clone the Repository
+### One-Command Setup
 
 ```bash
-git clone https://github.com/SilvaByte/codeloops.git
+# Clone the repository
+git clone https://github.com/matsilva/codeloops.git
 cd codeloops
+
+# Run the automated setup script
+npm run setup
 ```
 
-### 2. Project Structure Overview
+That's it! The setup script will:
 
-The project consists of two main components:
+- Check for prerequisites (Node.js, Python, uv)
+- Install all dependencies
+- Configure the Python environments
+- Guide you through API key setup
+- Offer to start the server
 
-- **MCP Server** (Node.js): Manages the CodeLoops system and Knowledge Graph
-- **Agent Components** (Python): Critic and Summarization agents that evaluate and condense information
-
-Key directories:
-
-```
-src/                # MCP server and core components
-├── engine/         # Core engine components including Actor, Critic, and RevisionCounter
-├── agents/         # Agent integration code
-└── ...             # Other core components
-
-agents/             # Python agent implementations
-├── critic/         # Quality evaluation agent
-└── summarize/      # Branch summarization agent
-```
-
-### 3. Install Node.js Dependencies
+### Start the Server
 
 ```bash
-npm install
+npm run start
 ```
 
-## Agent Setup
+### Using the CLI
 
-### 1. Critic Agent Configuration
+CodeLoops comes with a convenient CLI for managing the server:
 
 ```bash
-# Navigate to the critic agent directory
-cd agents/critic
+# Run the CLI in interactive mode
+npm run cli
 
-# Install Python dependencies using uv
-uv sync
-
-# Configure the agent
-cp fastagent.config.template.yaml fastagent.config.yaml
-cp fastagent.secrets.template.yaml fastagent.secrets.yaml
+# Or install globally for easier access
+npm install -g .
+codeloops
 ```
 
-Edit `fastagent.secrets.yaml` to add your API keys:
+#### CLI Commands
 
-```yaml
-# Example for Anthropic
-anthropic:
-  api_key: your-api-key-here
-```
+| Command            | Description                    |
+| ------------------ | ------------------------------ |
+| `codeloops`        | Start the interactive CLI menu |
+| `codeloops start`  | Start the CodeLoops server     |
+| `codeloops stop`   | Stop the running server        |
+| `codeloops status` | Check if the server is running |
+| `codeloops setup`  | Run the setup script           |
 
-### 2. Summarize Agent Configuration
-
-```bash
-# Navigate to the summarize agent directory
-cd ../summarize
-
-# Install Python dependencies using uv
-uv sync
-
-# Configure the agent
-cp fastagent.config.template.yaml fastagent.config.yaml
-cp fastagent.secrets.template.yaml fastagent.secrets.yaml
-```
-
-Edit `fastagent.secrets.yaml` to add your API keys (same as for the critic agent).
-
-### 3. Understanding uv sync
-
-The `uv sync` command:
-
-- Reads dependencies from `pyproject.toml`
-- Creates/updates a virtual environment
-- Installs all required packages
-- Generates a lockfile for reproducible environments
-
-## MCP Integration
-
-### 1. Register the CodeLoops Server
-
-```bash
-# From the project root directory
-npx -y tsx path/to/codeloops/src
-```
-
-This starts the MCP server, which will listen for commands from AI agents.
-
-### 2. Testing the Connection
-
-You can test that the MCP server is running correctly by using it with an AI agent. The exact integration depends on your AI agent or tool, but typically involves:
-
-1. Configuring the agent to use the MCP server
-2. Sending a test prompt that uses the Actor-Critic tools
-
-## Usage Guide
-
-### Basic Usage
-
-When interacting with an AI agent that has access to CodeLoops, you can use prompts like:
+The interactive CLI provides a simple menu for managing your CodeLoops server:
 
 ```
-Use the CodeLoops tool to plan and implement a feature that...
+CodeLoops CLI
+
+1. Start server
+2. Stop server
+3. Check server status
+4. Run setup
+5. Exit
 ```
 
-The CodeLoops system provides several tools that the AI agent can use:
+This makes it easy to start and stop the server without remembering specific commands.
 
-- `actor_think`: Creates a new thought node in the knowledge graph (primary tool)
-- `critic_review`: Manually evaluates an actor node (rarely needed)
-- `list_branches`: Shows all branches in the knowledge graph
-- `resume`: Fetches recent context for a branch
-- `export_plan`: Exports the current graph, optionally filtered by tag
-- `summarize_branch`: Generates a summary for a specific branch
-- `list_projects`: Lists all available knowledge graph projects
-- `switch_project`: Switches to a different knowledge graph project
-- `create_project`: Creates a new knowledge graph project
+## 🔌 Using with AI Coding Agents
 
-### CodeLoops Workflow
+Once the server is running, you can use CodeLoops with your AI coding agent:
 
-The CodeLoops system follows this workflow:
+1. **Configure your agent** to use the MCP server
+2. **Use prompts** like: "Use the CodeLoops tool to plan and implement..."
 
-1. The agent calls `actor_think` to add a new thought node to the knowledge graph
-2. The system automatically triggers a critic review when:
-   - A certain number of steps have been taken (configured by CRITIC_EVERY_N_STEPS)
-   - The actor indicates the thought doesn't need more work (needsMore=false)
-3. The critic evaluates the node and provides a verdict:
-   - `approved`: The node meets all requirements
-   - `needs_revision`: The node needs specific improvements
-   - `reject`: The node is fundamentally flawed or has reached max revision attempts
+### Example Prompt for Claude
 
-**Important Note**: In most cases, you don't need to call `critic_review` directly as it's automatically triggered by `actor_think` when appropriate. The `critic_review` tool is primarily useful for manual intervention, forcing a review of a specific previous node, or debugging purposes.
+```
+I want to use the CodeLoops tool to plan and implement a feature that...
+```
 
-### Project Management
+### Example Prompt for GPT
 
-The CodeLoops system supports working with multiple knowledge graph projects, each with its own separate context:
+```
+Use the CodeLoops tool to help me design a system that...
+```
 
-1. **Listing Projects**:
+## 🛠️ Available Tools
 
-   ```
-   Use the list_projects tool to see all available projects
-   ```
+CodeLoops provides these tools to your AI agent:
 
-2. **Switching Projects**:
+- `actor_think`: Add a thought to the knowledge graph (primary tool)
+- `list_branches`: Show all branches in the knowledge graph
+- `resume`: Fetch recent context for a branch
+- `export_plan`: Export the current graph
+- `summarize_branch`: Generate a summary for a branch
+- `list_projects`: List all available projects
+- `switch_project`: Switch to a different project
+- `create_project`: Create a new project
 
-   ```
-   Use the switch_project tool to switch to the "my-feature" project
-   ```
+## 📋 Basic Workflow
 
-3. **Creating a New Project**:
-   ```
-   Use the create_project tool to create a new project called "new-feature"
-   ```
+1. **Start a project**: Create or switch to a project
+2. **Plan**: Use `actor_think` to add planning nodes
+3. **Implement**: Continue using `actor_think` for implementation steps
+4. **Review**: The system automatically reviews your progress
+5. **Summarize**: Generate summaries of your work
 
-Project names must be alphanumeric with optional dashes and underscores, and have a maximum length of 50 characters. Each project maintains its own separate knowledge graph, allowing you to work on different codebases or features without mixing contexts.
-
-### Example Workflow
-
-1. **Planning Phase**:
-
-   ```
-   Use CodeLoops to plan a new feature for...
-   ```
-
-2. **Implementation Phase**:
-
-   ```
-   Continue implementing the feature using CodeLoops...
-   ```
-
-3. **Summary Phase**:
-   ```
-   Use summarize_branch tools and create a summary for the work done so far.
-   ```
-
-## Troubleshooting
+## 🔍 Troubleshooting
 
 ### Common Issues
 
-#### Agent Configuration Problems
+| Issue                                           | Solution                                            |
+| ----------------------------------------------- | --------------------------------------------------- |
+| "Failed to parse JSON from uv mcp-server-fetch" | Check API keys in `agents/*/fastagent.secrets.yaml` |
+| "No module named 'fast-agent-mcp'"              | Run `cd agents/critic && uv sync`                   |
+| MCP server not responding                       | Ensure server is running with `npm run start`       |
 
-**Issue**: "Failed to parse JSON from uv mcp-server-fetch"
-**Solution**: Check that the agent configuration files are correctly set up and API keys are valid. You can run `fast-agent check` to verify from the agent directory.
+### Need More Help?
 
-#### Python Environment Issues
+- Check the [GitHub repository](https://github.com/matsilva/codeloops) for issues
+- File a new issue with details about your problem
+- For advanced usage, see the [detailed documentation](#advanced-usage)
 
-**Issue**: "No module named 'fast-agent-mcp'"
-**Solution**: Run `uv sync` in the agent directory to install dependencies.
+## 🔬 Advanced Usage
 
-#### MCP Connection Problems
+For more detailed information about CodeLoops, including:
 
-**Issue**: MCP server not responding
-**Solution**: Ensure the MCP server is running with `npx -y tsx path/to/codeloops/src`.
+- Project structure
+- Configuration options
+- Advanced workflows
+- Customization
 
-### Getting Help
+See the [Advanced Documentation](https://github.com/matsilva/codeloops/blob/main/README.md)
 
-If you encounter issues not covered here:
+## 📊 System Architecture
 
-1. Check the [GitHub repository](https://github.com/matsilva/codeloops) for open issues
-2. File a new issue with details about your problem
-3. Review the source code for more detailed information about components
+CodeLoops uses an Actor-Critic architecture with a Knowledge Graph:
 
-## Next Steps
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  AI Agent   │────▶│    Actor    │────▶│ Knowledge   │
+│             │◀────│             │◀────│ Graph       │
+└─────────────┘     └─────────────┘     └─────────────┘
+                           │                   ▲
+                           ▼                   │
+                    ┌─────────────┐     ┌─────────────┐
+                    │   Critic    │────▶│ Summarizer  │
+                    │             │     │             │
+                    └─────────────┘     └─────────────┘
+```
 
-After getting the basic system working, you might want to:
-
-- Explore the Knowledge Graph structure
-- Customize the Critic agent's evaluation criteria
-- Integrate with additional AI tools
-- Contribute improvements back to the project
-
-Remember that this is an experimental project, and your feedback and contributions are welcome!
+The system maintains context across long coding sessions and improves decision quality over time.
