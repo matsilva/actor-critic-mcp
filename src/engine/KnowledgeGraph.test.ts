@@ -34,6 +34,7 @@ describe('KnowledgeGraphManager', () => {
       children: [],
       createdAt: new Date().toISOString(),
       tags: ['test'],
+      artifacts: [],
     };
   }
 
@@ -42,6 +43,9 @@ describe('KnowledgeGraphManager', () => {
     return {
       id: uuid(),
       name: `Test artifact ${uuid().slice(0, 8)}`,
+      path: `test/path/${uuid().slice(0, 8)}`,
+      hash: uuid().slice(0, 8),
+      contentType: 'text/plain',
     };
   }
 

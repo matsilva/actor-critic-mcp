@@ -2,7 +2,7 @@ import { execa } from 'execa';
 import { to } from 'await-to-js';
 import { v4 as uuid } from 'uuid';
 import { KnowledgeGraphManager, DagNode } from '../engine/KnowledgeGraph.ts';
-import { RevisionCounter } from '../actor-critic/RevisionCounter.ts';
+import { RevisionCounter } from '../engine/RevisionCounter.ts';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
@@ -99,6 +99,8 @@ export class Critic {
       target: actorNodeId,
       parents: [actorNodeId],
       children: [],
+      tags: [],
+      artifacts: [],
       needsMore: false,
       createdAt: new Date().toISOString(),
     };

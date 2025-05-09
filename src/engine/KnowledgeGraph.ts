@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import { v4 as uuid } from 'uuid';
 import { CFG } from '../config.ts';
 import { ProjectManager } from './ProjectManager.ts';
+import { ActorThinkInput, FileRef } from './ActorCriticEngine.ts';
 
 // -----------------------------------------------------------------------------
 // Minimal JSON‑file Knowledge Graph adapter ------------------------------------
@@ -14,15 +15,11 @@ export interface BranchHead {
   depth: number;
 }
 
-export interface ArtifactRef {
+export interface ArtifactRef extends FileRef {
   id: string; // uuid for KG reference
-  name: string; // human label ("UML‑AuthSeq")
-  uri?: string; // optional external link or S3 key
-  contentType?: string; // mime‑type hint (image/png, text/markdown …)
-  hash?: string; // sha256 etc. (optional)
 }
 
-export interface DagNode {
+export interface DagNode extends ActorThinkInput {
   id: string;
   thought: string;
   role: 'actor' | 'critic' | 'summary';
@@ -32,11 +29,7 @@ export interface DagNode {
   target?: string; // nodeId this criticises
   parents: string[];
   children: string[];
-  needsMore?: boolean;
   createdAt: string; // ISO timestamp for durability
-  branchLabel?: string; // friendly label for this branch head
-  tags?: string[]; // free‑form categories ("design", "task", …)
-  artifacts?: ArtifactRef[]; // attached artefacts
   summarizedSegment?: string[]; // IDs of the nodes that were summarized (for summary nodes)
 }
 

@@ -10,12 +10,6 @@ import { Critic, CriticSchema } from './agents/Critic.ts';
 import { RevisionCounter } from './engine/RevisionCounter.ts';
 import { Actor } from './agents/Actor.ts';
 import { SummarizationAgent } from './agents/Summarize.ts';
-import { CFG } from './config.ts';
-
-//TODO:
-// now that components are refactored...
-// 1 by 1 improve each component based on the temporal difference problems
-// additionally create new components needed to solve the problems
 
 // -----------------------------------------------------------------------------
 // MCP Server -------------------------------------------------------------------
@@ -42,7 +36,31 @@ async function main() {
 
   const server = new McpServer({ name: 'actor-critic-mcp', version: '0.4.0' });
 
-  server.tool('actor_think', ActorThinkSchema, async (args) => ({
+  const ACTOR_THINK_DESCRIPTION = `
+  Add a new thought node to the knowledge‑graph.
+
+  • Use for any creative / planning step, requirement capture, task break‑down, etc.
+  • **Always include at least one semantic 'tag'** so future searches can find this node
+    – e.g. requirement, task, risk, design, definition.
+  • **If your thought references a file you just created or modified**, list it in the 'artifacts' array.
+  • Use 'branchLabel' **only** on the first node of an alternative approach.
+  • Think of 'tags' + 'artifacts' as the breadcrumbs that future you (or another
+    agent) will follow to avoid duplicate work or forgotten decisions.
+  *
+  `;
+
+  /**
+   * actor_think - Add a new thought node to the knowledge graph.
+   *
+   * This is the primary tool for interacting with the actor-critic system.
+   * It automatically triggers critic reviews when appropriate, so you don't
+   * need to call critic_review separately in most cases.
+   *
+   * The response will include:
+   * - The actor node if no critic review was triggered
+   * - The critic node if a review was automatically triggered
+   */
+  server.tool('actor_think', ACTOR_THINK_DESCRIPTION, ActorThinkSchema, async (args) => ({
     content: [{ type: 'text', text: JSON.stringify(await engine.actorThink(args), null, 2) }],
   }));
 
@@ -51,8 +69,17 @@ async function main() {
   // -----------------------------------------------------------------------------
 
   /**
-   * critic_review – evaluates an actor node. Call after every ~3 actor steps,
-   * or sooner if the agent is uncertain.
+   * critic_review – manually evaluates an actor node.
+   *
+   * NOTE: In most cases, you don't need to call this directly.
+   * The actor_think function automatically triggers critic reviews when:
+   * 1. A certain number of steps have been taken (configured by CRITIC_EVERY_N_STEPS)
+   * 2. The actor indicates the thought doesn't need more work (needsMore=false)
+   *
+   * This tool is primarily useful for:
+   * - Manual intervention in the workflow
+   * - Forcing a review of a specific previous node
+   * - Debugging or testing purposes
    */
   server.tool('critic_review', CriticSchema, async (a) => ({
     content: [

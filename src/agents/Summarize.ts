@@ -212,35 +212,22 @@ export class SummarizationAgent {
       }
     }
 
-    // If there are nodes to summarize, create a summary
-    if (nodesToSummarize.length > 0) {
-      console.log(`[summarizeBranch] Summarizing ${nodesToSummarize.length} nodes`);
-      try {
-        const summaryNode = await this.createSummary(nodesToSummarize);
-        return {
-          summary: summaryNode,
-          success: true,
-        };
-      } catch (error) {
-        console.error(`[summarizeBranch] Error creating summary:`, error);
-        return {
-          summary: null,
-          success: false,
-          errorCode: 'SUMMARIZATION_ERROR',
-          errorMessage: 'Error occurred during summarization process',
-          details: error instanceof Error ? error.message : String(error),
-        };
-      }
+    try {
+      const summaryNode = await this.createSummary(nodesToSummarize);
+      return {
+        summary: summaryNode,
+        success: true,
+      };
+    } catch (error) {
+      console.error(`[summarizeBranch] Error creating summary:`, error);
+      return {
+        summary: null,
+        success: false,
+        errorCode: 'SUMMARIZATION_ERROR',
+        errorMessage: 'Error occurred during summarization process',
+        details: error instanceof Error ? error.message : String(error),
+      };
     }
-
-    // If we reach here, all nodes have already been summarized
-    return {
-      summary: null,
-      success: false,
-      errorCode: 'ALREADY_SUMMARIZED',
-      errorMessage: 'All nodes in this branch have already been summarized',
-      details: `Branch has ${existingSummaries.length} summaries covering all summarizable nodes`,
-    };
   }
 
   /**
@@ -279,6 +266,7 @@ export class SummarizationAgent {
       createdAt: new Date().toISOString(),
       summarizedSegment: nodes.map((node) => node.id),
       tags: ['summary'],
+      artifacts: [],
     };
 
     console.log(`[createSummary] Created summary node with ID ${summaryNode.id}`);

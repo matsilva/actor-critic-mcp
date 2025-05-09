@@ -20,56 +20,48 @@ Add a new thought node to the knowledge‑graph.
   agent) will follow to avoid duplicate work or forgotten decisions.
 `.trim();
 
+const FILE_REF = z.object({
+  name: z.string(), // human label ("UML‑AuthSeq")
+  uri: z.string().optional(), // optional external link or S3 key
+  /** Absolute or repo‑relative path, e.g. "QuickRecorder/CameraOverlay.swift" */
+  path: z.string(),
+  /** Optional hash to lock content for provenance */
+  hash: z.string().optional(),
+  /** Optional MIME, e.g. "text/x-swift" */
+  contentType: z.string().optional(),
+});
+export type FileRef = z.infer<typeof FILE_REF>;
+
 export const ActorThinkSchema = {
   thought: z.string().describe(THOUGHT_DESCRIPTION),
 
   needsMore: z
     .boolean()
     .optional()
-    .describe(
-      'Set true if more actor steps are expected before calling the critic. ' +
-        'Leave false when the current micro‑task is complete.',
-    ),
+    .describe('True if further actor work is expected before critic review.'),
 
   branchLabel: z
     .string()
     .optional()
-    .describe(
-      'Human‑friendly name for a NEW branch.  Only set on the first node of ' +
-        'an alternative design path (e.g. "event‑sourcing‑spike").',
-    ),
+    .describe('Human‑friendly name for the *first* node of an alternative branch.'),
 
   tags: z
     .array(z.string())
     .min(1, 'Add at least one semantic tag – requirement, task, risk, design …')
-    .describe(
-      'Semantic categories that make this node discoverable later.  Use ' +
-        '`definition` when you introduce a new API, schema, or interface.',
-    ),
+    .describe('Semantic categories used for later search and deduping.'),
 
+  /** Actual files produced or updated by this step.*/
   artifacts: z
-    .array(
-      z.object({
-        name: z.string(),
-        uri: z.string().optional(),
-        contentType: z.string().optional(),
-        hash: z.string().optional(),
-      }),
-    )
-    .optional()
+    .array(FILE_REF)
     .describe(
-      'Generated files or links (code, diagrams, docs).  ' +
-        'Mention every new or updated file here to keep the graph in sync.',
+      'Declare the file set this thought will affect so the critic can ' +
+        'verify coverage before code is written.' +
+        'graph has durable pointers to the exact revision.',
     ),
 };
 
-export interface ActorThinkInput {
-  thought: string;
-  needsMore?: boolean;
-  branchLabel?: string;
-  tags: string[];
-  artifacts?: Partial<ArtifactRef>[];
-}
+export const ActorThinkSchemaZodObject = z.object(ActorThinkSchema);
+export type ActorThinkInput = z.infer<typeof ActorThinkSchemaZodObject>;
 
 export class ActorCriticEngine {
   constructor(
@@ -79,6 +71,17 @@ export class ActorCriticEngine {
     private readonly summarizationAgent: SummarizationAgent,
   ) {}
   /* --------------------------- public API --------------------------- */
+  /**
+   * Adds a new thought node to the knowledge graph and automatically triggers
+   * critic review when appropriate.
+   *
+   * The critic review is automatically triggered when:
+   * 1. A certain number of steps have been taken (configured by CRITIC_EVERY_N_STEPS)
+   * 2. The actor indicates the thought doesn't need more work (needsMore=false)
+   *
+   * @param input The actor thought input
+   * @returns Either the actor node (if no review was triggered) or the critic node (if review was triggered)
+   */
   async actorThink(input: ActorThinkInput): Promise<DagNode> {
     const { node, decision } = await this.actor.think(input);
 
@@ -89,6 +92,20 @@ export class ActorCriticEngine {
     return node;
   }
 
+  /**
+   * Manually triggers a critic review for a specific actor node.
+   *
+   * NOTE: In most cases, you don't need to call this directly as actorThink
+   * automatically triggers critic reviews when appropriate.
+   *
+   * This method is primarily useful for:
+   * - Manual intervention in the workflow
+   * - Forcing a review of a specific previous node
+   * - Debugging or testing purposes
+   *
+   * @param actorNodeId The ID of the actor node to review
+   * @returns The critic node
+   */
   async criticReview(actorNodeId: string): Promise<DagNode> {
     const criticNode = await this.critic.review(actorNodeId);
 
