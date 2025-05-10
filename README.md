@@ -69,7 +69,8 @@ With the server connected, instruct your agent to use CodeLoops for autonomous p
 ### Example Prompt
 
 ```
-Use CodeLoops to plan and implement this feature: ...
+Use codeloops to plan and implement the following:
+... (insert your product requirements here)
 ```
 
 ## Available Tools
