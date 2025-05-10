@@ -1,36 +1,46 @@
-# CodeLoops: Quickstart Guide
+![CodeLoops](codeloops_banner.svg)
 
-<div align="center">
-  <img src="codeloops_banner.svg" alt="CodeLoops Banner" width="600"/>
-  <p><strong>Enhance your AI coding agents with persistent memory and improved decision-making</strong></p>
-</div>
+# CodeLoops: Enabling Coding Agent Autonomy
 
-## Get Started in Seconds
+CodeLoops is currently an experimental system, taking a different approach to help bring us closer to the holy grail of software development: fully autonomous coding agents.
 
-CodeLoops enhances AI coding agents with persistent memory and improved decision-making capabilities. It solves two critical problems:
+Inspired by the actor-critic model from Max Bennett’s _A Brief History of Intelligence_, CodeLoops aims to tackle the challenge of AI Agent “code slop”: messy, error-prone output that forgets APIs and drifts from project goals. By integrating with your existing agent as an MCP server, it delivers iterative feedback and persistent context, empowering your agent to work independently in auto mode while staying aligned with your vision.
 
-- **Memory Loss**: AI agents forget what they wrote minutes ago
-- **Credit Assignment**: AI agents can't trace which early design choices led to later problems
+> **Note**: CodeLoops is in early development. Expect active updates. Back up your data and monitor API costs for premium models.
 
-> **Experimental Disclaimer**: This project is in active development. Back up your data and monitor API costs.
+Learn more by [reading the announcement](https://bytes.silvabyte.com/improving-coding-agents-an-early-look-at-codeloops-for-building-more-reliable-software/).
 
-### Quick Setup
+## Why CodeLoops?
+
+AI coding agents promise to revolutionize development but suck at autonomy in complex projects. They suffer from memory gaps, context lapses, and a lack of guidance, producing unreliable code that requires constant manual fixes. CodeLoops unlocks their potential by providing:
+
+- **Iterative Feedback**: An actor-critic system refines your agent’s decisions in real time, guiding it toward precise, high-quality output.
+- **Knowledge Graph**: Stores context and feedback, ensuring your agent remembers APIs and project goals across sessions.
+- **Seamless Integration**: Enhances the tools you already use like Cursor or Windsurf, letting your agent work smarter without disrupting your workflow.
+
+For developers building larger scale software or non-developers bringing ideas to life, CodeLoops could transform your agent into a reliable autonomous partner.
+
+## Quick Setup
+
+Get CodeLoops up and running in minutes:
 
 ```bash
 # Clone the repository
 git clone https://github.com/matsilva/codeloops.git
 cd codeloops
 
-# Run the automated setup script
+# Run the setup script
 npm run setup
 ```
 
-That's it! The setup script will:
+The script automates:
 
-- Check for prerequisites (Node.js, Python, uv)
-- Install all dependencies
-- Configure the Python environments
-- Guide you through API key setup
+- Verifying prerequisites (Node.js, Python, uv).
+- Installing dependencies.
+- Configuring Python environments.
+- Prompting for API key setup for models like Anthropic or OpenAI.
+
+> **Tip**: I’ve had great results with Anthropic’s Haiku 3.5, costing about $0.60 weekly. It’s a solid starting point.
 
 ### Start the Server
 
@@ -38,78 +48,59 @@ That's it! The setup script will:
 npm run start
 ```
 
-This will start the CodeLoops server directly without requiring any additional commands.
+This launches the CodeLoops server, ready to enhance your AI coding agent.
 
-## 🔌 Using with AI Coding Agents
+### Configure Your Agent
 
-Once the server is running, you can use CodeLoops with your AI coding agent:
+Connect your agent to the CodeLoops server by adding the MCP server configuration. Most platforms follow a similar structure:
 
-1. **Configure your agent** to use the MCP server
-2. **Use prompts** like: "Use the CodeLoops tool to plan and implement..."
-
-### Example Prompt for Claude
-
-```
-I want to use the CodeLoops tool to plan and implement a feature that...
-```
-
-### Example Prompt for GPT
-
-```
-Use the CodeLoops tool to help me design a system that...
+```json
+"mcp": {
+  "servers": {
+    "codeloops": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "tsx", "/path/to/codeloops/src"]
+    }
+  }
+}
 ```
 
-## 🛠️ Available Tools
+Ensure the configuration executes `npx -y tsx /path/to/codeloops/src`. Refer to your platform’s documentation for specific instructions.
 
-CodeLoops provides these tools to your AI agent:
+## Using CodeLoops
 
-- `actor_think`: Add a thought to the knowledge graph (primary tool)
-- `list_branches`: Show all branches in the knowledge graph
-- `resume`: Fetch recent context for a branch
-- `export_plan`: Export the current graph
-- `summarize_branch`: Generate a summary for a branch
-- `list_projects`: List all available projects
-- `switch_project`: Switch to a different project
-- `create_project`: Create a new project
+With the server connected, instruct your agent to use CodeLoops for autonomous planning and coding.
 
-## 📋 Basic Workflow
+### Example Prompt
 
-1. **Start a project**: Create or switch to a project
-2. **Plan**: Use `actor_think` to add planning nodes
-3. **Implement**: Continue using `actor_think` for implementation steps
-4. **Review**: The system automatically reviews your progress
-5. **Summarize**: Generate summaries of your work
+```
+Use CodeLoops to plan and implement this feature: ...
+```
 
-## 🔍 Troubleshooting
+## Available Tools
 
-### Common Issues
+CodeLoops provides tools to enable autonomous agent operation:
 
-| Issue                                           | Solution                                            |
-| ----------------------------------------------- | --------------------------------------------------- |
-| "Failed to parse JSON from uv mcp-server-fetch" | Check API keys in `agents/*/fastagent.secrets.yaml` |
-| "No module named 'fast-agent-mcp'"              | Run `cd agents/critic && uv sync`                   |
-| MCP server not responding                       | Ensure server is running with `npm run start`       |
+- `actor_think`: Drives interaction with the actor-critic system, automatically triggering critic reviews when needed.
+- `list_branches`: Lists all knowledge graph branches for context.
+- `resume`: Retrieves recent branch context for continuity.
+- `export_plan`: Exports the current graph for agent review.
+- `summarize_branch`: Generates a summary of branch progress.
+- `list_projects`: Displays all projects for navigation.
+- `switch_project`: Switches to another project seamlessly.
+- `create_project`: Initializes a new project.
 
-### Need More Help?
+## Basic Workflow
 
-- Check the [GitHub repository](https://github.com/matsilva/codeloops) for issues
-- File a new issue with details about your problem
-- For advanced usage, see the [detailed documentation](docs/OVERVIEW.md)
+1. **Create a Project**: Start with `create_project` or switch using `switch_project`.
+2. **Plan Autonomously**: Add planning nodes with `actor_think`, guided by the critic.
+3. **Implement Independently**: Use `actor_think` for coding steps, refined in real time.
+4. **Review Progress**: The critic autonomously evaluates and corrects.
+5. **Summarize Work**: Use `summarize_branch` to generate clear summaries.
+6. **Provide Feedback**: Offer human-in-the-loop input as needed to refine outcomes.
 
-## 🔬 Advanced Usage
-
-For more detailed information about CodeLoops, including:
-
-- Project structure
-- Configuration options
-- Advanced workflows
-- Customization
-
-See the [Advanced Documentation](docs/OVERVIEW.md)
-
-## 📊 System Architecture
-
-CodeLoops uses an Actor-Critic architecture with a Knowledge Graph:
+CodeLoops leverages an actor-critic model with a knowledge graph, where the Critic can delegate to a chain of specialized agents for enhanced precision:
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
@@ -118,10 +109,33 @@ CodeLoops uses an Actor-Critic architecture with a Knowledge Graph:
 └─────────────┘     └─────────────┘     └─────────────┘
                            │                   ▲
                            ▼                   │
+                    ┌─────────────┐            │
+                    │   Critic    │────────────┼───┐
+                    │             │            │   │
+                    └─────────────┘            │   │
+                           │                   │   │
+                           ▼                   │   ▼
                     ┌─────────────┐     ┌─────────────┐
-                    │   Critic    │────▶│ Summarizer  │
-                    │             │     │             │
+                    │ Specialized │     │ Summarizer  │
+                    │ Agents      │     │             │
+                    │ (Duplicate  │     │             │
+                    │ Code,       │     │             │
+                    │ Interface,  │     │             │
+                    │ Best        │     │             │
+                    │ Practices,  │     │             │
+                    │ etc.)       │     │             │
                     └─────────────┘     └─────────────┘
 ```
 
-The system maintains context across long coding sessions and improves decision quality over time.
+This architecture enables your agent to maintain context, refine decisions through specialized checks, and operate autonomously with greater reliability.
+
+### Need Help?
+
+- Check [GitHub issues](https://github.com/silvabyte/codeloops/issues).
+- File a new issue with details.
+- **Email Me**: [mat@silvabyte.com](mailto:mat@silvabyte.com).
+- **X**: [Reach out on X](https://x.com/MatSilva).
+
+## Contribute
+
+CodeLoops is open source, and your contributions are crucial to achieving coding agent autonomy. Whether you’re fixing bugs, adding features, or sharing feedback, you’ll help shape a tool that empowers developers and non-developers to build with confidence. Join the journey:
