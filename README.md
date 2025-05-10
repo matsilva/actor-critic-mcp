@@ -42,13 +42,7 @@ The script automates:
 
 > **Tip**: I’ve had great results with Anthropic’s Haiku 3.5, costing about $0.60 weekly. It’s a solid starting point.
 
-### Start the Server
-
-```bash
-npm run start
-```
-
-This launches the CodeLoops server, ready to enhance your AI coding agent.
+If this script fails, see [install guide](./docs/INSTALL_GUIDE.md) for installing the project dependencies
 
 ### Configure Your Agent
 
