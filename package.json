@@ -6,7 +6,10 @@
   "scripts": {
     "test": "vitest run",
     "format": "prettier --write .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "setup": "bash scripts/setup.sh",
+    "start": "npx -y tsx src",
+    "test-quickstart": "bash scripts/test-quickstart.sh"
   },
   "lint-staged": {
     "**/*": [

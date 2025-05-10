@@ -1,197 +1,135 @@
 ![CodeLoops](codeloops_banner.svg)
 
-# CodeLoops
+# CodeLoops: Enabling Coding Agent Autonomy
 
-A feedback-driven system to improve coding agents through actor-critic loops, consolidating knowledge graph memory & sequential thinking into more useful tooling.
+CodeLoops is currently an experimental system, taking a different approach to help bring us closer to the holy grail of software development: fully autonomous coding agents.
 
-## Why this exists
+Inspired by the actor-critic model from Max Bennett’s _A Brief History of Intelligence_, CodeLoops aims to tackle the challenge of AI Agent “code slop”: messy, error-prone output that forgets APIs and drifts from project goals. By integrating with your existing agent as an MCP server, it delivers iterative feedback and persistent context, empowering your agent to work independently in auto mode while staying aligned with your vision.
 
-- [Read announcement](https://bytes.silvabyte.com/improving-coding-agents-an-early-look-at-codeloops-for-building-more-reliable-software/) to learn more.
+> **Note**: CodeLoops is in early development. Expect active updates. Back up your data and monitor API costs for premium models.
 
-Modern coding agents forget what they wrote a few minutes ago **and** can’t trace which early design choice broke the build four moves later.
+Learn more by [reading the announcement](https://bytes.silvabyte.com/improving-coding-agents-an-early-look-at-codeloops-for-building-more-reliable-software/).
 
-That’s two separate failures:
+## Why CodeLoops?
 
-| Layer                  | Failure                                      | Symptom set                                                               |
-| ---------------------- | -------------------------------------------- | ------------------------------------------------------------------------- |
-| **Memory / Retrieval** | Context falls out of scope                   | forgotten APIs • duplicated components • dead code • branch drift         |
-| **Credit Assignment**  | Model can’t link early moves to late rewards | oscillating designs • premature optimisations • mis‑prioritised refactors |
+AI coding agents promise to revolutionize development but suck at autonomy in complex projects. They suffer from memory gaps, context lapses, and a lack of guidance, producing unreliable code that requires constant manual fixes. CodeLoops unlocks their potential by providing:
 
-LLMs _learn_ with actor–critic loops that solve temporal difference and credit assignment problems, but tool builders drop that loop at inference time.
+- **Iterative Feedback**: An actor-critic system refines your agent’s decisions in real time, guiding it toward precise, high-quality output.
+- **Knowledge Graph**: Stores context and feedback, ensuring your agent remembers APIs and project goals across sessions.
+- **Seamless Integration**: Enhances the tools you already use like Cursor or Windsurf, letting your agent work smarter without disrupting your workflow.
 
-Actor–Critic MCP attempts to bring it back **and** closes the memory hole.
+For developers building larger scale software or non-developers bringing ideas to life, CodeLoops could transform your agent into a reliable autonomous partner.
 
-Keep in mind: Memory issues ≠ Temporal‑Difference issues
+## Quick Setup
 
----
+Get CodeLoops up and running in minutes:
 
-### AI Agent Context Gaps
+```bash
+# Clone the repository
+git clone https://github.com/matsilva/codeloops.git
+cd codeloops
 
-Here is a short catalogue of problems I have encountered pair-programming with AI agents.
-
-#### **Memory loss & retrieval**
-
-1. **Forgetting prior definitions** – APIs, schemas, or components fall outside the window and get reinvented.
-2. **Rules / guidelines ignored** – Rule files (`.rules.md`, ESLint, naming docs) are rarely pulled into context or linked to reward, so conventions drift.
-3. **Unstructured or missing summaries** – Older work isn’t compacted, so long‑range reasoning decays.
-4. **No proactive retrieval** – Tools like `resume` or `search_plan` aren’t invoked, leaving blind spots.
-5. **Forgetting exploration outcomes** – Rejected ideas resurface; time is wasted on déjà‑vu fixes.
-6. **Buried open questions** – “TBD” items never resurface, so design gaps remain unresolved.
-
-#### **Consistency & integrity drift**
-
-7. **Component duplication / naming drift** – Same concept, new name; specs splinter.
-8. **Weak code linkage** – Thoughts aren’t tied to artifacts; the agent doubts or overwrites its own work.
-9. **Dead code & divergence from plan** – Unused files linger; implementation strays from intent.
-10. **Poor hygiene routines** – No systematic search/reuse/tag cycle → metadata rot.
-11. **Loss of intent hierarchy** – Downstream tasks optimise locally and break upstream goals.
-12. **Stale assumptions** – New requirements don’t invalidate old premises; bad foundations spread.
-13. **Branch divergence without reconciliation** – Parallel fixes never merge; logic conflicts.
-14. **No cross‑branch dependency tracking** – Change auth model here, tests fail over there.
-
-Have more problems to add? File an issue to suggest adding to the list.
-
-## What this project is
-
-```mermaid
-%% CodeLoops high‑level flow
-graph TD
-  A[Caller Agent Copilot, Cursor, ...] --> B[MCP Server]
-  B --> C[Knowledge-Graph Memory]
-  B --> D[Actor]
-  D <--> E[Critic]
-  D --> C
-  E --> C
+# Run the setup script
+npm run setup
 ```
 
-High‑level flow: caller → MCP → KG + Actor/Critic loop
+The script automates:
 
-- **Coding Agent**
-  Calls the CodeLoops system
-- **Knowledge Graph**
-  Compact summaries + full artefacts; fast semantic lookup; survives crashes.
-- **Actor**
-  Generates the next code / plan node. Writes links into the graph.
-- **Critic**
-  Scores each node against long‑horizon goals; updates value estimates; can veto or request revision.
-- **Hot‑Context Stream**
-  Only the freshest, highest‑value nodes return to the LLM to keep within token budgets.
+- Verifying prerequisites (Node.js, Python, uv).
+- Installing dependencies.
+- Configuring Python environments.
+- Prompting for API key setup for models like Anthropic or OpenAI.
 
-### Actor-Critic Workflow
+> **Tip**: I’ve had great results with Anthropic’s Haiku 3.5, costing about $0.60 weekly. It’s a solid starting point.
 
-The actor-critic system follows this workflow:
+If this script fails, see [install guide](./docs/INSTALL_GUIDE.md) for installing the project dependencies
 
-1. The agent calls `actor_think` to add a new thought node to the knowledge graph
-2. The system automatically triggers a critic review when:
-   - A certain number of steps have been taken (configured by CRITIC_EVERY_N_STEPS)
-   - The actor indicates the thought doesn't need more work (needsMore=false)
-3. The critic evaluates the node and provides a verdict:
-   - `approved`: The node meets all requirements
-   - `needs_revision`: The node needs specific improvements
-   - `reject`: The node is fundamentally flawed or has reached max revision attempts
+### Configure Your Agent
 
-In most cases, you don't need to call `critic_review` directly as it's automatically triggered by `actor_think` when appropriate. The `critic_review` tool is primarily useful for manual intervention, forcing a review of a specific previous node, or debugging purposes.
+Connect your agent to the CodeLoops server by adding the MCP server configuration. Most platforms follow a similar structure:
 
-### Project Management Tools
+```json
+"mcp": {
+  "servers": {
+    "codeloops": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "tsx", "/path/to/codeloops/src"]
+    }
+  }
+}
+```
 
-The actor-critic system supports working with multiple knowledge graph projects:
+Ensure the configuration executes `npx -y tsx /path/to/codeloops/src`. Refer to your platform’s documentation for specific instructions.
 
-1. **`list_projects`**: Lists all available knowledge graph projects
+## Using CodeLoops
 
-   - Returns the current active project and all available projects
+With the server connected, instruct your agent to use CodeLoops for autonomous planning and coding.
 
-2. **`switch_project`**: Switches to a different knowledge graph project
+### Example Prompt
 
-   - Parameter: `projectName` - Name of the project to switch to
-   - Project names must be alphanumeric with optional dashes/underscores
+```
+Use CodeLoops to plan and implement this feature: ...
+```
 
-3. **`create_project`**: Creates a new knowledge graph project
-   - Parameter: `projectName` - Name of the new project to create
-   - Same naming rules as `switch_project`
+## Available Tools
 
-These tools allow you to organize your work into separate projects, each with its own knowledge graph. This is useful for working on multiple codebases or features without mixing contexts.
+CodeLoops provides tools to enable autonomous agent operation:
 
-## Current status
+- `actor_think`: Drives interaction with the actor-critic system, automatically triggering critic reviews when needed.
+- `list_branches`: Lists all knowledge graph branches for context.
+- `resume`: Retrieves recent branch context for continuity.
+- `export_plan`: Exports the current graph for agent review.
+- `summarize_branch`: Generates a summary of branch progress.
+- `list_projects`: Displays all projects for navigation.
+- `switch_project`: Switches to another project seamlessly.
+- `create_project`: Initializes a new project.
 
-See **[`notes/next_steps.md`](notes/next_steps.md)** for details
+## Basic Workflow
 
-See initial trial run:
+1. **Create a Project**: Start with `create_project` or switch using `switch_project`.
+2. **Plan Autonomously**: Add planning nodes with `actor_think`, guided by the critic.
+3. **Implement Independently**: Use `actor_think` for coding steps, refined in real time.
+4. **Review Progress**: The critic autonomously evaluates and corrects.
+5. **Summarize Work**: Use `summarize_branch` to generate clear summaries.
+6. **Provide Feedback**: Offer human-in-the-loop input as needed to refine outcomes.
 
-### Quickstart Guide
+CodeLoops leverages an actor-critic model with a knowledge graph, where the Critic can delegate to a chain of specialized agents for enhanced precision:
 
-For a comprehensive setup and usage guide, see [QUICKSTART.md](QUICKSTART.md).
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  AI Agent   │────▶│    Actor    │────▶│ Knowledge   │
+│             │◀────│             │◀────│ Graph       │
+└─────────────┘     └─────────────┘     └─────────────┘
+                           │                   ▲
+                           ▼                   │
+                    ┌─────────────┐            │
+                    │   Critic    │────────────┼───┐
+                    │             │            │   │
+                    └─────────────┘            │   │
+                           │                   │   │
+                           ▼                   │   ▼
+                    ┌─────────────┐     ┌─────────────┐
+                    │ Specialized │     │ Summarizer  │
+                    │ Agents      │     │             │
+                    │ (Duplicate  │     │             │
+                    │ Code,       │     │             │
+                    │ Interface,  │     │             │
+                    │ Best        │     │             │
+                    │ Practices,  │     │             │
+                    │ etc.)       │     │             │
+                    └─────────────┘     └─────────────┘
+```
 
-**Quick Overview:**
+This architecture enables your agent to maintain context, refine decisions through specialized checks, and operate autonomously with greater reliability.
 
-1. **Prerequisites**: Node.js v18+, Python 3.11+, uv package manager
-2. **Installation**:
-   ```bash
-   git clone https://github.com/matsilva/codeloops.git
-   cd codeloops
-   npm install
-   ```
-3. **Agent Setup**:
-   - Configure critic and summarize agents with API keys
-   - Install Python dependencies with `uv sync`
-4. **MCP Integration**:
-   - Start the MCP server: `npx -y tsx path/to/codeloops/src`
-5. **Usage**:
-   - Example prompt: "Use actor critic tool to plan and implement..."
+### Need Help?
 
-> **⚠️ Experimental Disclaimer**: Back up your data, monitor API costs, and expect occasional issues.
+- Check [GitHub issues](https://github.com/silvabyte/codeloops/issues).
+- File a new issue with details.
+- **Email Me**: [mat@silvabyte.com](mailto:mat@silvabyte.com).
+- **X**: [Reach out on X](https://x.com/MatSilva).
 
-## Background
+## Contribute
 
-While the context gap is not directly a temporal difference problem, it lends itself to the concepts of temporal difference and credit assignment.
-So it is helpful to understand these concepts in order to solve the context gaps.
-
-**TLDR;**
-
-TD = delayed reward.
-Credit assignment = which earlier step deserves the reward.
-Actor–Critic solves both: Actor acts, Critic scores, value propagates back.
-
-### What is a temporal difference problem?
-
-An example: when an AI wins or loses a game of chess, it might not remember the specific moves it made earlier in the game that led to that outcome. This is a temporal difference problem, the result comes much later than the decisions that influenced it.
-
-This ties directly into another concept: the credit assignment problem.
-
----
-
-**What is the credit assignment problem?**
-
-To build on the example above: how does the AI figure out which specific moves actually contributed to the win or loss? Not all moves mattered equally. The AI needs to assign credit (or blame) across a timeline of actions.
-
----
-
-**How do the two connect?**
-
-The temporal difference problem is about **delayed consequences**. Decisions made now might not show their results until much later.
-The credit assignment problem is about **figuring out which of those decisions mattered most** when the result finally does come.
-
-Together, they form one of the most challenging problems in long-horizon reasoning.
-
----
-
-**How was this solved?**
-
-This was a sticky problem for a long time, but one of the more effective approaches turned out to be the actor–critic model.
-
-Here’s how it works:
-
-- The **actor** is responsible for making decisions (moves, in the chess example).
-- The **critic** provides feedback. It evaluates whether those decisions seem likely to lead to a good outcome.
-- If the critic believes the actor’s move is good, the actor continues. If not, the actor tries a better move.
-
-Over time, the actor learns which moves tend to lead to good results, even if the payoff comes much later. This model helps the AI assign value to intermediate steps, instead of only learning from the final outcome.
-
-So for our purposes, the actor is the coding agent, and the critic is made available via an MCP. I am hoping to figure out how we might tie rewards back to agent moves(ie; code gen).
-
----
-
-###  License & contributing
-
-This project is entirely experimental. Use at your own risk. & do what you want with it.
-
-MIT see [license](LICENSE)
+CodeLoops is open source, and your contributions are crucial to achieving coding agent autonomy. Whether you’re fixing bugs, adding features, or sharing feedback, you’ll help shape a tool that empowers developers and non-developers to build with confidence. Join the journey:
