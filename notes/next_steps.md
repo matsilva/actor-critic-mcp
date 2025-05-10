@@ -97,7 +97,7 @@ This feature helps prevent reinventing components with slightly different names 
     - Set `verdict = needs_revision` when duplicates found
     - Add references to original components
 
-- [ ] **Add verdictReason and verdictReferences Usage**
+- [x] **Add verdictReason and verdictReferences Usage**
 
   - Purpose: Provide context for why revision is needed
   - Implementation: Update `Critic.review()` method
@@ -106,7 +106,7 @@ This feature helps prevent reinventing components with slightly different names 
     - Add `verdictReferences` with nodeIds of similar components
     - Update critic node thought to include reason
 
-- [ ] **Consider Standalone Critic Agent**
+- [x] **Consider Standalone Critic Agent**
   - Purpose: More advanced duplicate detection and analysis
   - Implementation: Create `src/agents/critic_agent.ts`
   - Details:
@@ -147,7 +147,7 @@ This ensures agents make effective use of the memory system.
 
 ## 6. Additional Enhancements
 
-- [ ] **Implement projects**
+- [x] **Implement projects**
 
   - Purpose: Organize knowledge graphs(kg) by projects
   - Implementation: Add project management tools
@@ -168,17 +168,3 @@ This ensures agents make effective use of the memory system.
   - Purpose: easy analysis and querying
   - Motivation: as the knowledge graph grows, it becomes more difficult to analyze and query the data in its current format, since it all needs to be loaded into memory.
   - Implementation: Rework knowledgegraph apis to use ndjson/streaming as needed
-
-- [ ] **Implement Branch Reconciliation**
-
-  - Purpose: Ensure final decisions are consolidated across branches
-  - Implementation: Add new tool or method
-
-- [ ] **Add Dependency Tracking**
-
-  - Purpose: Track dependencies between branches
-  - Implementation: Enhance knowledge graph
-
-- [ ] **Implement Open Questions Tracking**
-  - Purpose: Track deferred work and open questions
-  - Implementation: Add special tagging and retrieval for these items
