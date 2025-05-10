@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.1] - 2025-05-10
+
+* chore: update prompt in readme
+* feat: add detailed install guide
+* chore: minor updates to next stesp
+* feat: rework readme
+* chore: remove cli.js
+* feat: add iniital quickstart scripts
+* chore: rename workflow
+* feat: add basic ci action
+* chore: release v0.2.0
+
 ## [0.2.0] - 2025-05-09
 
 * chore: add link to article and bannger img
