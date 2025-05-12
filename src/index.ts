@@ -36,16 +36,29 @@ async function main() {
   const server = new McpServer({ name: 'codeloops', version: VERSION });
 
   const ACTOR_THINK_DESCRIPTION = `
-  Add a new thought node to the knowledge‑graph.
-
-  • Use for any creative / planning step, requirement capture, task break‑down, etc.
-  • **Always include at least one semantic 'tag'** so future searches can find this node
-    – e.g. requirement, task, risk, design, definition.
-  • **If your thought references a file you just created or modified**, list it in the 'artifacts' array.
-  • Use 'branchLabel' **only** on the first node of an alternative approach.
-  • Think of 'tags' + 'artifacts' as the breadcrumbs that future you (or another
-    agent) will follow to avoid duplicate work or forgotten decisions.
-  *
+  Add a new thought node to the CodeLoops knowledge graph to plan, execute, or document coding tasks.
+  
+  **Purpose**: This is the **primary tool** for interacting with the actor-critic system. It records your work, triggers critic reviews when needed, and guides you through iterative development. **You must call 'actor_think' iteratively** after every significant action to ensure your work is reviewed and refined.
+  
+  **Instructions**:
+  1. **Call 'actor_think' for all actions**:
+     - Planning, requirement capture, task breakdown, or coding steps.
+     - After creating or modifying files (include 'artifacts' and 'file-modification' tag).
+     - When completing a task (set 'needsMore=false' and include 'task-complete' tag).
+  2. **Always include at least one semantic tag** (e.g., 'requirement', 'task', 'file-modification', 'task-complete') to enable searchability and trigger appropriate reviews.
+  3. **Iterative Workflow**:
+     - File modifications or task completions automatically trigger critic reviews.
+     - Use the critic's feedback (in 'criticNode') to refine your next thought.
+     - Continue calling 'actor_think' until 'needsMore' is false.
+  4. Tags and artifacts are critical for tracking decisions and avoiding duplicate work.
+  
+  **Example Workflow**:
+  - Step 1: Call 'actor_think' with thought: "Create main.ts with initial setup", artifacts: ['src/main.ts'], tags: ['file-modification'].
+      - Response: Includes feedback from the critic
+  - Step 2:  Make any necessary changes and call 'actor_think' again with the updated thought.
+  - Repeat until task is complete (needsMore=false).
+  
+  **Note**: Do not call 'critic_review' directly unless debugging; 'actor_think' manages reviews automatically.
   `;
 
   /**
