@@ -35,15 +35,16 @@ export type FileRef = z.infer<typeof FILE_REF>;
 export const ActorThinkSchema = {
   thought: z.string().describe(THOUGHT_DESCRIPTION),
 
-  needsMore: z
-    .boolean()
-    .optional()
-    .describe('True if further actor work is expected before critic review.'),
-
   branchLabel: z
     .string()
     .optional()
     .describe('Human‑friendly name for the *first* node of an alternative branch.'),
+
+  projectContext: z
+    .string()
+    .describe(
+      'Full path to the currently open directory in the code editor. Used to infer the project name from the last item in the path.',
+    ),
 
   tags: z
     .array(z.string())
@@ -77,7 +78,6 @@ export class ActorCriticEngine {
    *
    * The critic review is automatically triggered when:
    * 1. A certain number of steps have been taken (configured by CRITIC_EVERY_N_STEPS)
-   * 2. The actor indicates the thought doesn't need more work (needsMore=false)
    *
    * @param input The actor thought input
    * @returns Either the actor node (if no review was triggered) or the critic node (if review was triggered)

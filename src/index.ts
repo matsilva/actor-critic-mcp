@@ -43,20 +43,18 @@ async function main() {
   **Instructions**:
   1. **Call 'actor_think' for all actions**:
      - Planning, requirement capture, task breakdown, or coding steps.
-     - After creating or modifying files (include 'artifacts' and 'file-modification' tag).
-     - When completing a task (set 'needsMore=false' and include 'task-complete' tag).
+     - Use the 'projectContext' property to specify the full path to the currently open directory.
   2. **Always include at least one semantic tag** (e.g., 'requirement', 'task', 'file-modification', 'task-complete') to enable searchability and trigger appropriate reviews.
   3. **Iterative Workflow**:
      - File modifications or task completions automatically trigger critic reviews.
      - Use the critic's feedback (in 'criticNode') to refine your next thought.
-     - Continue calling 'actor_think' until 'needsMore' is false.
-  4. Tags and artifacts are critical for tracking decisions and avoiding duplicate work.
+  4. **Tags and artifacts are critical for tracking decisions and avoiding duplicate work**.
   
   **Example Workflow**:
-  - Step 1: Call 'actor_think' with thought: "Create main.ts with initial setup", artifacts: ['src/main.ts'], tags: ['file-modification'].
+  - Step 1: Call 'actor_think' with thought: "Create main.ts with initial setup", projectContext: "/path/to/project", artifacts: ['src/main.ts'], tags: ['file-modification'].
       - Response: Includes feedback from the critic
   - Step 2:  Make any necessary changes and call 'actor_think' again with the updated thought.
-  - Repeat until task is complete (needsMore=false).
+  - Repeat until the all work is completed.
   
   **Note**: Do not call 'critic_review' directly unless debugging; 'actor_think' manages reviews automatically.
   `;
@@ -86,7 +84,6 @@ async function main() {
    * NOTE: In most cases, you don't need to call this directly.
    * The actor_think function automatically triggers critic reviews when:
    * 1. A certain number of steps have been taken (configured by CRITIC_EVERY_N_STEPS)
-   * 2. The actor indicates the thought doesn't need more work (needsMore=false)
    *
    * This tool is primarily useful for:
    * - Manual intervention in the workflow

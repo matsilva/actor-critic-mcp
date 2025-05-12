@@ -101,7 +101,6 @@ export class Critic {
       children: [],
       tags: [],
       artifacts: [],
-      needsMore: false,
       createdAt: new Date().toISOString(),
     };
 

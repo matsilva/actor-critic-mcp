@@ -30,9 +30,9 @@ interface DagNode {
   target?: string; // nodeId this criticises
   parents: string[];
   children: string[];
-  needsMore?: boolean;
   createdAt: string; // ISO timestamp
   branchLabel?: string; // friendly label for branch head
+  projectContext: string;// full path to the currently open directory in the code editor
   tags?: string[]; // categories ("design", "task", etc.)
   artifacts?: ArtifactRef[]; // attached artifacts
 }

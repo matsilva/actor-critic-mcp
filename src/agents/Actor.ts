@@ -16,7 +16,8 @@ export class Actor {
   async think(
     input: ActorThinkInput & { artifacts?: Partial<ArtifactRef>[] },
   ): Promise<{ node: DagNode; decision: ThinkDecision }> {
-    const { thought, needsMore, branchLabel, tags, artifacts } = input;
+    const needsMore = false; //hardcoding this for pending removal of this logic flow
+    const { thought, branchLabel, tags, artifacts, projectContext } = input;
 
     const parents = this.kg.getHeads().map((h) => h.id);
 
@@ -26,11 +27,11 @@ export class Actor {
       role: 'actor',
       parents,
       children: [],
-      needsMore,
       createdAt: new Date().toISOString(),
       branchLabel,
       tags,
       artifacts: artifacts as ArtifactRef[],
+      projectContext, // Include the projectContext in the node
     };
 
     // Persist node & optional artefacts

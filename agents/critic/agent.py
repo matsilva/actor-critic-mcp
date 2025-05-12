@@ -28,9 +28,9 @@ interface DagNode {
   target?: string; // nodeId this criticises
   parents: string[];
   children: string[];
-  needsMore?: boolean;
   createdAt: string; // ISO timestamp
   branchLabel?: string; // friendly label for branch head
+  projectContext: string;// full path to the currently open directory in the code editor
   tags?: string[]; // categories ("design", "task", etc.)
   artifacts?: ArtifactRef[]; // attached artifacts
 }
@@ -42,6 +42,7 @@ The actor must follow these schema requirements:
 2. `tags`: Must include at least one semantic tag (requirement, task, risk, design, definition)
 3. `artifacts`: Must be included when files are referenced in the thought
 4. `branchLabel`: Should only be used for the first node of an alternative approach
+5. `projectContext`: Must be included to infer the project name from the last item in the path.
 
 ## Your Review Process
 When reviewing an actor node:
