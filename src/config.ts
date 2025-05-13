@@ -19,7 +19,12 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 // Project Configuration -------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-// Initialize or load current project configuration
+// IMPORTANT NOTE: This global currentProject setting is only used as a default/fallback value.
+// Each ProjectManager instance maintains its own project state to prevent issues with
+// multiple editor instances. The global state should NOT be relied upon directly.
+// Instead, always use ProjectManager.getCurrentProject() to get the current project.
+
+// Initialize or load current project configuration (used only as a default)
 let currentProject = 'default';
 try {
   if (fs.existsSync(projectConfigPath)) {

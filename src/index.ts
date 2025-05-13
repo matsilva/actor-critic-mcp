@@ -9,12 +9,17 @@ import { RevisionCounter } from './engine/RevisionCounter.ts';
 import { Actor } from './agents/Actor.ts';
 import { SummarizationAgent } from './agents/Summarize.ts';
 import { version as VERSION } from '../package.json';
+import { getInstance as getLogger } from './logger.ts';
 
 // -----------------------------------------------------------------------------
 // MCP Server -------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
 async function main() {
+  // Initialize logger
+  const logger = getLogger();
+  logger.info('Starting CodeLoops MCP server...');
+
   // Create ProjectManager first
   const projectManager = new ProjectManager();
 
@@ -209,7 +214,7 @@ async function main() {
       }
       const projects = projectManager.listProjects();
 
-      console.log(
+      logger.info(
         `[list_projects] Current project: ${current}, Available projects: ${projects.join(', ')}`,
       );
 
@@ -247,7 +252,7 @@ async function main() {
         .describe('Name of the project to switch to'),
     },
     async (a) => {
-      console.log(`[switch_project] Attempting to switch to project: ${a.projectName}`);
+      logger.info(`[switch_project] Attempting to switch to project: ${a.projectName}`);
 
       const result = await kg.switchProject(a.projectName);
 
@@ -282,7 +287,7 @@ async function main() {
         ),
     },
     async (a) => {
-      console.log(
+      logger.info(
         `[create_project] Attempting to create project from context: ${a.projectContext}`,
       );
 
@@ -333,10 +338,11 @@ async function main() {
   // ------------------------------------------------------------------
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.log('CodeLoops MCP server running on stdio');
+  logger.info('CodeLoops MCP server running on stdio');
 }
 
 main().catch((err) => {
-  console.error(err);
+  const logger = getLogger();
+  logger.error({ err }, 'Fatal error in main');
   process.exit(1);
 });

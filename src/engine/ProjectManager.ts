@@ -6,19 +6,26 @@ import path from 'node:path';
  * It manages project creation, switching, and validation.
  */
 export class ProjectManager {
+  // Track current project at the instance level instead of using global state
+  private instanceCurrentProject: string;
+
   /**
    * Creates a new ProjectManager instance.
+   * Initializes with the default project from config, but maintains its own state
+   * to prevent global state from persisting across different editor instances.
    */
   constructor() {
+    // Initialize with the global default, but will maintain separate instance state
+    this.instanceCurrentProject = CFG.CURRENT_PROJECT;
     console.log(`[ProjectManager] Initialized with current project: ${this.getCurrentProject()}`);
   }
 
   /**
-   * Get the name of the current active project
-   * @returns The current project name
+   * Get the name of the current active project for this instance
+   * @returns The current project name for this instance
    */
   getCurrentProject(): string {
-    return CFG.CURRENT_PROJECT;
+    return this.instanceCurrentProject;
   }
 
   /**
@@ -124,11 +131,14 @@ export class ProjectManager {
         return { success: false, message: `Project '${projectName}' does not exist` };
       }
 
-      // Switch to the new project in the configuration
+      // Update the global project configuration (for backward compatibility)
       const success = FileOps.setCurrentProjectFile(projectName);
       if (!success) {
         return { success: false, message: `Failed to switch to project: ${projectName}` };
       }
+      
+      // Update the instance-level current project
+      this.instanceCurrentProject = projectName;
 
       console.log(`[ProjectManager] Successfully switched to project: ${projectName}`);
       return { success: true, message: `Successfully switched to project: ${projectName}` };

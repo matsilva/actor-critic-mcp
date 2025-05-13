@@ -4,3 +4,5 @@ data/
 notes/drafts
 agents/**/fastagent.secrets.yaml
 agents/**/fastagent.config.yaml
+agents/**/fastagent.jsonl
+logs/*.log */
