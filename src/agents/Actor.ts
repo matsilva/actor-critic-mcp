@@ -19,6 +19,8 @@ export class Actor {
     const needsMore = false; //hardcoding this for pending removal of this logic flow
     const { thought, branchLabel, tags, artifacts, projectContext } = input;
 
+    await this.kg.switchProjectIfNeeded(projectContext);
+
     const parents = this.kg.getHeads().map((h) => h.id);
 
     const node: DagNode = {

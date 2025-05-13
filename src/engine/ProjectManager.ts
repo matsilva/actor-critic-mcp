@@ -1,4 +1,5 @@
 import { CFG, FileOps } from '../config.ts';
+import path from 'node:path';
 
 /**
  * ProjectManager handles project-related operations for the knowledge graph system.
@@ -74,6 +75,37 @@ export class ProjectManager {
   }
 
   /**
+   * Extracts the project name from a project context path
+   * The project name is the last segment of the path that meets validation criteria
+   *
+   * @param projectContext The full path to the project directory
+   * @returns The extracted project name or null if invalid
+   */
+  getProjectNameFromContext(projectContext: string): string | null {
+    if (!projectContext || typeof projectContext !== 'string' || projectContext.trim() === '') {
+      console.log(`[ProjectManager] Invalid project context: ${projectContext}`);
+      return null;
+    }
+
+    // Normalize path and extract the basename
+    const normalizedPath = path.normalize(projectContext);
+    const lastSegment = path.basename(normalizedPath);
+
+    // Clean and validate project name
+    const cleanedProjectName = lastSegment.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 50);
+
+    const validation = this.validateProjectName(cleanedProjectName);
+    if (!validation.valid) {
+      console.log(
+        `[ProjectManager] Invalid project name: ${cleanedProjectName}, error: ${validation.error}`,
+      );
+      return null;
+    }
+
+    return cleanedProjectName;
+  }
+
+  /**
    * Switch to a different knowledge graph project
    * @param projectName Name of the project to switch to
    * @returns Object with success status and message
@@ -140,4 +172,64 @@ export class ProjectManager {
       return { success: false, message: `Error creating project: ${errorMessage}` };
     }
   }
+
+  /**
+ * Switches to the project specified in the project context if needed
+ * If no project context is provided or the project doesn't exist, stays with the current project
+ * 
+ * IMPORTANT: This method ALWAYS forces a switch when projectContext is provided and valid,
+ * even if it appears to be the same as the current project. This ensures that each editor
+ * session gets its own proper project context and doesn't rely on the global state.
+ * 
+ * @param projectContext The full path to the project directory
+ * @returns Promise resolving to true if project was switched, false if no switch was needed
+ */
+async switchProjectIfNeeded(projectContext?: string): Promise<boolean> {
+  try {
+    if (!projectContext) {
+      console.log(`[ProjectManager] No project context provided, staying with current project: ${this.getCurrentProject()}`);
+      return false;
+    }
+    
+    // Extract project name from context
+    const projectName = this.getProjectNameFromContext(projectContext);
+    
+    // If extraction failed, stay with current project
+    if (!projectName) {
+      console.log(`[ProjectManager] Could not extract valid project name from context: ${projectContext}, staying with current project: ${this.getCurrentProject()}`);
+      return false;
+    }
+    
+    // IMPORTANT: We always force a switch when a valid projectContext is provided
+    // This ensures each editor session gets its own proper context and doesn't rely on global state
+    // We do this even if projectName === currentProject to ensure the file path is correctly set
+    
+    // Check if the project exists, create it if not
+    const projects = this.listProjects();
+    if (!projects.includes(projectName)) {
+      console.log(`[ProjectManager] Project from context doesn't exist, creating: ${projectName}`);
+      // Project doesn't exist, create it
+      const createResult = await this.createProject(projectName);
+      if (!createResult.success) {
+        console.log(`[ProjectManager] Failed to create project from context: ${projectName}, error: ${createResult.message}`);
+        return false;
+      }
+    }
+    
+    // Always switch to the project when context is provided
+    console.log(`[ProjectManager] Enforcing switch to project from context: ${projectName}`);
+    const result = await this.switchProject(projectName);
+    if (result.success) {
+      console.log(`[ProjectManager] Successfully switched to project: ${projectName}`);
+      return true;
+    } else {
+      console.log(`[ProjectManager] Failed to switch to project: ${projectName}, error: ${result.message}`);
+      return false;
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.log(`[ProjectManager] Error in switchProjectIfNeeded: ${errorMessage}`);
+    return false;
+  }
+}
 }

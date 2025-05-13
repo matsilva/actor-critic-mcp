@@ -83,6 +83,7 @@ export class ActorCriticEngine {
    * @returns Either the actor node (if no review was triggered) or the critic node (if review was triggered)
    */
   async actorThink(input: ActorThinkInput): Promise<DagNode> {
+    // Actor.think will handle project switching based on projectContext
     const { node, decision } = await this.actor.think(input);
 
     // Trigger summarization check after adding a new node

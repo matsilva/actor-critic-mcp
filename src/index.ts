@@ -187,31 +187,50 @@ async function main() {
     },
   );
 
-  /** list_projects – list all available knowledge graph projects */
-  server.tool('list_projects', {}, async () => {
-    const current = projectManager.getCurrentProject();
-    const projects = projectManager.listProjects();
+  /** list_projects – list all available knowledge graph projects, optionally using a projectContext */
+  server.tool(
+    'list_projects',
+    {
+      projectContext: z
+        .string()
+        .optional()
+        .describe(
+          'Optional full path to the project directory. If provided, the project name will be extracted and highlighted as current.',
+        ),
+    },
+    async (a) => {
+      let current = projectManager.getCurrentProject();
+      let selectedProject: string | null = null;
+      if (a.projectContext) {
+        selectedProject = projectManager.getProjectNameFromContext(a.projectContext);
+        if (selectedProject) {
+          current = selectedProject;
+        }
+      }
+      const projects = projectManager.listProjects();
 
-    console.log(
-      `[list_projects] Current project: ${current}, Available projects: ${projects.join(', ')}`,
-    );
+      console.log(
+        `[list_projects] Current project: ${current}, Available projects: ${projects.join(', ')}`,
+      );
 
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(
-            {
-              current,
-              projects,
-            },
-            null,
-            2,
-          ),
-        },
-      ],
-    };
-  });
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                current,
+                projects,
+                selectedProject: selectedProject || undefined,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    },
+  );
 
   /** switch_project – switch to a different knowledge graph project */
   server.tool(
@@ -251,24 +270,43 @@ async function main() {
     },
   );
 
-  /** create_project – create a new knowledge graph project */
+  /** create_project – create a new knowledge graph project by projectContext (directory path) */
   server.tool(
     'create_project',
     {
-      projectName: z
+      projectContext: z
         .string()
-        .min(1, 'Project name cannot be empty')
-        .max(50, 'Project name is too long (max 50 characters)')
-        .regex(
-          /^[a-zA-Z0-9_-]+$/,
-          'Project name can only contain letters, numbers, dashes, and underscores',
-        )
-        .describe('Name of the new project to create'),
+        .min(1, 'Project context (directory path) cannot be empty')
+        .describe(
+          'Full path to the currently open directory in the code editor. Used to infer the project name from the last item in the path.',
+        ),
     },
     async (a) => {
-      console.log(`[create_project] Attempting to create project: ${a.projectName}`);
+      console.log(
+        `[create_project] Attempting to create project from context: ${a.projectContext}`,
+      );
 
-      const result = await projectManager.createProject(a.projectName);
+      const projectName = projectManager.getProjectNameFromContext(a.projectContext);
+      if (!projectName) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  success: false,
+                  message: 'Invalid project context or could not extract a valid project name.',
+                  current: projectManager.getCurrentProject(),
+                  projects: projectManager.listProjects(),
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }
+      const result = await projectManager.createProject(projectName);
 
       return {
         content: [

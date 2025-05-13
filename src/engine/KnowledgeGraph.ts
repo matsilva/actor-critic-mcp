@@ -1,5 +1,4 @@
 import fs from 'node:fs/promises';
-import { v4 as uuid } from 'uuid';
 import { CFG } from '../config.ts';
 import { ProjectManager } from './ProjectManager.ts';
 import { ActorThinkInput, FileRef } from './ActorCriticEngine.ts';
@@ -94,6 +93,19 @@ export class KnowledgeGraphManager {
   getCurrentProject(): string {
     return this.projectManager.getCurrentProject();
   }
+  
+  /**
+   * Switches to the project specified in the project context if needed
+   * Delegates to ProjectManager's switchProjectIfNeeded method
+   * 
+   * @param projectContext The full path to the project directory
+   * @returns Promise resolving to true if project was switched, false if no switch was needed
+   */
+  async switchProjectIfNeeded(projectContext?: string): Promise<boolean> {
+    return await this.projectManager.switchProjectIfNeeded(projectContext);
+  }
+
+  /**
 
   /**
    * Switch to a different project and load its data

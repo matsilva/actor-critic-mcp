@@ -264,6 +264,7 @@ export class SummarizationAgent {
       parents: [nodes[nodes.length - 1].id], // Link to the newest node in the segment
       children: [],
       createdAt: new Date().toISOString(),
+      projectContext: nodes.find((node) => !!node.projectContext)?.projectContext ?? '',
       summarizedSegment: nodes.map((node) => node.id),
       tags: ['summary'],
       artifacts: [],
