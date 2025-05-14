@@ -1,6 +1,14 @@
 import pino, { Logger, LoggerOptions } from 'pino';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// -----------------------------------------------------------------------------
+// Path Configuration ----------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 let globalLogger: Logger | null = null;
 

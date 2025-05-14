@@ -1,6 +1,7 @@
 import { execa } from 'execa';
 import { to } from 'await-to-js';
 import path from 'node:path';
+import { getInstance as getLogger } from '../logger.ts';
 import { fileURLToPath } from 'node:url';
 import { v4 as uuid } from 'uuid';
 import { DagNode, KnowledgeGraphManager, SummaryNode } from '../engine/KnowledgeGraph.ts';
@@ -69,7 +70,7 @@ export class SummarizationAgent {
 
       // Handle execution errors
       if (execError) {
-        console.error('Summarization agent execution error:', execError);
+        getLogger().error({ execError }, 'Summarization agent execution error');
         return {
           summary: '',
           error: `Failed to execute summarization agent: ${execError.message}`,
@@ -78,7 +79,7 @@ export class SummarizationAgent {
 
       // Handle stderr output
       if (output.stderr) {
-        console.error('Summarization agent error:', output.stderr);
+        getLogger().error({ stderr: output.stderr }, 'Summarization agent error');
       }
 
       // Parse the response
@@ -138,7 +139,7 @@ export class SummarizationAgent {
     // Get the branch head
     const head = this.knowledgeGraph.getNode(branchId);
     if (!head) {
-      console.error(`[summarizeBranch] Branch not found: ${branchId}`);
+      getLogger().error(`[summarizeBranch] Branch not found: ${branchId}`);
       return {
         summary: null,
         success: false,
@@ -160,7 +161,7 @@ export class SummarizationAgent {
     branchNodes.reverse();
 
     // Log branch information for debugging
-    console.log(`[summarizeBranch] Branch ${branchId} has ${branchNodes.length} nodes`);
+    getLogger().info(`[summarizeBranch] Branch ${branchId} has ${branchNodes.length} nodes`);
 
     // Check if the branch has enough nodes to meet the summarization threshold
     if (branchNodes.length < SummarizationAgent.SUMMARIZATION_THRESHOLD) {
@@ -179,7 +180,7 @@ export class SummarizationAgent {
         node.role === 'summary' && node.summarizedSegment !== undefined,
     );
 
-    console.log(`[summarizeBranch] Branch has ${existingSummaries.length} existing summaries`);
+    getLogger().info(`[summarizeBranch] Branch has ${existingSummaries.length} existing summaries`);
 
     // Determine which nodes need to be summarized
     let nodesToSummarize: DagNode[] = [];
@@ -219,7 +220,7 @@ export class SummarizationAgent {
         success: true,
       };
     } catch (error) {
-      console.error(`[summarizeBranch] Error creating summary:`, error);
+      getLogger().error({ error }, `[summarizeBranch] Error creating summary:`);
       return {
         summary: null,
         success: false,
@@ -240,19 +241,19 @@ export class SummarizationAgent {
       throw new Error('Cannot create summary: No nodes provided');
     }
 
-    console.log(`[createSummary] Creating summary for ${nodes.length} nodes`);
+    getLogger().info(`[createSummary] Creating summary for ${nodes.length} nodes`);
 
     const result = await this.summarize(nodes);
 
     // Check for errors in the summarization result
     if (result.error) {
-      console.error(`[createSummary] Summarization agent error:`, result.error);
+      getLogger().error({ error: result.error }, `[createSummary] Summarization agent error:`);
       throw new Error(`Summarization failed: ${result.error}`);
     }
 
     // Validate the summary content
     if (!result.summary || result.summary.trim() === '') {
-      console.error(`[createSummary] Summarization agent returned empty summary`);
+      getLogger().error(`[createSummary] Summarization agent returned empty summary`);
       throw new Error('Summarization failed: Empty summary returned');
     }
 
@@ -270,7 +271,7 @@ export class SummarizationAgent {
       artifacts: [],
     };
 
-    console.log(`[createSummary] Created summary node with ID ${summaryNode.id}`);
+    getLogger().info(`[createSummary] Created summary node with ID ${summaryNode.id}`);
 
     // Persist the summary node
     this.knowledgeGraph.createEntity(summaryNode);

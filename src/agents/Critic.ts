@@ -3,6 +3,7 @@ import { to } from 'await-to-js';
 import { v4 as uuid } from 'uuid';
 import { KnowledgeGraphManager, DagNode } from '../engine/KnowledgeGraph.ts';
 import { RevisionCounter } from '../engine/RevisionCounter.ts';
+import { getInstance as getLogger } from '../logger.ts';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
@@ -81,7 +82,7 @@ export class Critic {
         verdict = json.verdict;
         reason = json.verdictReason;
       } catch (err) {
-        console.error('Failed to parse JSON from uv mcp-server-fetch:', err);
+        getLogger().error({ err }, 'Failed to parse JSON from uv mcp-server-fetch');
       }
     }
 

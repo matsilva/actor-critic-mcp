@@ -99,6 +99,36 @@ This feature helps prevent reinventing components with slightly different names 
 
 - [x] **Add verdictReason and verdictReferences Usage**
 
+---
+
+## Open Issues & Observations (from todos.md)
+
+- Projects current design only allows for one project at a time, basically one open coding editor... need to support multiple projects at once.
+- Did not correctly save my latest changes to the knowledge graph for the prismatic work for aka.
+- Had to feed it a diff....
+- Actor will say needsMore: true but then forget about codeloops and never come back to complete the plan via adding more thoughts.
+  - Just remove the ability to say needsMore: true and always provide critic feedback.
+  - The actor can just include more context in the thought to provide more information.
+- Actor did not collocate types, it redundantly separated types from hooks files... need an actor to enforce these type of preferences.
+- Actor used the tool initially but then...
+- Simplify summarize agent: remove summarize agent in favor of just using the actor agent to summarize by submitting a new thought to the critic.
+- branchLabel isn't currently adding any value or being used... remove it.
+- The actor said it had removed dead code file paths but it did not. The critic should have detected this and asked for revision.
+  - This can be done with a specialized context agent that uses the tree walker to compare the summary of changes to what was actually changed...
+  - It can also use a grep on the codebase to find any references to the dead code file paths and provide feedback to the actor.
+  - I think a reusable tree + grep agent would be useful for this that simply tries to find any references to the desired file paths or code. This can be used by duplicate detection agent and dead code agent.
+
+### Observations
+
+- 3.7 sonnet intuitively knows how to use codeloops iteratively
+
+### Knowledge Graph Workflow Ideas
+
+- Directory for each project
+- Should have current state file of knowledge graph
+- Should have append-only history of knowledge graph
+- Current state is always recomputed from history and saved anytime a change is made
+
   - Purpose: Provide context for why revision is needed
   - Implementation: Update `Critic.review()` method
   - Details:

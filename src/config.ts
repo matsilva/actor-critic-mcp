@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs';
+import { getInstance as getLogger } from './logger.ts';
 import { fileURLToPath } from 'node:url';
 
 // -----------------------------------------------------------------------------
@@ -34,7 +35,7 @@ try {
     fs.writeFileSync(projectConfigPath, JSON.stringify({ currentProject }, null, 2), 'utf8');
   }
 } catch (err) {
-  console.error('Error loading project configuration, using default:', err);
+  getLogger().error({ err }, 'Error loading project configuration, using default');
 }
 
 // -----------------------------------------------------------------------------
@@ -61,7 +62,7 @@ function listProjectFiles(): string[] {
       .filter((file) => file.startsWith('kg.') && file.endsWith('.json') && file !== 'kg.json')
       .map((file) => file.replace(/^kg\./, '').replace(/\.json$/, ''));
   } catch (err) {
-    console.error('Error listing project files:', err);
+    getLogger().error({ err }, 'Error listing project files');
     return [];
   }
 }
@@ -85,7 +86,7 @@ function createProjectFile(projectName: string): boolean {
 
     return true;
   } catch (err) {
-    console.error('Error creating project file:', err);
+    getLogger().error({ err }, 'Error creating project file');
     return false;
   }
 }
@@ -113,7 +114,7 @@ function setCurrentProjectFile(projectName: string): boolean {
 
     return true;
   } catch (err) {
-    console.error('Error setting current project file:', err);
+    getLogger().error({ err }, 'Error setting current project file');
     return false;
   }
 }
@@ -175,7 +176,7 @@ if (fs.existsSync(legacyMemoryFilePath)) {
       }
     }
   } catch (err) {
-    console.error('Error handling legacy file migration:', err);
+    getLogger().error({ err }, 'Error handling legacy file migration');
   }
 }
 

@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import { CFG } from '../config.ts';
+import { getInstance as getLogger } from '../logger.ts';
 import { ProjectManager } from './ProjectManager.ts';
 import { ActorThinkInput, FileRef } from './ActorCriticEngine.ts';
 
@@ -74,15 +75,13 @@ export class KnowledgeGraphManager {
       const json = JSON.parse(blob);
       this.entities = json.entities ?? {};
       this.relations = json.relations ?? [];
-      console.log(`[KnowledgeGraphManager] Initialized with file: ${this.filePath}`);
+      getLogger().info(`[KnowledgeGraphManager] Initialized with file: ${this.filePath}`);
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-        console.error(`[KnowledgeGraphManager] Error initializing from ${this.filePath}:`, err);
+        getLogger().error({ err }, `[KnowledgeGraphManager] Error initializing from ${this.filePath}:`);
         throw err;
       }
-      console.log(
-        `[KnowledgeGraphManager] No existing file found at ${this.filePath}, starting fresh`,
-      );
+      getLogger().info(`[KnowledgeGraphManager] No existing file found at ${this.filePath}, starting fresh`);
     }
   }
 
@@ -116,9 +115,7 @@ export class KnowledgeGraphManager {
     try {
       // First, flush any pending changes to the current project
       await this.flush();
-      console.log(
-        `[KnowledgeGraphManager] Flushed changes to current project: ${this.getCurrentProject()}`,
-      );
+      getLogger().info(`[KnowledgeGraphManager] Flushed changes to current project: ${this.getCurrentProject()}`);
 
       // Use the project manager to switch projects
       const result = await this.projectManager.switchProject(projectName);
@@ -126,10 +123,9 @@ export class KnowledgeGraphManager {
         return result;
       }
 
-      // Update the file path to the new project's file
-      const newFilePath = this.projectManager.getCurrentProjectPath();
-      console.log(`[KnowledgeGraphManager] Switching from ${this.filePath} to ${newFilePath}`);
-      this.filePath = newFilePath;
+      // Only update the file path after a successful project switch
+      this.filePath = this.projectManager.getCurrentProjectPath();
+      getLogger().info(`[KnowledgeGraphManager] Switched to new project. Now using file: ${this.filePath}`);
 
       // Clear current data
       this.entities = {};
@@ -143,10 +139,7 @@ export class KnowledgeGraphManager {
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(
-        `[KnowledgeGraphManager] Error switching to project ${projectName}:`,
-        errorMessage,
-      );
+      getLogger().error({ errorMessage }, `[KnowledgeGraphManager] Error switching to project ${projectName}:`);
       return { success: false, message: `Error switching to project: ${errorMessage}` };
     }
   }
@@ -161,7 +154,7 @@ export class KnowledgeGraphManager {
       );
       this.dirty = false;
     } catch (error) {
-      console.error(`[KnowledgeGraphManager] Error flushing to ${this.filePath}:`, error);
+      getLogger().error({ error }, `[KnowledgeGraphManager] Error flushing to ${this.filePath}:`);
       throw error;
     }
   }

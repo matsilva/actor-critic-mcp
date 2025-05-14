@@ -1,4 +1,5 @@
 import { CFG, FileOps } from '../config.ts';
+import { getInstance as getLogger } from '../logger.ts';
 import path from 'node:path';
 
 /**
@@ -17,7 +18,7 @@ export class ProjectManager {
   constructor() {
     // Initialize with the global default, but will maintain separate instance state
     this.instanceCurrentProject = CFG.CURRENT_PROJECT;
-    console.log(`[ProjectManager] Initialized with current project: ${this.getCurrentProject()}`);
+    getLogger().info(`[ProjectManager] Initialized with current project: ${this.getCurrentProject()}`);
   }
 
   /**
@@ -90,7 +91,7 @@ export class ProjectManager {
    */
   getProjectNameFromContext(projectContext: string): string | null {
     if (!projectContext || typeof projectContext !== 'string' || projectContext.trim() === '') {
-      console.log(`[ProjectManager] Invalid project context: ${projectContext}`);
+      getLogger().info(`[ProjectManager] Invalid project context: ${projectContext}`);
       return null;
     }
 
@@ -103,9 +104,7 @@ export class ProjectManager {
 
     const validation = this.validateProjectName(cleanedProjectName);
     if (!validation.valid) {
-      console.log(
-        `[ProjectManager] Invalid project name: ${cleanedProjectName}, error: ${validation.error}`,
-      );
+      getLogger().info(`[ProjectManager] Invalid project name: ${cleanedProjectName}, error: ${validation.error}`);
       return null;
     }
 
@@ -140,11 +139,11 @@ export class ProjectManager {
       // Update the instance-level current project
       this.instanceCurrentProject = projectName;
 
-      console.log(`[ProjectManager] Successfully switched to project: ${projectName}`);
+      getLogger().info(`[ProjectManager] Successfully switched to project: ${projectName}`);
       return { success: true, message: `Successfully switched to project: ${projectName}` };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[ProjectManager] Error switching to project ${projectName}:`, errorMessage);
+      getLogger().error({ errorMessage }, `[ProjectManager] Error switching to project ${projectName}:`);
       return { success: false, message: `Error switching to project: ${errorMessage}` };
     }
   }
@@ -174,11 +173,11 @@ export class ProjectManager {
         return { success: false, message: `Failed to create project: ${projectName}` };
       }
 
-      console.log(`[ProjectManager] Successfully created project: ${projectName}`);
+      getLogger().info(`[ProjectManager] Successfully created project: ${projectName}`);
       return { success: true, message: `Successfully created project: ${projectName}` };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[ProjectManager] Error creating project ${projectName}:`, errorMessage);
+      getLogger().error({ errorMessage }, `[ProjectManager] Error creating project ${projectName}:`);
       return { success: false, message: `Error creating project: ${errorMessage}` };
     }
   }
@@ -197,7 +196,7 @@ export class ProjectManager {
 async switchProjectIfNeeded(projectContext?: string): Promise<boolean> {
   try {
     if (!projectContext) {
-      console.log(`[ProjectManager] No project context provided, staying with current project: ${this.getCurrentProject()}`);
+      getLogger().info(`[ProjectManager] No project context provided, staying with current project: ${this.getCurrentProject()}`);
       return false;
     }
     
@@ -206,7 +205,7 @@ async switchProjectIfNeeded(projectContext?: string): Promise<boolean> {
     
     // If extraction failed, stay with current project
     if (!projectName) {
-      console.log(`[ProjectManager] Could not extract valid project name from context: ${projectContext}, staying with current project: ${this.getCurrentProject()}`);
+      getLogger().info(`[ProjectManager] Could not extract valid project name from context: ${projectContext}, staying with current project: ${this.getCurrentProject()}`);
       return false;
     }
     
@@ -217,28 +216,28 @@ async switchProjectIfNeeded(projectContext?: string): Promise<boolean> {
     // Check if the project exists, create it if not
     const projects = this.listProjects();
     if (!projects.includes(projectName)) {
-      console.log(`[ProjectManager] Project from context doesn't exist, creating: ${projectName}`);
+      getLogger().info(`[ProjectManager] Project from context doesn't exist, creating: ${projectName}`);
       // Project doesn't exist, create it
       const createResult = await this.createProject(projectName);
       if (!createResult.success) {
-        console.log(`[ProjectManager] Failed to create project from context: ${projectName}, error: ${createResult.message}`);
+        getLogger().info(`[ProjectManager] Failed to create project from context: ${projectName}, error: ${createResult.message}`);
         return false;
       }
     }
     
     // Always switch to the project when context is provided
-    console.log(`[ProjectManager] Enforcing switch to project from context: ${projectName}`);
+    getLogger().info(`[ProjectManager] Enforcing switch to project from context: ${projectName}`);
     const result = await this.switchProject(projectName);
     if (result.success) {
-      console.log(`[ProjectManager] Successfully switched to project: ${projectName}`);
+      getLogger().info(`[ProjectManager] Successfully switched to project: ${projectName}`);
       return true;
     } else {
-      console.log(`[ProjectManager] Failed to switch to project: ${projectName}, error: ${result.message}`);
+      getLogger().info(`[ProjectManager] Failed to switch to project: ${projectName}, error: ${result.message}`);
       return false;
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.log(`[ProjectManager] Error in switchProjectIfNeeded: ${errorMessage}`);
+    getLogger().info(`[ProjectManager] Error in switchProjectIfNeeded: ${errorMessage}`);
     return false;
   }
 }

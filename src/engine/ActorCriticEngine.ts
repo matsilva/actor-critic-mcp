@@ -1,6 +1,7 @@
 import { Critic } from '../agents/Critic.ts';
 import { Actor } from '../agents/Actor.ts';
 import { KnowledgeGraphManager, ArtifactRef, DagNode } from './KnowledgeGraph.ts';
+import { getInstance as getLogger } from '../logger.ts';
 import { SummarizationAgent } from '../agents/Summarize.ts';
 import { z } from 'zod';
 // -----------------------------------------------------------------------------
@@ -128,11 +129,9 @@ export class ActorCriticEngine {
 
     // Log the result for debugging
     if (!result.success) {
-      console.log(
-        `[summarizeBranch] Summarization failed: ${result.errorCode} - ${result.errorMessage}`,
-      );
+      getLogger().info(`[summarizeBranch] Summarization failed: ${result.errorCode} - ${result.errorMessage}`);
       if (result.details) {
-        console.log(`[summarizeBranch] Details: ${result.details}`);
+        getLogger().info(`[summarizeBranch] Details: ${result.details}`);
       }
     }
 

@@ -162,7 +162,7 @@ async function main() {
                           depth: targetBranch.depth,
                         }
                       : null,
-                    tip: 'Check console logs for detailed error information.',
+                    tip: 'Check logs for detailed error information.',
                   },
                   null,
                   2,
@@ -172,7 +172,8 @@ async function main() {
           };
         }
       } catch (error) {
-        console.error(`[summarize_branch] Error:`, error);
+        const logger = getLogger();
+        logger.error({ error }, '[summarize_branch] Error:');
         return {
           content: [
             {
