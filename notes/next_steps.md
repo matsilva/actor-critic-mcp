@@ -1,200 +1,66 @@
-### Current State
+CodeLoops Development Roadmap
+Overview
+CodeLoops is a framework for building reliable software using collaborative AI agents and a knowledge graph. This roadmap outlines prioritized tasks, critical issues, and key insights to enhance agent collaboration, codebase quality, and system scalability.
+Next Steps
 
-- [x] MCP
-  - [x] ActorCriticEngine
-    - [x] Critic wrapper
-    - [x] Actor wrapper
-    - [x] RevisionCounter
-    - [x] KnowledgeGraphManager
-  - [x] MCP Server (stdio)
-  - [x] MCP Tools
-    - [x] actor_think
-    - [x] critic_review
-    - [x] list_branches
-    - [x] summarize_branch
-    - [x] resume
-    - [x] export_plan
-- [x] Agents
-  - [x] Actor
-  - [x] Critic
-  - [x] Summarization
+1. Enhance Critic Agent
+   Improve feedback to prevent redundant work.
 
-### Next Steps
+Duplicate Detection
+Purpose: Flag similar components proposed by Actor
+Implementation: Update Critic.review() with fuzzy matching
+Details: Set verdict = needs_revision for duplicates, include verdictReferences to original nodes
 
-## 1. Implement Active Retrieval Tools
+2. Streamline Codebase Maintenance
+   Ensure a clean, consistent codebase through automated cleanup.
 
-These tools are essential for addressing the temporal difference problem by allowing agents to retrieve specific information from the knowledge graph.
+Code Consistency Agent
+Purpose: Detect and remove unused/duplicated code
+Implementation: Develop a tool/agent combining decision tree walking and tidy functionality
+Details:
+Compare knowledge graph to git diffs
+Verify Actor summaries against actual changes
+Suggest cleanup actions
 
-- [ ] **search_plan Tool**
+3. Optimize Knowledge Graph Persistence
+   Enhance scalability and query efficiency.
 
-  - Input: `{ text: string, tag?: string }`
-  - Purpose: Keyword/semantic search over all DagNodes
-  - Implementation: Add to `src/index.ts` as an MCP tool
-  - Details:
-    - Start with simple `includes()` search over thought strings
-    - Add tag filtering capability
-    - Return top-K hits with id, thought, and tags
-    - Consider adding vector embedding search in future iterations
+NDJSON Streaming
+Purpose: Support large-scale graph analysis
+Implementation: Rework KnowledgeGraphManager for NDJSON/streaming APIs
+Details: Reduce memory load by enabling incremental data access
 
-- [ ] **get_node Tool**
+4. Standardize Agent Guidelines
+   Improve agent efficiency and memory usage.
 
-  - Input: `{ nodeId: string }`
-  - Purpose: Fetch a single node and its artifact references
-  - Implementation: Add to `src/index.ts` as an MCP tool
-  - Details:
-    - Leverage existing `KnowledgeGraphManager.getNode()` method
-    - Enhance to include artifact references
+Prompt Framework
+Purpose: Guide agents in consistent memory and tool usage
+Implementation: Create src/prompts/agent_guidelines.ts and update system prompts
+Details:
+Define memory hygiene and retrieval routines
+Provide examples for search-before-implement and tag-after-write
 
-- [ ] **get_artifact Tool**
-  - Input: `{ artifactId: string }`
-  - Purpose: Stream attached file or link metadata
-  - Implementation: Add to `src/index.ts` as an MCP tool
-  - Details:
-    - Create method to retrieve artifact by ID
-    - Return metadata and content if available
+Open Issues
+Agent Behavior and Feedback
 
-## 2. Implement Automatic Summarization
+Incomplete Plans: Actor fails to revisit tasks after setting needsMore: true. Remove needsMore and enforce Critic feedback with full context in thoughts.
+Code Organization: Actor separates types from hooks files redundantly. Implement an agent to enforce collocation.
+Verification Gaps: Actor claims to remove dead code but doesn’t. Enhance Critic to detect discrepancies using a context agent with tree walker and grep.
 
-This feature helps maintain high-level understanding as context scrolls out of the LLM's token window.
+System Limitations
 
-- [x] **Create Summarization Agent**
+Single Project Support: Design limits to one active project. Add multi-project functionality.
+Unused Features: branchLabel adds no value. Remove it.
+Summarization Redundancy: Replace standalone summarization agent with Actor-driven summary thoughts submitted to Critic.
 
-  - Implementation: Standalone agent using fastagent
-  - Location: Create `src/agents/summarize_agent.ts`
-  - Details:
-    - Use fastagent for efficient summary tasks
-    - Implement as callable via exec: `exec('uv run agent.py --agent default --message "Summarize this segment"')`
-    - Define interface for integration with MCP
+Persistence Challenges
 
-- [ ] **Implement Rolling Summaries**
+Data Loss: Recent changes (e.g., prismatic work) not saved, requiring manual diffs. Improve knowledge graph reliability.
+Scalability: Current graph format loads fully into memory. Transition to NDJSON for better querying.
 
-  - Purpose: After N nodes, summarize oldest segment
-  - Implementation: Enhance `KnowledgeGraphManager`
-  - Details:
-    - Add method to chunk oldest segments
-    - Call summarization agent
-    - Store summary as observation linked to branch
-    - Modify `resume` to include summaries when needed
+Key Insights
 
-- [ ] **Implement Tagged Glossaries**
-  - Purpose: Tag definition nodes for easy retrieval
-  - Implementation: Enhance `Actor.think()` method
-  - Details:
-    - Add special handling for nodes tagged with "definition"
-    - Ensure these are easily searchable via `search_plan`
-
-## 3. Enhance Critic with Duplicate Detection
-
-This feature helps prevent reinventing components with slightly different names or structures.
-
-- [ ] **Implement Critic-side Duplicate Detection**
-
-  - Purpose: Detect when an actor proposes a component similar to an existing one
-  - Implementation: Enhance `Critic.review()` method
-  - Details:
-    - Scan graph for nodes with similar tags/names
-    - Implement fuzzy matching for component names
-    - Set `verdict = needs_revision` when duplicates found
-    - Add references to original components
-
-- [x] **Add verdictReason and verdictReferences Usage**
-
----
-
-## Open Issues & Observations (from todos.md)
-
-- Projects current design only allows for one project at a time, basically one open coding editor... need to support multiple projects at once.
-- Did not correctly save my latest changes to the knowledge graph for the prismatic work for aka.
-- Had to feed it a diff....
-- Actor will say needsMore: true but then forget about codeloops and never come back to complete the plan via adding more thoughts.
-  - Just remove the ability to say needsMore: true and always provide critic feedback.
-  - The actor can just include more context in the thought to provide more information.
-- Actor did not collocate types, it redundantly separated types from hooks files... need an actor to enforce these type of preferences.
-- Actor used the tool initially but then...
-- Simplify summarize agent: remove summarize agent in favor of just using the actor agent to summarize by submitting a new thought to the critic.
-- branchLabel isn't currently adding any value or being used... remove it.
-- The actor said it had removed dead code file paths but it did not. The critic should have detected this and asked for revision.
-  - This can be done with a specialized context agent that uses the tree walker to compare the summary of changes to what was actually changed...
-  - It can also use a grep on the codebase to find any references to the dead code file paths and provide feedback to the actor.
-  - I think a reusable tree + grep agent would be useful for this that simply tries to find any references to the desired file paths or code. This can be used by duplicate detection agent and dead code agent.
-
-### Observations
-
-- 3.7 sonnet intuitively knows how to use codeloops iteratively
-
-### Knowledge Graph Workflow Ideas
-
-- Directory for each project
-- Should have current state file of knowledge graph
-- Should have append-only history of knowledge graph
-- Current state is always recomputed from history and saved anytime a change is made
-
-  - Purpose: Provide context for why revision is needed
-  - Implementation: Update `Critic.review()` method
-  - Details:
-    - Populate `verdictReason` with explanation
-    - Add `verdictReferences` with nodeIds of similar components
-    - Update critic node thought to include reason
-
-- [x] **Consider Standalone Critic Agent**
-  - Purpose: More advanced duplicate detection and analysis
-  - Implementation: Create `src/agents/critic_agent.ts`
-  - Details:
-    - Implement as callable via exec
-    - Integrate with main MCP
-
-## 4. Implement Duplicate/Dead Code Cleanup
-
-This feature ensures the final codebase is clean and consistent.
-
-- [ ] **Implement Decision Tree Walker**
-  - Purpose: Walk the decision tree and compare to diffs
-  - Implementation: Add new tool or agent
-  - Details:
-    - Compare knowledge graph to actual code changes
-    - Identify unused or duplicated code
-    - Suggest cleanup actions
-
-## 5. Improve Agent Usage Guidelines
-
-This ensures agents make effective use of the memory system.
-
-- [ ] **Create Agent Prompt Templates**
-
-  - Purpose: Guide agents in using memory effectively
-  - Implementation: Create `src/prompts/agent_guidelines.ts`
-  - Details:
-    - Include best practices for memory hygiene
-    - Specify retrieval routines (search before implementing, tag after writing)
-    - Add examples of effective memory usage
-
-- [ ] **Update System Prompts**
-  - Purpose: Incorporate memory guidelines into agent prompts
-  - Implementation: Update agent initialization
-  - Details:
-    - Add memory hygiene section to system prompts
-    - Include specific instructions for using retrieval tools
-
-## 6. Additional Enhancements
-
-- [x] **Implement projects**
-
-  - Purpose: Organize knowledge graphs(kg) by projects
-  - Implementation: Add project management tools
-  - Details:
-    - ability to create and switch between kg projects
-
-- [ ] **Implement tidy agent**
-
-  - Purpose: Clean up codebase based on knowledge graph
-  - Implementation: Add new agent or tool
-  - Details:
-    - Compare knowledge graph to actual code changes (can have actor list final files in summary and compare to files from the git diff)
-    - Identify unused or duplicated code
-    - Suggest cleanup actions
-
-- [ ] **Implement ndjson for knowledgegraph persistence**
-
-  - Purpose: easy analysis and querying
-  - Motivation: as the knowledge graph grows, it becomes more difficult to analyze and query the data in its current format, since it all needs to be loaded into memory.
-  - Implementation: Rework knowledgegraph apis to use ndjson/streaming as needed
+Model Compatibility: Claude 3.7 Sonnet iteratively uses CodeLoops effectively, suggesting strong potential for advanced LLM integration.
+Workflow Optimization:
+Store projects in dedicated directories with current state and append-only history files.
+Recompute and save graph state after changes to ensure consistency.

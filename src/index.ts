@@ -3,13 +3,13 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { ActorCriticEngine, ActorThinkSchema } from './engine/ActorCriticEngine.ts';
 import { KnowledgeGraphManager } from './engine/KnowledgeGraph.ts';
-import { ProjectManager } from './engine/ProjectManager.ts';
-import { Critic, CriticSchema } from './agents/Critic.ts';
+import { Critic } from './agents/Critic.ts';
 import { RevisionCounter } from './engine/RevisionCounter.ts';
 import { Actor } from './agents/Actor.ts';
 import { SummarizationAgent } from './agents/Summarize.ts';
 import { version as VERSION } from '../package.json';
 import { getInstance as getLogger } from './logger.ts';
+import { extractProjectName } from './utils/projectUtils.ts';
 
 // -----------------------------------------------------------------------------
 // MCP Server -------------------------------------------------------------------
@@ -20,11 +20,8 @@ async function main() {
   const logger = getLogger();
   logger.info('Starting CodeLoops MCP server...');
 
-  // Create ProjectManager first
-  const projectManager = new ProjectManager();
-
-  // Create KnowledgeGraphManager with ProjectManager
-  const kg = new KnowledgeGraphManager(projectManager);
+  // Create KnowledgeGraphManager
+  const kg = new KnowledgeGraphManager();
   await kg.init();
 
   // Create SummarizationAgent with KnowledgeGraphManager
@@ -86,49 +83,90 @@ async function main() {
   /**
    * critic_review – manually evaluates an actor node.
    *
-   * NOTE: In most cases, you don't need to call this directly.
-   * The actor_think function automatically triggers critic reviews when:
-   * 1. A certain number of steps have been taken (configured by CRITIC_EVERY_N_STEPS)
-   *
-   * This tool is primarily useful for:
-   * - Manual intervention in the workflow
-   * - Forcing a review of a specific previous node
-   * - Debugging or testing purposes
    */
-  server.tool('critic_review', CriticSchema, async (a) => ({
-    content: [
-      { type: 'text', text: JSON.stringify(await engine.criticReview(a.actorNodeId), null, 2) },
-    ],
-  }));
+  server.tool(
+    'critic_review',
+    {
+      actorNodeId: z.string().describe('ID of the actor node to critique.'),
+      projectContext: z.string().describe('Full path to the project directory.'),
+    },
+    async (a) => ({
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(await engine.criticReview(a.actorNodeId, a.projectContext), null, 2),
+        },
+      ],
+    }),
+  );
 
   /** list_branches – quick overview for navigation */
-  server.tool('list_branches', {}, async () => ({
-    content: [{ type: 'text', text: JSON.stringify(kg.listBranches(), null, 2) }],
-  }));
+  server.tool(
+    'list_branches',
+    { projectContext: z.string().describe('Full path to the project directory.') },
+    async (a) => {
+      const projectName = extractProjectName(a.projectContext);
+      if (!projectName) {
+        throw new Error('Invalid projectContext');
+      }
+      return {
+        content: [{ type: 'text', text: JSON.stringify(kg.listBranches(projectName), null, 2) }],
+      };
+    },
+  );
 
   /** resume – fetch WINDOW‑sized recent context for a branch */
-  server.tool('resume', { branchId: z.string().describe('Branch id OR label') }, async (a) => ({
-    content: [{ type: 'text', text: kg.resume(a.branchId) }],
-  }));
+  server.tool(
+    'resume',
+    {
+      projectContext: z.string().describe('Full path to the project directory.'),
+      branchId: z.string().describe('Branch id OR label'),
+    },
+    async (a) => {
+      const projectName = extractProjectName(a.projectContext);
+      if (!projectName) {
+        throw new Error('Invalid projectContext');
+      }
+      return {
+        content: [{ type: 'text', text: kg.resume(a.branchId, projectName) }],
+      };
+    },
+  );
 
   /** export_plan – dump the current graph, optionally filtered by tag */
   server.tool(
     'export_plan',
-    { filterTag: z.string().optional().describe('Return only nodes containing this tag.') },
-    async (a) => ({
-      content: [{ type: 'text', text: JSON.stringify(kg.exportPlan(a.filterTag), null, 2) }],
-    }),
+    {
+      projectContext: z.string().describe('Full path to the project directory.'),
+      filterTag: z.string().optional().describe('Return only nodes containing this tag.'),
+    },
+    async (a) => {
+      const projectName = extractProjectName(a.projectContext);
+      if (!projectName) {
+        throw new Error('Invalid projectContext');
+      }
+      return {
+        content: [
+          { type: 'text', text: JSON.stringify(kg.exportPlan(projectName, a.filterTag), null, 2) },
+        ],
+      };
+    },
   );
 
   /** summarize_branch – generate a summary for a specific branch */
   server.tool(
     'summarize_branch',
     {
+      projectContext: z.string().describe('Full path to the project directory.'),
       branchId: z.string().describe('Branch id OR label'),
     },
     async (args) => {
+      const projectName = extractProjectName(args.projectContext);
+      if (!projectName) {
+        throw new Error('Invalid projectContext');
+      }
       try {
-        const summary = await engine.summarizeBranch(args.branchId);
+        const summary = await engine.summarizeBranch(args.branchId, projectName);
 
         if (summary) {
           return {
@@ -141,7 +179,7 @@ async function main() {
           };
         } else {
           // If summarization failed, get the branch information to provide context
-          const branches = kg.listBranches();
+          const branches = kg.listBranches(projectName);
           const targetBranch = branches.find(
             (b) => b.branchId === args.branchId || b.head.branchLabel === args.branchId,
           );
@@ -193,7 +231,7 @@ async function main() {
     },
   );
 
-  /** list_projects – list all available knowledge graph projects, optionally using a projectContext */
+  /** list_projects – list all available knowledge graph projects */
   server.tool(
     'list_projects',
     {
@@ -205,18 +243,18 @@ async function main() {
         ),
     },
     async (a) => {
-      let current = projectManager.getCurrentProject();
       let selectedProject: string | null = null;
       if (a.projectContext) {
-        selectedProject = projectManager.getProjectNameFromContext(a.projectContext);
-        if (selectedProject) {
-          current = selectedProject;
+        const projectName = extractProjectName(a.projectContext);
+        if (!projectName) {
+          throw new Error('Invalid projectContext');
         }
+        selectedProject = projectName;
       }
-      const projects = projectManager.listProjects();
+      const projects = await kg.listProjects();
 
       logger.info(
-        `[list_projects] Current project: ${current}, Available projects: ${projects.join(', ')}`,
+        `[list_projects] Current project: ${selectedProject}, Available projects: ${projects.join(', ')}`,
       );
 
       return {
@@ -225,105 +263,8 @@ async function main() {
             type: 'text',
             text: JSON.stringify(
               {
-                current,
+                selectedProject,
                 projects,
-                selectedProject: selectedProject || undefined,
-              },
-              null,
-              2,
-            ),
-          },
-        ],
-      };
-    },
-  );
-
-  /** switch_project – switch to a different knowledge graph project */
-  server.tool(
-    'switch_project',
-    {
-      projectName: z
-        .string()
-        .min(1, 'Project name cannot be empty')
-        .max(50, 'Project name is too long (max 50 characters)')
-        .regex(
-          /^[a-zA-Z0-9_-]+$/,
-          'Project name can only contain letters, numbers, dashes, and underscores',
-        )
-        .describe('Name of the project to switch to'),
-    },
-    async (a) => {
-      logger.info(`[switch_project] Attempting to switch to project: ${a.projectName}`);
-
-      const result = await kg.switchProject(a.projectName);
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(
-              {
-                success: result.success,
-                message: result.message,
-                current: projectManager.getCurrentProject(),
-              },
-              null,
-              2,
-            ),
-          },
-        ],
-      };
-    },
-  );
-
-  /** create_project – create a new knowledge graph project by projectContext (directory path) */
-  server.tool(
-    'create_project',
-    {
-      projectContext: z
-        .string()
-        .min(1, 'Project context (directory path) cannot be empty')
-        .describe(
-          'Full path to the currently open directory in the code editor. Used to infer the project name from the last item in the path.',
-        ),
-    },
-    async (a) => {
-      logger.info(
-        `[create_project] Attempting to create project from context: ${a.projectContext}`,
-      );
-
-      const projectName = projectManager.getProjectNameFromContext(a.projectContext);
-      if (!projectName) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(
-                {
-                  success: false,
-                  message: 'Invalid project context or could not extract a valid project name.',
-                  current: projectManager.getCurrentProject(),
-                  projects: projectManager.listProjects(),
-                },
-                null,
-                2,
-              ),
-            },
-          ],
-        };
-      }
-      const result = await projectManager.createProject(projectName);
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(
-              {
-                success: result.success,
-                message: result.message,
-                current: projectManager.getCurrentProject(),
-                projects: projectManager.listProjects(),
               },
               null,
               2,

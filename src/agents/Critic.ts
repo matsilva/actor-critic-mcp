@@ -5,6 +5,7 @@ import { KnowledgeGraphManager, DagNode } from '../engine/KnowledgeGraph.ts';
 import { RevisionCounter } from '../engine/RevisionCounter.ts';
 import { getInstance as getLogger } from '../logger.ts';
 import path from 'node:path';
+import { extractProjectName } from '../utils/projectUtils.ts';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
@@ -46,8 +47,16 @@ export class Critic {
     private readonly kg: KnowledgeGraphManager,
     private readonly revisionCounter: RevisionCounter,
   ) {}
-  async review(actorNodeId: string): Promise<DagNode> {
-    const target = this.kg.getNode(actorNodeId);
+  
+  // Use the centralized extractProjectName function from utils
+  async review(actorNodeId: string, projectContext: string): Promise<DagNode> {
+    // Extract project name from context
+    const projectName = extractProjectName(projectContext);
+    if (!projectName) {
+      throw new Error('Invalid projectContext');
+    }
+    
+    const target = this.kg.getNode(actorNodeId, projectName);
     if (!target || (target as DagNode).role !== 'actor')
       throw new Error('invalid target for critic');
 
@@ -88,6 +97,7 @@ export class Critic {
 
     const criticNode: DagNode = {
       id: uuid(),
+      project: '', // Will be set by appendEntity
       thought:
         verdict === 'approved'
           ? '✔ Approved'
@@ -102,14 +112,19 @@ export class Critic {
       children: [],
       tags: [],
       artifacts: [],
-      createdAt: new Date().toISOString(),
+      createdAt: '', // Will be set by appendEntity
+      projectContext, // Include the projectContext in the node
     };
 
-    const relType =
-      verdict === 'approved' ? 'approves' : verdict === 'needs_revision' ? 'criticises' : 'rejects';
-    this.kg.createEntity(criticNode);
-    this.kg.createRelation(actorNodeId, criticNode.id, relType);
-    await this.kg.flush();
+    // Update the target node's children to include this critic node
+    if (target && !target.children.includes(criticNode.id)) {
+      target.children.push(criticNode.id);
+      // Update the target node in the knowledge graph
+      await this.kg.appendEntity(target, projectContext);
+    }
+
+    // Persist the critic node
+    await this.kg.appendEntity(criticNode, projectContext);
 
     if (verdict === 'needs_revision') this.revisionCounter.increment(actorNodeId);
     else this.revisionCounter.delete(actorNodeId);

@@ -4,6 +4,8 @@ import { KnowledgeGraphManager, ArtifactRef, DagNode } from './KnowledgeGraph.ts
 import { getInstance as getLogger } from '../logger.ts';
 import { SummarizationAgent } from '../agents/Summarize.ts';
 import { z } from 'zod';
+import path from 'node:path';
+import { extractProjectName } from '../utils/projectUtils.ts';
 // -----------------------------------------------------------------------------
 // Actor–Critic engine ----------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -72,6 +74,8 @@ export class ActorCriticEngine {
     private readonly actor: Actor,
     private readonly summarizationAgent: SummarizationAgent,
   ) {}
+  
+  // Use the centralized extractProjectName function from utils
   /* --------------------------- public API --------------------------- */
   /**
    * Adds a new thought node to the knowledge graph and automatically triggers
@@ -84,13 +88,21 @@ export class ActorCriticEngine {
    * @returns Either the actor node (if no review was triggered) or the critic node (if review was triggered)
    */
   async actorThink(input: ActorThinkInput): Promise<DagNode> {
+    if (!input.projectContext) {
+      throw new Error('projectContext is required for actorThink');
+    }
+    
     // Actor.think will handle project switching based on projectContext
     const { node, decision } = await this.actor.think(input);
 
     // Trigger summarization check after adding a new node
-    await this.summarizationAgent.checkAndTriggerSummarization();
+    // Extract project name from context
+    const projectName = extractProjectName(input.projectContext);
+    if (projectName) {
+      await this.summarizationAgent.checkAndTriggerSummarization(projectName);
+    }
 
-    if (decision === Actor.THINK_DECISION.NEEDS_REVIEW) return await this.criticReview(node.id);
+    if (decision === Actor.THINK_DECISION.NEEDS_REVIEW) return await this.criticReview(node.id, input.projectContext);
     return node;
   }
 
@@ -106,13 +118,18 @@ export class ActorCriticEngine {
    * - Debugging or testing purposes
    *
    * @param actorNodeId The ID of the actor node to review
+   * @param projectContext The project context for the review
    * @returns The critic node
    */
-  async criticReview(actorNodeId: string): Promise<DagNode> {
-    const criticNode = await this.critic.review(actorNodeId);
+  async criticReview(actorNodeId: string, projectContext: string): Promise<DagNode> {
+    const criticNode = await this.critic.review(actorNodeId, projectContext);
 
     // Trigger summarization check after adding a critic node
-    await this.summarizationAgent.checkAndTriggerSummarization();
+    // Extract project name from context
+    const projectName = extractProjectName(projectContext);
+    if (projectName) {
+      await this.summarizationAgent.checkAndTriggerSummarization(projectName);
+    }
 
     return criticNode;
   }
@@ -123,9 +140,14 @@ export class ActorCriticEngine {
    * @param branchIdOrLabel Branch ID or label
    * @returns The summary node if successful, or null with error information if unsuccessful
    */
-  async summarizeBranch(branchIdOrLabel: string): Promise<DagNode | null> {
+  async summarizeBranch(branchIdOrLabel: string, projectContext: string): Promise<DagNode | null> {
+    const projectName = extractProjectName(projectContext);
+    if (!projectName) {
+      throw new Error('Invalid projectContext');
+    }
+    
     const branchId = this.kg.labelIndex.get(branchIdOrLabel) ?? branchIdOrLabel;
-    const result = await this.summarizationAgent.summarizeBranch(branchId);
+    const result = await this.summarizationAgent.summarizeBranch(branchId, projectName);
 
     // Log the result for debugging
     if (!result.success) {

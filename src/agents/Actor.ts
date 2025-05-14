@@ -2,6 +2,7 @@ import { v4 as uuid } from 'uuid';
 import { KnowledgeGraphManager, ArtifactRef, DagNode } from '../engine/KnowledgeGraph.ts';
 import { CFG } from '../config.ts';
 import { ActorThinkInput } from '../engine/ActorCriticEngine.ts';
+import { extractProjectName } from '../utils/projectUtils.ts';
 
 export type ThinkDecision = (typeof Actor.THINK_DECISION)[keyof typeof Actor.THINK_DECISION];
 
@@ -19,39 +20,53 @@ export class Actor {
     const needsMore = false; //hardcoding this for pending removal of this logic flow
     const { thought, branchLabel, tags, artifacts, projectContext } = input;
 
-    await this.kg.switchProjectIfNeeded(projectContext);
+    if (!projectContext) {
+      throw new Error('projectContext is required');
+    }
 
-    const parents = this.kg.getHeads().map((h) => h.id);
+    const projectName = extractProjectName(projectContext);
+    if (!projectName) {
+      throw new Error('Invalid projectContext');
+    }
+
+    const parents = this.kg.getHeads(projectName).map((h) => h.id);
 
     const node: DagNode = {
       id: uuid(),
+      project: '', // Will be set by appendEntity
       thought,
       role: 'actor',
       parents,
       children: [],
-      createdAt: new Date().toISOString(),
+      createdAt: '', // Will be set by appendEntity
       branchLabel,
       tags,
       artifacts: artifacts as ArtifactRef[],
-      projectContext, // Include the projectContext in the node
+      projectContext,
     };
 
-    // Persist node & optional artefacts
-    this.kg.createEntity(node);
-    parents.forEach((p) => this.kg.createRelation(p, node.id, 'flows_to'));
+    // Persist node
+    await this.kg.appendEntity(node, projectContext);
 
-    //mutates each artiface in the above node.artifacts
+    // Handle artifacts
     if (artifacts && artifacts.length) {
       for (const art of artifacts) {
-        const artEntity: ArtifactRef = { ...art, id: art.id ?? uuid() } as ArtifactRef;
-        this.kg.createEntity(artEntity);
-        this.kg.createRelation(node.id, artEntity.id, 'has_artifact');
+        const artEntity: ArtifactRef = {
+          ...art,
+          id: art.id ?? uuid(),
+          project: '', // Will be set by appendEntity
+        } as ArtifactRef;
+        await this.kg.appendEntity(artEntity, projectContext);
+
+        // Update node's children to include artifact reference
+        if (!node.children.includes(artEntity.id)) {
+          node.children.push(artEntity.id);
+        }
       }
     }
     if (branchLabel) this.kg.labelIndex.set(branchLabel, node.id);
-    await this.kg.flush();
 
-    const totalSteps = this.kg.allDagNodes().length;
+    const totalSteps = this.kg.allDagNodes(projectName).length;
     if (totalSteps % CFG.CRITIC_EVERY_N_STEPS === 0 || !needsMore) {
       return { node, decision: Actor.THINK_DECISION.NEEDS_REVIEW };
     }

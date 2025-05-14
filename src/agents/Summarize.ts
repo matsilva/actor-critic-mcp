@@ -119,13 +119,13 @@ export class SummarizationAgent {
    * Checks if summarization is needed and triggers it if necessary.
    * This should be called after adding new nodes to the graph.
    */
-  async checkAndTriggerSummarization(): Promise<void> {
-    const branches = this.knowledgeGraph.listBranches();
+  async checkAndTriggerSummarization(project: string): Promise<void> {
+    const branches = this.knowledgeGraph.listBranches(project);
 
     for (const branch of branches) {
       // Only summarize branches that have enough nodes
       if (branch.depth >= SummarizationAgent.SUMMARIZATION_THRESHOLD) {
-        await this.summarizeBranch(branch.branchId);
+        await this.summarizeBranch(branch.branchId, project);
       }
     }
   }
@@ -135,9 +135,9 @@ export class SummarizationAgent {
    * @param branchId ID of the branch to summarize
    * @returns A SummarizationResult object containing the summary or error information
    */
-  async summarizeBranch(branchId: string): Promise<SummarizationResult> {
+  async summarizeBranch(branchId: string, project: string): Promise<SummarizationResult> {
     // Get the branch head
-    const head = this.knowledgeGraph.getNode(branchId);
+    const head = this.knowledgeGraph.getNode(branchId, project);
     if (!head) {
       getLogger().error(`[summarizeBranch] Branch not found: ${branchId}`);
       return {
@@ -154,7 +154,7 @@ export class SummarizationAgent {
 
     while (current) {
       branchNodes.push(current);
-      current = current.parents[0] ? this.knowledgeGraph.getNode(current.parents[0]) : undefined;
+      current = current.parents[0] ? this.knowledgeGraph.getNode(current.parents[0], project) : undefined;
     }
 
     // Reverse to get chronological order
@@ -257,15 +257,22 @@ export class SummarizationAgent {
       throw new Error('Summarization failed: Empty summary returned');
     }
 
+    // Get the projectContext from one of the nodes
+    const projectContext = nodes.find((node) => !!node.projectContext)?.projectContext;
+    if (!projectContext) {
+      throw new Error('Cannot create summary: No projectContext found in nodes');
+    }
+
     // Create a summary node
     const summaryNode: SummaryNode = {
       id: uuid(),
+      project: '', // Will be set by appendEntity
       thought: result.summary,
       role: 'summary',
       parents: [nodes[nodes.length - 1].id], // Link to the newest node in the segment
       children: [],
-      createdAt: new Date().toISOString(),
-      projectContext: nodes.find((node) => !!node.projectContext)?.projectContext ?? '',
+      createdAt: '', // Will be set by appendEntity
+      projectContext,
       summarizedSegment: nodes.map((node) => node.id),
       tags: ['summary'],
       artifacts: [],
@@ -274,9 +281,14 @@ export class SummarizationAgent {
     getLogger().info(`[createSummary] Created summary node with ID ${summaryNode.id}`);
 
     // Persist the summary node
-    this.knowledgeGraph.createEntity(summaryNode);
-    this.knowledgeGraph.createRelation(nodes[nodes.length - 1].id, summaryNode.id, 'has_summary');
-    await this.knowledgeGraph.flush();
+    await this.knowledgeGraph.appendEntity(summaryNode, projectContext);
+    
+    // Update the last node to include the summary node in its children
+    const lastNode = nodes[nodes.length - 1];
+    if (lastNode && !lastNode.children.includes(summaryNode.id)) {
+      lastNode.children.push(summaryNode.id);
+      await this.knowledgeGraph.appendEntity(lastNode, projectContext);
+    }
 
     return summaryNode;
   }
