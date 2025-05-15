@@ -166,9 +166,9 @@ async function main() {
     },
   );
 
-  /** export_knowledge_graph – dump the current graph, optionally filtered by tag */
+  /** export – dump the current graph, optionally filtered by tag */
   server.tool(
-    'export_knowledge_graph',
+    'export',
     'dump the current knowledge graph, optionally filtered by tag',
     {
       limit: z.number().optional().describe('Limit the number of nodes returned.'),
