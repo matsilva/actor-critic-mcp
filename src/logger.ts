@@ -12,36 +12,61 @@ const __dirname = path.dirname(__filename);
 
 let globalLogger: Logger | null = null;
 
+interface CreateLoggerOptions {
+  withDevStdout?: boolean;
+  sync?: boolean;
+  setGlobal?: boolean;
+}
+
+const logsDir = path.resolve(__dirname, '../logs');
+const logFile = path.join(logsDir, 'codeloops.log');
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
 /**
  * Creates and returns a new pino logger instance with the given options.
  * Also sets the global logger if not already set.
  */
-export function createLogger(options?: LoggerOptions): Logger {
-  if (!globalLogger) {
-    const devToStdout = process.env.NODE_ENV === 'development';
-    let destination: pino.DestinationStream;
-    if (devToStdout) {
-      destination = pino.destination(1); // stdout
-    } else {
-      // Ensure logs directory exists
-      const logsDir = path.resolve(__dirname, '../logs');
-      const logFile = path.join(logsDir, 'codeloops.log');
-      if (!fs.existsSync(logsDir)) {
-        fs.mkdirSync(logsDir, { recursive: true });
-      }
-      destination = pino.destination(logFile);
-    }
-    globalLogger = pino(options ?? {}, destination);
+export function createLogger(options?: CreateLoggerOptions): Logger {
+  // Ensure logs directory exists
+  const targets: pino.TransportTargetOptions[] = [
+    {
+      target: 'pino-roll',
+      options: {
+        file: logFile,
+        //TODO: make this all configurable by the user
+        frequency: 'daily',
+        limit: {
+          count: 14, // 14 days of log retention
+        },
+      },
+    },
+  ];
+  if (options?.withDevStdout) {
+    targets.push({
+      target: 'pino-pretty',
+      options: {
+        destination: 1,
+      },
+    });
   }
-  return globalLogger;
+  const transports = pino.transport({
+    targets,
+    ...(options ?? {}),
+  });
+  const logger = pino(transports);
+  if (options?.setGlobal && !globalLogger) {
+    globalLogger = logger;
+  }
+  return logger;
 }
 
 /**
  * Returns the global singleton logger instance. If not created, creates with default options.
  */
-export function getInstance(): Logger {
+export function getInstance(options?: CreateLoggerOptions): Logger {
   if (!globalLogger) {
-    createLogger();
+    createLogger({ ...options, setGlobal: true });
   }
   return globalLogger!;
 }

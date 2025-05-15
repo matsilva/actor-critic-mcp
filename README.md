@@ -8,7 +8,10 @@ Inspired by the actor-critic model from Max Bennett’s _A Brief History of Inte
 
 > **Note**: CodeLoops is in early development. Expect active updates. Back up your data and monitor API costs for premium models.
 
-Learn more by [reading the announcement](https://bytes.silvabyte.com/improving-coding-agents-an-early-look-at-codeloops-for-building-more-reliable-software/).
+Learn more by:
+
+- [reading the announcement](https://bytes.silvabyte.com/improving-coding-agents-an-early-look-at-codeloops-for-building-more-reliable-software/).
+- [checking out the overview](./docs/OVERVIEW.md).
 
 ## Why CodeLoops?
 
@@ -83,17 +86,14 @@ CodeLoops provides tools to enable autonomous agent operation:
 - `export_plan`: Exports the current graph for agent review.
 - `summarize_branch`: Generates a summary of branch progress.
 - `list_projects`: Displays all projects for navigation.
-- `switch_project`: Switches to another project seamlessly.
-- `create_project`: Initializes a new project.
 
 ## Basic Workflow
 
-1. **Create a Project**: Start with `create_project` or switch using `switch_project`.
-2. **Plan Autonomously**: Add planning nodes with `actor_think`, guided by the critic.
-3. **Implement Independently**: Use `actor_think` for coding steps, refined in real time.
-4. **Review Progress**: The critic autonomously evaluates and corrects.
-5. **Summarize Work**: Use `summarize_branch` to generate clear summaries.
-6. **Provide Feedback**: Offer human-in-the-loop input as needed to refine outcomes.
+1. **Plan**: Add planning nodes with `actor_think`, guided by the critic.
+2. **Implement**: Use `actor_think` for coding steps, refined in real time.
+3. **Review**: The critic autonomously evaluates and corrects.
+4. **Summarize**: Use `summarize_branch` to generate clear summaries.
+5. **Provide Feedback**: Offer human-in-the-loop input as needed to refine outcomes. YMMV depenting on how smart the coding agent is.
 
 CodeLoops leverages an actor-critic model with a knowledge graph, where the Critic can delegate to a chain of specialized agents for enhanced precision:
 
@@ -131,6 +131,8 @@ This architecture enables your agent to maintain context, refine decisions throu
 - **Email Me**: [mat@silvabyte.com](mailto:mat@silvabyte.com).
 - **X**: [Reach out on X](https://x.com/MatSilva).
 
-## Contribute
+### License & contributing
 
-CodeLoops is open source, and your contributions are crucial to achieving coding agent autonomy. Whether you’re fixing bugs, adding features, or sharing feedback, you’ll help shape a tool that empowers developers and non-developers to build with confidence. Join the journey:
+This project is entirely experimental. Use at your own risk. & do what you want with it.
+
+MIT see [license](../LICENSE)

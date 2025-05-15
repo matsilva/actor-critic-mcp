@@ -82,10 +82,7 @@ High‑level flow: caller → MCP → KG + Actor/Critic loop
 The actor-critic system follows this workflow:
 
 1. The agent calls `actor_think` to add a new thought node to the knowledge graph
-2. The system automatically triggers a critic review when:
-   - A certain number of steps have been taken (configured by CRITIC_EVERY_N_STEPS)
-   - The actor indicates the thought doesn't need more work (needsMore=false)
-3. The critic evaluates the node and provides a verdict:
+2. The critic evaluates the node and provides a verdict:
    - `approved`: The node meets all requirements
    - `needs_revision`: The node needs specific improvements
    - `reject`: The node is fundamentally flawed or has reached max revision attempts
@@ -100,20 +97,11 @@ The actor-critic system supports working with multiple knowledge graph projects:
 
    - Returns the current active project and all available projects
 
-2. **`switch_project`**: Switches to a different knowledge graph project
-
-   - Parameter: `projectName` - Name of the project to switch to
-   - Project names must be alphanumeric with optional dashes/underscores
-
-3. **`create_project`**: Creates a new knowledge graph project
+2. **`create_project`**: Creates a new knowledge graph project
    - Parameter: `projectName` - Name of the new project to create
    - Same naming rules as `switch_project`
 
 These tools allow you to organize your work into separate projects, each with its own knowledge graph. This is useful for working on multiple codebases or features without mixing contexts.
-
-## Current status
-
-See **[`notes/next_steps.md`](../notes/next_steps.md)** for details
 
 ## Background
 
@@ -165,7 +153,7 @@ So for our purposes, the actor is the coding agent, and the critic is made avail
 
 ---
 
-###  License & contributing
+### License & contributing
 
 This project is entirely experimental. Use at your own risk. & do what you want with it.
 
