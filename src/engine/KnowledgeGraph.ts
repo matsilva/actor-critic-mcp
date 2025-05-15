@@ -84,10 +84,11 @@ export class KnowledgeGraphManager {
   }
 
   //TODO: call this at entry points of tooling
-  async tryLoadProject(project: string) {
+  async tryLoadProject(project: string, onDidLoadProject?: (project: string) => void) {
     if (this.projectStates.has(project)) {
       return;
     }
+    onDidLoadProject?.(project);
     this.projectStates.set(project, { entities: new Map() });
     const fileStream = fsSync.createReadStream(this.logFilePath);
     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });

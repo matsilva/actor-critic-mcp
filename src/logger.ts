@@ -1,16 +1,13 @@
-import pino, { Logger, LoggerOptions } from 'pino';
+import pino, { type Logger } from 'pino';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// -----------------------------------------------------------------------------
-// Path Configuration ----------------------------------------------------------
-// -----------------------------------------------------------------------------
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-let globalLogger: Logger | null = null;
+export type CodeLoopsLogger = pino.Logger;
+let globalLogger: CodeLoopsLogger | null = null;
 
 interface CreateLoggerOptions {
   withDevStdout?: boolean;
@@ -27,7 +24,7 @@ if (!fs.existsSync(logsDir)) {
  * Creates and returns a new pino logger instance with the given options.
  * Also sets the global logger if not already set.
  */
-export function createLogger(options?: CreateLoggerOptions): Logger {
+export function createLogger(options?: CreateLoggerOptions): CodeLoopsLogger {
   // Ensure logs directory exists
   const targets: pino.TransportTargetOptions[] = [
     {
@@ -64,9 +61,13 @@ export function createLogger(options?: CreateLoggerOptions): Logger {
 /**
  * Returns the global singleton logger instance. If not created, creates with default options.
  */
-export function getInstance(options?: CreateLoggerOptions): Logger {
+export function getInstance(options?: CreateLoggerOptions): CodeLoopsLogger {
   if (!globalLogger) {
     createLogger({ ...options, setGlobal: true });
   }
   return globalLogger!;
+}
+
+export function setGlobalLogger(logger: CodeLoopsLogger) {
+  globalLogger = logger;
 }

@@ -7,16 +7,51 @@ import { Critic } from './agents/Critic.ts';
 import { Actor } from './agents/Actor.ts';
 import { SummarizationAgent } from './agents/Summarize.ts';
 import { version as VERSION } from '../package.json';
-import { getInstance as getLogger } from './logger.ts';
+import { CodeLoopsLogger, getInstance as getLogger, setGlobalLogger } from './logger.ts';
 import { extractProjectName } from './utils/projectUtils.ts';
 
 // -----------------------------------------------------------------------------
-// MCP Server -------------------------------------------------------------------
+// MCP Server -------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
+/**
+ * Utilities for main entry point
+ */
+
+const runOnceOnProjectLoad = ({ logger }: { logger: CodeLoopsLogger }) => {
+  return (project: string) => {
+    const child = logger.child({ project });
+    setGlobalLogger(child);
+  };
+};
+
+const loadProjectOrThrow = async ({
+  logger,
+  kg,
+  args,
+  onProjectLoad,
+}: {
+  logger: CodeLoopsLogger;
+  kg: KnowledgeGraphManager;
+  args: { projectContext: string };
+  onProjectLoad: (project: string) => void;
+}) => {
+  const projectName = extractProjectName(args.projectContext);
+  if (!projectName) {
+    logger.error({ projectContext: args.projectContext }, 'Invalid projectContext');
+    throw new Error(`Invalid projectContext: ${args.projectContext}`);
+  }
+  await kg.tryLoadProject(projectName, onProjectLoad);
+  return projectName;
+};
+
+/**
+ * Main entry point for the CodeLoops MCP server.
+ */
 async function main() {
   // Initialize logger
   const logger = getLogger();
+  const runOnce = runOnceOnProjectLoad({ logger });
   logger.info('Starting CodeLoops MCP server...');
 
   // Create KnowledgeGraphManager
@@ -71,12 +106,7 @@ async function main() {
    * - The critic node if a review was automatically triggered
    */
   server.tool('actor_think', ACTOR_THINK_DESCRIPTION, ActorThinkSchema, async (args) => {
-    const projectName = extractProjectName(args.projectContext);
-    if (!projectName) {
-      logger.error({ projectContext: args.projectContext }, 'Invalid projectContext');
-      throw new Error('Invalid projectContext');
-    }
-    await kg.tryLoadProject(projectName);
+    const projectName = await loadProjectOrThrow({ logger, kg, args, onProjectLoad: runOnce });
     return {
       content: [{ type: 'text', text: JSON.stringify(await engine.actorThink(args), null, 2) }],
     };
@@ -97,12 +127,7 @@ async function main() {
       projectContext: z.string().describe('Full path to the project directory.'),
     },
     async (a) => {
-      const projectName = extractProjectName(a.projectContext);
-      if (!projectName) {
-        logger.error({ projectContext: a.projectContext }, 'Invalid projectContext');
-        throw new Error('Invalid projectContext');
-      }
-      await kg.tryLoadProject(projectName);
+      const projectName = await loadProjectOrThrow({ logger, kg, args: a, onProjectLoad: runOnce });
       return {
         content: [
           {
@@ -119,12 +144,7 @@ async function main() {
     'list_branches',
     { projectContext: z.string().describe('Full path to the project directory.') },
     async (a) => {
-      const projectName = extractProjectName(a.projectContext);
-      if (!projectName) {
-        logger.error({ projectContext: a.projectContext }, 'Invalid projectContext');
-        throw new Error('Invalid projectContext');
-      }
-      await kg.tryLoadProject(projectName);
+      const projectName = await loadProjectOrThrow({ logger, kg, args: a, onProjectLoad: runOnce });
       return {
         content: [{ type: 'text', text: JSON.stringify(kg.listBranches(projectName), null, 2) }],
       };
@@ -139,12 +159,7 @@ async function main() {
       branchId: z.string().describe('Branch id OR label'),
     },
     async (a) => {
-      const projectName = extractProjectName(a.projectContext);
-      if (!projectName) {
-        logger.error({ projectContext: a.projectContext }, 'Invalid projectContext');
-        throw new Error('Invalid projectContext');
-      }
-      await kg.tryLoadProject(projectName);
+      const projectName = await loadProjectOrThrow({ logger, kg, args: a, onProjectLoad: runOnce });
       return {
         content: [{ type: 'text', text: kg.resume(a.branchId, projectName) }],
       };
@@ -159,12 +174,7 @@ async function main() {
       filterTag: z.string().optional().describe('Return only nodes containing this tag.'),
     },
     async (a) => {
-      const projectName = extractProjectName(a.projectContext);
-      if (!projectName) {
-        logger.error({ projectContext: a.projectContext }, 'Invalid projectContext');
-        throw new Error('Invalid projectContext');
-      }
-      await kg.tryLoadProject(projectName);
+      const projectName = await loadProjectOrThrow({ logger, kg, args: a, onProjectLoad: runOnce });
       return {
         content: [
           { type: 'text', text: JSON.stringify(kg.exportPlan(projectName, a.filterTag), null, 2) },
@@ -181,12 +191,7 @@ async function main() {
       branchId: z.string().describe('Branch id OR label'),
     },
     async (args) => {
-      const projectName = extractProjectName(args.projectContext);
-      if (!projectName) {
-        logger.error({ projectContext: args.projectContext }, 'Invalid projectContext');
-        throw new Error('Invalid projectContext');
-      }
-      await kg.tryLoadProject(projectName);
+      const projectName = await loadProjectOrThrow({ logger, kg, args, onProjectLoad: runOnce });
       try {
         const summary = await engine.summarizeBranch(args.branchId, projectName);
 
