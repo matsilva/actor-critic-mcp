@@ -86,7 +86,6 @@ export class KnowledgeGraphManager {
     }
   }
 
-  //TODO: call this at entry points of tooling
   async tryLoadProject(project: string, onDidLoadProject?: (project: string) => void) {
     if (this.projectStates.has(project)) {
       return;

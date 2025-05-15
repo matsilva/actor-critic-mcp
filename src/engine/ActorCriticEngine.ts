@@ -79,10 +79,7 @@ export class ActorCriticEngine {
   /* --------------------------- public API --------------------------- */
   /**
    * Adds a new thought node to the knowledge graph and automatically triggers
-   * critic review when appropriate.
-   *
-   * The critic review is automatically triggered when:
-   * 1. A certain number of steps have been taken (configured by CRITIC_EVERY_N_STEPS)
+   * critic review
    *
    * @param input The actor thought input
    * @returns Either the actor node (if no review was triggered) or the critic node (if review was triggered)
@@ -91,11 +88,10 @@ export class ActorCriticEngine {
     // Actor.think will handle project switching based on projectContext
     const { node } = await this.actor.think(input);
 
-    // Trigger summarization check after adding a new node
-    // Extract project name from context
-    await this.summarizationAgent.checkAndTriggerSummarization({
-      project: input.project,
+    await this.criticReview({
+      actorNodeId: node.id,
       projectContext: input.projectContext,
+      project: input.project,
     });
 
     return node;
