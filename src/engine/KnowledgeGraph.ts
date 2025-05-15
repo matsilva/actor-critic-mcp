@@ -83,11 +83,12 @@ export class KnowledgeGraphManager {
     }
   }
 
-  //TODO: call this on any appendEntity calls
-  private async loadProject(project: string) {
-    if (!this.projectStates.has(project)) {
-      this.projectStates.set(project, { entities: new Map() });
+  //TODO: call this at entry points of tooling
+  async tryLoadProject(project: string) {
+    if (this.projectStates.has(project)) {
+      return;
     }
+    this.projectStates.set(project, { entities: new Map() });
     const fileStream = fsSync.createReadStream(this.logFilePath);
     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
     for await (const line of rl) {

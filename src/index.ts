@@ -72,9 +72,17 @@ async function main() {
    * - The actor node if no critic review was triggered
    * - The critic node if a review was automatically triggered
    */
-  server.tool('actor_think', ACTOR_THINK_DESCRIPTION, ActorThinkSchema, async (args) => ({
-    content: [{ type: 'text', text: JSON.stringify(await engine.actorThink(args), null, 2) }],
-  }));
+  server.tool('actor_think', ACTOR_THINK_DESCRIPTION, ActorThinkSchema, async (args) => {
+    const projectName = extractProjectName(args.projectContext);
+    if (!projectName) {
+      logger.error({ projectContext: args.projectContext }, 'Invalid projectContext');
+      throw new Error('Invalid projectContext');
+    }
+    await kg.tryLoadProject(projectName);
+    return {
+      content: [{ type: 'text', text: JSON.stringify(await engine.actorThink(args), null, 2) }],
+    };
+  });
 
   // -----------------------------------------------------------------------------
   // Tool definitions ---------------------------------------------------------------------
@@ -90,14 +98,22 @@ async function main() {
       actorNodeId: z.string().describe('ID of the actor node to critique.'),
       projectContext: z.string().describe('Full path to the project directory.'),
     },
-    async (a) => ({
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(await engine.criticReview(a.actorNodeId, a.projectContext), null, 2),
-        },
-      ],
-    }),
+    async (a) => {
+      const projectName = extractProjectName(a.projectContext);
+      if (!projectName) {
+        logger.error({ projectContext: a.projectContext }, 'Invalid projectContext');
+        throw new Error('Invalid projectContext');
+      }
+      await kg.tryLoadProject(projectName);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(await engine.criticReview(a.actorNodeId, projectName), null, 2),
+          },
+        ],
+      };
+    },
   );
 
   /** list_branches – quick overview for navigation */
@@ -107,8 +123,10 @@ async function main() {
     async (a) => {
       const projectName = extractProjectName(a.projectContext);
       if (!projectName) {
+        logger.error({ projectContext: a.projectContext }, 'Invalid projectContext');
         throw new Error('Invalid projectContext');
       }
+      await kg.tryLoadProject(projectName);
       return {
         content: [{ type: 'text', text: JSON.stringify(kg.listBranches(projectName), null, 2) }],
       };
@@ -125,8 +143,10 @@ async function main() {
     async (a) => {
       const projectName = extractProjectName(a.projectContext);
       if (!projectName) {
+        logger.error({ projectContext: a.projectContext }, 'Invalid projectContext');
         throw new Error('Invalid projectContext');
       }
+      await kg.tryLoadProject(projectName);
       return {
         content: [{ type: 'text', text: kg.resume(a.branchId, projectName) }],
       };
@@ -143,8 +163,10 @@ async function main() {
     async (a) => {
       const projectName = extractProjectName(a.projectContext);
       if (!projectName) {
+        logger.error({ projectContext: a.projectContext }, 'Invalid projectContext');
         throw new Error('Invalid projectContext');
       }
+      await kg.tryLoadProject(projectName);
       return {
         content: [
           { type: 'text', text: JSON.stringify(kg.exportPlan(projectName, a.filterTag), null, 2) },
@@ -163,8 +185,10 @@ async function main() {
     async (args) => {
       const projectName = extractProjectName(args.projectContext);
       if (!projectName) {
+        logger.error({ projectContext: args.projectContext }, 'Invalid projectContext');
         throw new Error('Invalid projectContext');
       }
+      await kg.tryLoadProject(projectName);
       try {
         const summary = await engine.summarizeBranch(args.branchId, projectName);
 
