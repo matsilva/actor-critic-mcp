@@ -243,18 +243,18 @@ async function main() {
         ),
     },
     async (a) => {
-      let selectedProject: string | null = null;
+      let activeProject: string | null = null;
       if (a.projectContext) {
         const projectName = extractProjectName(a.projectContext);
         if (!projectName) {
           throw new Error('Invalid projectContext');
         }
-        selectedProject = projectName;
+        activeProject = projectName;
       }
       const projects = await kg.listProjects();
 
       logger.info(
-        `[list_projects] Current project: ${selectedProject}, Available projects: ${projects.join(', ')}`,
+        `[list_projects] Current project: ${activeProject}, Available projects: ${projects.join(', ')}`,
       );
 
       return {
@@ -263,7 +263,7 @@ async function main() {
             type: 'text',
             text: JSON.stringify(
               {
-                selectedProject,
+                activeProject,
                 projects,
               },
               null,
