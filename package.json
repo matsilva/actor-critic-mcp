@@ -30,11 +30,13 @@
     "@commitlint/cli": "^19.8.0",
     "@commitlint/config-conventional": "^19.8.0",
     "@types/node": "^22.15.3",
+    "@types/proper-lockfile": "^4.1.4",
     "husky": "^9.1.7",
     "vitest": "^3.1.2"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.0",
+    "@tsconfig/node22": "^22.0.1",
     "await-to-js": "^3.0.0",
     "chalk": "^5.4.1",
     "console-table": "^0.1.2",

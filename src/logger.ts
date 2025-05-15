@@ -1,4 +1,4 @@
-import pino, { type Logger } from 'pino';
+import { type Logger, pino } from 'pino';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export type CodeLoopsLogger = pino.Logger;
+export type CodeLoopsLogger = Logger;
 let globalLogger: CodeLoopsLogger | null = null;
 
 interface CreateLoggerOptions {

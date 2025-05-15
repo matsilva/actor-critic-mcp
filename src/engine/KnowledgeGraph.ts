@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import { lock, unlock } from 'proper-lockfile';
 import * as fsSync from 'node:fs';
 import path from 'node:path';
-import { extractProjectName } from '../utils/projectUtils.ts';
+import { extractProjectName } from '../utils/project.ts';
 import readline from 'node:readline';
 import { dataDir } from '../config.ts';
 import { getInstance as getLogger } from '../logger.ts';
@@ -12,6 +12,11 @@ import { ActorThinkInput, FileRef } from './ActorCriticEngine.ts';
 // Minimal JSON‑file Knowledge Graph adapter ------------------------------------
 // -----------------------------------------------------------------------------
 
+export interface WithProjectContext {
+  project: string;
+  projectContext: string;
+}
+
 export interface BranchHead {
   branchId: string;
   label?: string;
@@ -19,14 +24,12 @@ export interface BranchHead {
   depth: number;
 }
 
-export interface ArtifactRef extends FileRef {
+export interface ArtifactRef extends FileRef, WithProjectContext {
   id: string; // uuid for KG reference
-  project: string; // Derived from projectContext
 }
 
-export interface DagNode extends ActorThinkInput {
+export interface DagNode extends ActorThinkInput, WithProjectContext {
   id: string;
-  project: string; // Derived from projectContext
   thought: string;
   role: 'actor' | 'critic' | 'summary';
   verdict?: 'approved' | 'needs_revision' | 'reject';
@@ -110,13 +113,7 @@ export class KnowledgeGraphManager {
 
   // Use the centralized extractProjectName function from utils
 
-  async appendEntity(entity: DagNode | ArtifactRef, projectContext: string) {
-    const project = extractProjectName(projectContext);
-    if (!project) {
-      throw new Error('Invalid projectContext');
-    }
-    entity.project = project;
-
+  async appendEntity(entity: DagNode | ArtifactRef) {
     // Set createdAt for DagNode, ensure it exists for ArtifactRef
     if ('role' in entity) {
       entity.createdAt = new Date().toISOString();
@@ -138,10 +135,12 @@ export class KnowledgeGraphManager {
       this.logger.error({ err }, 'Error appending entity');
       throw err;
     }
-    this.logger.info(`[KnowledgeGraphManager] node_append: ${entity.id} to project: ${project}`);
-    const state = this.projectStates.get(project) || { entities: new Map() };
+    this.logger.info(
+      `[KnowledgeGraphManager] node_append: ${entity.id} to project: ${entity.project}`,
+    );
+    const state = this.projectStates.get(entity.project) || { entities: new Map() };
     state.entities.set(entity.id, entity);
-    this.projectStates.set(project, state);
+    this.projectStates.set(entity.project, state);
   }
 
   getNode(id: string, project: string): DagNode | undefined {
@@ -175,10 +174,6 @@ export class KnowledgeGraphManager {
       head,
       depth: this.depth(head.id, project),
     }));
-  }
-
-  createEntity(entity: DagNode | ArtifactRef, project: string) {
-    this.appendEntity(entity, project);
   }
 
   resume(branchIdOrLabel: string, project: string): string {

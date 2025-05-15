@@ -5,7 +5,7 @@ import { getInstance as getLogger } from '../logger.ts';
 import { SummarizationAgent } from '../agents/Summarize.ts';
 import { z } from 'zod';
 import path from 'node:path';
-import { extractProjectName } from '../utils/projectUtils.ts';
+import { extractProjectName } from '../utils/project.ts';
 // -----------------------------------------------------------------------------
 // Actor–Critic engine ----------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -74,7 +74,7 @@ export class ActorCriticEngine {
     private readonly actor: Actor,
     private readonly summarizationAgent: SummarizationAgent,
   ) {}
-  
+
   // Use the centralized extractProjectName function from utils
   /* --------------------------- public API --------------------------- */
   /**
@@ -91,7 +91,7 @@ export class ActorCriticEngine {
     if (!input.projectContext) {
       throw new Error('projectContext is required for actorThink');
     }
-    
+
     // Actor.think will handle project switching based on projectContext
     const { node, decision } = await this.actor.think(input);
 
@@ -102,7 +102,8 @@ export class ActorCriticEngine {
       await this.summarizationAgent.checkAndTriggerSummarization(projectName);
     }
 
-    if (decision === Actor.THINK_DECISION.NEEDS_REVIEW) return await this.criticReview(node.id, input.projectContext);
+    if (decision === Actor.THINK_DECISION.NEEDS_REVIEW)
+      return await this.criticReview(node.id, input.projectContext);
     return node;
   }
 
@@ -145,13 +146,15 @@ export class ActorCriticEngine {
     if (!projectName) {
       throw new Error('Invalid projectContext');
     }
-    
+
     const branchId = this.kg.labelIndex.get(branchIdOrLabel) ?? branchIdOrLabel;
     const result = await this.summarizationAgent.summarizeBranch(branchId, projectName);
 
     // Log the result for debugging
     if (!result.success) {
-      getLogger().info(`[summarizeBranch] Summarization failed: ${result.errorCode} - ${result.errorMessage}`);
+      getLogger().info(
+        `[summarizeBranch] Summarization failed: ${result.errorCode} - ${result.errorMessage}`,
+      );
       if (result.details) {
         getLogger().info(`[summarizeBranch] Details: ${result.details}`);
       }

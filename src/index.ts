@@ -6,9 +6,9 @@ import { KnowledgeGraphManager } from './engine/KnowledgeGraph.ts';
 import { Critic } from './agents/Critic.ts';
 import { Actor } from './agents/Actor.ts';
 import { SummarizationAgent } from './agents/Summarize.ts';
-import { version as VERSION } from '../package.json';
+import pkg from '../package.json' with { type: 'json' };
 import { CodeLoopsLogger, getInstance as getLogger, setGlobalLogger } from './logger.ts';
-import { extractProjectName } from './utils/projectUtils.ts';
+import { extractProjectName } from './utils/project.ts';
 
 // -----------------------------------------------------------------------------
 // MCP Server -------------------------------------------------------------------
@@ -68,7 +68,7 @@ async function main() {
   // Create ActorCriticEngine with all dependencies
   const engine = new ActorCriticEngine(kg, critic, actor, summarizationAgent);
 
-  const server = new McpServer({ name: 'codeloops', version: VERSION });
+  const server = new McpServer({ name: 'codeloops', version: pkg.version });
 
   const ACTOR_THINK_DESCRIPTION = `
   Add a new thought node to the CodeLoops knowledge graph to plan, execute, or document coding tasks.

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { KnowledgeGraphManager, DagNode, ArtifactRef } from './KnowledgeGraph';
+import { KnowledgeGraphManager, DagNode, ArtifactRef } from './KnowledgeGraph.ts';
 import fs from 'node:fs/promises';
 import * as fsSync from 'node:fs';
 import { lock, unlock } from 'proper-lockfile';
@@ -60,6 +60,7 @@ describe('KnowledgeGraphManager', () => {
       hash: uuid().slice(0, 8),
       contentType: 'text/plain',
       project: 'unit-tests',
+      projectContext: '/path/to/unit-tests',
     };
   }
 
@@ -74,7 +75,7 @@ describe('KnowledgeGraphManager', () => {
     vi.mocked(fs.mkdir).mockResolvedValue(undefined);
     vi.mocked(fs.writeFile).mockResolvedValue(undefined);
     vi.mocked(fs.appendFile).mockResolvedValue(undefined);
-    vi.mocked(lock).mockResolvedValue();
+    vi.mocked(lock).mockResolvedValue(async () => {});
     vi.mocked(unlock).mockResolvedValue();
 
     // Create a new KnowledgeGraphManager instance
@@ -116,7 +117,7 @@ describe('KnowledgeGraphManager', () => {
       const node = createTestNode();
 
       // Act
-      await kg.appendEntity(node, mockProjectContext);
+      await kg.appendEntity(node);
 
       // Assert
       expect(lock).toHaveBeenCalledWith(mockLogFilePath);
@@ -138,7 +139,7 @@ describe('KnowledgeGraphManager', () => {
       const artifact = createTestArtifact();
 
       // Act
-      await kg.appendEntity(artifact, mockProjectContext);
+      await kg.appendEntity(artifact);
 
       // Assert
       expect(lock).toHaveBeenCalledWith(mockLogFilePath);
@@ -150,33 +151,13 @@ describe('KnowledgeGraphManager', () => {
       expect(unlock).toHaveBeenCalledWith(mockLogFilePath);
     });
 
-    it('should throw an error if projectContext is invalid', async () => {
-      // Arrange
-      const node = createTestNode();
-
-      // Act & Assert
-      await expect(kg.appendEntity(node, '')).rejects.toThrow('Invalid projectContext');
-    });
-
     it('should handle lock errors gracefully', async () => {
       // Arrange
       const node = createTestNode();
       vi.mocked(lock).mockRejectedValue(new Error('Lock error'));
 
       // Act & Assert
-      await expect(kg.appendEntity(node, mockProjectContext)).rejects.toThrow('Lock error');
-    });
-
-    it('should call appendEntity when createEntity is called', async () => {
-      // Arrange
-      const node = createTestNode();
-      const appendEntitySpy = vi.spyOn(kg, 'appendEntity').mockResolvedValue();
-
-      // Act
-      await kg.createEntity(node, mockProject);
-
-      // Assert
-      expect(appendEntitySpy).toHaveBeenCalledWith(node, mockProject);
+      await expect(kg.appendEntity(node)).rejects.toThrow('Lock error');
     });
   });
 
@@ -192,7 +173,7 @@ describe('KnowledgeGraphManager', () => {
     it('should retrieve a node by ID', async () => {
       // Arrange
       const node = createTestNode();
-      await kg.appendEntity(node, mockProjectContext);
+      await kg.appendEntity(node);
 
       // Act
       const result = kg.getNode(node.id, mockProject);
@@ -238,9 +219,9 @@ describe('KnowledgeGraphManager', () => {
       const node2 = createTestNode('actor', [node1.id]);
       const node3 = createTestNode('actor', [node2.id]);
 
-      await kg.appendEntity(node1, mockProjectContext);
-      await kg.appendEntity(node2, mockProjectContext);
-      await kg.appendEntity(node3, mockProjectContext);
+      await kg.appendEntity(node1);
+      await kg.appendEntity(node2);
+      await kg.appendEntity(node3);
 
       // Mock depth implementation
       const depthSpy = vi.spyOn(kg as any, 'depth').mockReturnValue(3);
@@ -261,7 +242,7 @@ describe('KnowledgeGraphManager', () => {
     it('should resume a branch by ID', async () => {
       // Arrange
       const node = createTestNode();
-      await kg.appendEntity(node, mockProjectContext);
+      await kg.appendEntity(node);
 
       // Act
       const result = kg.resume(node.id, mockProject);
@@ -273,7 +254,7 @@ describe('KnowledgeGraphManager', () => {
     it('should resume a branch by label', async () => {
       // Arrange
       const node = { ...createTestNode(), branchLabel: 'test-branch' };
-      await kg.appendEntity(node, mockProjectContext);
+      await kg.appendEntity(node);
 
       // Manually set label index since we're not using the actual file loading
       (kg as any).labelIndex.set('test-branch', node.id);
@@ -296,8 +277,8 @@ describe('KnowledgeGraphManager', () => {
       // Arrange
       const node1 = createTestNode();
       const node2 = createTestNode();
-      await kg.appendEntity(node1, mockProjectContext);
-      await kg.appendEntity(node2, mockProjectContext);
+      await kg.appendEntity(node1);
+      await kg.appendEntity(node2);
 
       // Act
       const result = kg.export({ project: mockProject }) as Array<{ id: string; thought: string }>;
@@ -316,8 +297,8 @@ describe('KnowledgeGraphManager', () => {
       // Arrange
       const node1 = { ...createTestNode(), tags: ['test', 'filter-me'] };
       const node2 = createTestNode(); // Only has 'test' tag
-      await kg.appendEntity(node1, mockProjectContext);
-      await kg.appendEntity(node2, mockProjectContext);
+      await kg.appendEntity(node1);
+      await kg.appendEntity(node2);
 
       // Act
       const result = kg.export({ project: mockProject, filterTag: 'filter-me' }) as Array<{
@@ -332,8 +313,8 @@ describe('KnowledgeGraphManager', () => {
       // Arrange
       const node1 = createTestNode();
       const node2 = createTestNode();
-      await kg.appendEntity(node1, mockProjectContext);
-      await kg.appendEntity(node2, mockProjectContext);
+      await kg.appendEntity(node1);
+      await kg.appendEntity(node2);
 
       // Act
       const result = kg.export({ project: mockProject, limit: 1 }) as Array<{ id: string }>;
@@ -351,9 +332,9 @@ describe('KnowledgeGraphManager', () => {
       const node2 = createTestNode('actor', [node1.id]);
       const node3 = createTestNode('actor', [node2.id]);
 
-      await kg.appendEntity(node1, mockProjectContext);
-      await kg.appendEntity(node2, mockProjectContext);
-      await kg.appendEntity(node3, mockProjectContext);
+      await kg.appendEntity(node1);
+      await kg.appendEntity(node2);
+      await kg.appendEntity(node3);
 
       // Act
       const depth = (kg as any).depth(node3.id, mockProject);
@@ -371,9 +352,9 @@ describe('KnowledgeGraphManager', () => {
       // Update node1 to create a cycle
       node1.parents = [node3.id];
 
-      await kg.appendEntity(node1, mockProjectContext);
-      await kg.appendEntity(node2, mockProjectContext);
-      await kg.appendEntity(node3, mockProjectContext);
+      await kg.appendEntity(node1);
+      await kg.appendEntity(node2);
+      await kg.appendEntity(node3);
 
       // Since the depth calculation currently doesn't handle cycles correctly
       // we'll mock the depth method directly instead of the recursive helper

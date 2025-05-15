@@ -4,7 +4,6 @@ import { v4 as uuid } from 'uuid';
 import { KnowledgeGraphManager, DagNode } from '../engine/KnowledgeGraph.ts';
 import { getInstance as getLogger } from '../logger.ts';
 import path from 'node:path';
-import { extractProjectName } from '../utils/projectUtils.ts';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
@@ -45,14 +44,16 @@ export class Critic {
   constructor(private readonly kg: KnowledgeGraphManager) {}
 
   // Use the centralized extractProjectName function from utils
-  async review(actorNodeId: string, projectContext: string): Promise<DagNode> {
-    // Extract project name from context
-    const projectName = extractProjectName(projectContext);
-    if (!projectName) {
-      throw new Error('Invalid projectContext');
-    }
-
-    const target = this.kg.getNode(actorNodeId, projectName);
+  async review({
+    actorNodeId,
+    project,
+    projectContext,
+  }: {
+    actorNodeId: string;
+    project: string;
+    projectContext: string;
+  }): Promise<DagNode> {
+    const target = this.kg.getNode(actorNodeId, project);
     if (!target || (target as DagNode).role !== 'actor')
       throw new Error('invalid target for critic');
 
@@ -92,7 +93,7 @@ export class Critic {
 
     const criticNode: DagNode = {
       id: uuid(),
-      project: '', // Will be set by appendEntity
+      project,
       thought:
         verdict === 'approved'
           ? '✔ Approved'
@@ -108,18 +109,18 @@ export class Critic {
       tags: [],
       artifacts: [],
       createdAt: '', // Will be set by appendEntity
-      projectContext, // Include the projectContext in the node
+      projectContext,
     };
 
     // Update the target node's children to include this critic node
     if (target && !target.children.includes(criticNode.id)) {
       target.children.push(criticNode.id);
       // Update the target node in the knowledge graph
-      await this.kg.appendEntity(target, projectContext);
+      await this.kg.appendEntity(target);
     }
 
     // Persist the critic node
-    await this.kg.appendEntity(criticNode, projectContext);
+    await this.kg.appendEntity(criticNode);
 
     return criticNode;
   }
