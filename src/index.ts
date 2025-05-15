@@ -108,7 +108,12 @@ async function main() {
   server.tool('actor_think', ACTOR_THINK_DESCRIPTION, ActorThinkSchema, async (args) => {
     const projectName = await loadProjectOrThrow({ logger, kg, args, onProjectLoad: runOnce });
     return {
-      content: [{ type: 'text', text: JSON.stringify(await engine.actorThink(args), null, 2) }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(await engine.actorThink({ ...args, project: projectName }), null, 2),
+        },
+      ],
     };
   });
 
@@ -132,7 +137,15 @@ async function main() {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(await engine.criticReview(a.actorNodeId, projectName), null, 2),
+            text: JSON.stringify(
+              await engine.criticReview({
+                actorNodeId: a.actorNodeId,
+                projectContext: a.projectContext,
+                project: projectName,
+              }),
+              null,
+              2,
+            ),
           },
         ],
       };
@@ -197,12 +210,16 @@ async function main() {
     'summarize_branch',
     {
       projectContext: z.string().describe('Full path to the project directory.'),
-      branchId: z.string().describe('Branch id OR label'),
+      branchIdOrLabel: z.string().describe('Branch id OR label'),
     },
     async (args) => {
       const projectName = await loadProjectOrThrow({ logger, kg, args, onProjectLoad: runOnce });
       try {
-        const summary = await engine.summarizeBranch(args.branchId, projectName);
+        const summary = await engine.summarizeBranch({
+          branchIdOrLabel: args.branchIdOrLabel,
+          projectContext: args.projectContext,
+          project: projectName,
+        });
 
         if (summary) {
           return {
@@ -217,7 +234,8 @@ async function main() {
           // If summarization failed, get the branch information to provide context
           const branches = kg.listBranches(projectName);
           const targetBranch = branches.find(
-            (b) => b.branchId === args.branchId || b.head.branchLabel === args.branchId,
+            (b) =>
+              b.branchId === args.branchIdOrLabel || b.head.branchLabel === args.branchIdOrLabel,
           );
 
           return {

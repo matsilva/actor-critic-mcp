@@ -9,6 +9,7 @@
     "prepare": "husky",
     "setup": "bash scripts/setup.sh",
     "start": "npx -y tsx src",
+    "type-check": "tsc --noEmit",
     "test-quickstart": "bash scripts/test-quickstart.sh"
   },
   "lint-staged": {

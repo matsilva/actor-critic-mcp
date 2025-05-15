@@ -101,16 +101,18 @@ export class SummarizationAgent {
           error: 'Response format not recognized, using raw output as summary',
         };
       } catch (parseError) {
+        let err = parseError as Error;
         // If the response isn't valid JSON, use the raw output as the summary
         return {
           summary: output.stdout.trim(),
-          error: `Failed to parse agent response: ${parseError.message}`,
+          error: `Failed to parse agent response: ${err.message}`,
         };
       }
     } catch (error) {
+      let err = error as Error;
       return {
         summary: '',
-        error: `Unexpected error during summarization: ${error.message}`,
+        error: `Unexpected error during summarization: ${err.message}`,
       };
     }
   }
@@ -119,13 +121,23 @@ export class SummarizationAgent {
    * Checks if summarization is needed and triggers it if necessary.
    * This should be called after adding new nodes to the graph.
    */
-  async checkAndTriggerSummarization(project: string): Promise<void> {
+  async checkAndTriggerSummarization({
+    project,
+    projectContext,
+  }: {
+    project: string;
+    projectContext: string;
+  }): Promise<void> {
     const branches = this.knowledgeGraph.listBranches(project);
 
     for (const branch of branches) {
       // Only summarize branches that have enough nodes
       if (branch.depth >= SummarizationAgent.SUMMARIZATION_THRESHOLD) {
-        await this.summarizeBranch(branch.branchId, project);
+        await this.summarizeBranch({
+          branchId: branch.branchId,
+          project,
+          projectContext,
+        });
       }
     }
   }
@@ -135,7 +147,15 @@ export class SummarizationAgent {
    * @param branchId ID of the branch to summarize
    * @returns A SummarizationResult object containing the summary or error information
    */
-  async summarizeBranch(branchId: string, project: string): Promise<SummarizationResult> {
+  async summarizeBranch({
+    branchId,
+    project,
+    projectContext,
+  }: {
+    branchId: string;
+    project: string;
+    projectContext: string;
+  }): Promise<SummarizationResult> {
     // Get the branch head
     const head = this.knowledgeGraph.getNode(branchId, project);
     if (!head) {
@@ -154,7 +174,9 @@ export class SummarizationAgent {
 
     while (current) {
       branchNodes.push(current);
-      current = current.parents[0] ? this.knowledgeGraph.getNode(current.parents[0], project) : undefined;
+      current = current.parents[0]
+        ? this.knowledgeGraph.getNode(current.parents[0], project)
+        : undefined;
     }
 
     // Reverse to get chronological order
@@ -214,7 +236,11 @@ export class SummarizationAgent {
     }
 
     try {
-      const summaryNode = await this.createSummary(nodesToSummarize);
+      const summaryNode = await this.createSummary({
+        nodes: nodesToSummarize,
+        projectContext,
+        project,
+      });
       return {
         summary: summaryNode,
         success: true,
@@ -236,7 +262,15 @@ export class SummarizationAgent {
    * @param nodes Nodes to summarize
    * @throws Error if summarization fails
    */
-  async createSummary(nodes: DagNode[]): Promise<SummaryNode> {
+  async createSummary({
+    nodes,
+    projectContext,
+    project,
+  }: {
+    nodes: DagNode[];
+    projectContext: string;
+    project: string;
+  }): Promise<SummaryNode> {
     if (!nodes || nodes.length === 0) {
       throw new Error('Cannot create summary: No nodes provided');
     }
@@ -257,16 +291,10 @@ export class SummarizationAgent {
       throw new Error('Summarization failed: Empty summary returned');
     }
 
-    // Get the projectContext from one of the nodes
-    const projectContext = nodes.find((node) => !!node.projectContext)?.projectContext;
-    if (!projectContext) {
-      throw new Error('Cannot create summary: No projectContext found in nodes');
-    }
-
     // Create a summary node
     const summaryNode: SummaryNode = {
       id: uuid(),
-      project: '', // Will be set by appendEntity
+      project,
       thought: result.summary,
       role: 'summary',
       parents: [nodes[nodes.length - 1].id], // Link to the newest node in the segment
@@ -281,13 +309,13 @@ export class SummarizationAgent {
     getLogger().info(`[createSummary] Created summary node with ID ${summaryNode.id}`);
 
     // Persist the summary node
-    await this.knowledgeGraph.appendEntity(summaryNode, projectContext);
-    
+    await this.knowledgeGraph.appendEntity(summaryNode);
+
     // Update the last node to include the summary node in its children
     const lastNode = nodes[nodes.length - 1];
     if (lastNode && !lastNode.children.includes(summaryNode.id)) {
       lastNode.children.push(summaryNode.id);
-      await this.knowledgeGraph.appendEntity(lastNode, projectContext);
+      await this.knowledgeGraph.appendEntity(lastNode);
     }
 
     return summaryNode;

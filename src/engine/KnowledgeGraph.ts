@@ -126,8 +126,8 @@ export class KnowledgeGraphManager {
     try {
       await lock(this.logFilePath);
       await fs.appendFile(this.logFilePath, line, 'utf8');
-    } catch (e) {
-      err = e;
+    } catch (e: unknown) {
+      err = e as Error;
     } finally {
       await unlock(this.logFilePath);
     }
