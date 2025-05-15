@@ -4,7 +4,6 @@ import { z } from 'zod';
 import { ActorCriticEngine, ActorThinkSchema } from './engine/ActorCriticEngine.ts';
 import { KnowledgeGraphManager } from './engine/KnowledgeGraph.ts';
 import { Critic } from './agents/Critic.ts';
-import { RevisionCounter } from './engine/RevisionCounter.ts';
 import { Actor } from './agents/Actor.ts';
 import { SummarizationAgent } from './agents/Summarize.ts';
 import { version as VERSION } from '../package.json';
@@ -28,8 +27,7 @@ async function main() {
   const summarizationAgent = new SummarizationAgent(kg);
 
   // Create other dependencies
-  const revisionCounter = new RevisionCounter(RevisionCounter.MAX_REVISION_CYCLES);
-  const critic = new Critic(kg, revisionCounter);
+  const critic = new Critic(kg);
   const actor = new Actor(kg);
 
   // Create ActorCriticEngine with all dependencies

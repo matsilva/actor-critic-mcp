@@ -2,7 +2,6 @@ import { execa } from 'execa';
 import { to } from 'await-to-js';
 import { v4 as uuid } from 'uuid';
 import { KnowledgeGraphManager, DagNode } from '../engine/KnowledgeGraph.ts';
-import { RevisionCounter } from '../engine/RevisionCounter.ts';
 import { getInstance as getLogger } from '../logger.ts';
 import path from 'node:path';
 import { extractProjectName } from '../utils/projectUtils.ts';
@@ -43,11 +42,8 @@ function missingArtifactGuard(actorNode: DagNode): { needsFix: boolean; reason?:
 }
 
 export class Critic {
-  constructor(
-    private readonly kg: KnowledgeGraphManager,
-    private readonly revisionCounter: RevisionCounter,
-  ) {}
-  
+  constructor(private readonly kg: KnowledgeGraphManager) {}
+
   // Use the centralized extractProjectName function from utils
   async review(actorNodeId: string, projectContext: string): Promise<DagNode> {
     // Extract project name from context
@@ -55,7 +51,7 @@ export class Critic {
     if (!projectName) {
       throw new Error('Invalid projectContext');
     }
-    
+
     const target = this.kg.getNode(actorNodeId, projectName);
     if (!target || (target as DagNode).role !== 'actor')
       throw new Error('invalid target for critic');
@@ -64,7 +60,6 @@ export class Critic {
     let reason: DagNode['verdictReason'] | undefined;
 
     if ((target as DagNode).thought.trim() === '') verdict = 'needs_revision';
-    if (this.revisionCounter.isAtMaxRevisions(actorNodeId)) verdict = 'reject';
     const artifactGuard = missingArtifactGuard(target as DagNode);
     if (artifactGuard.needsFix) verdict = 'needs_revision';
     if (artifactGuard.reason) reason = artifactGuard.reason;
@@ -125,9 +120,6 @@ export class Critic {
 
     // Persist the critic node
     await this.kg.appendEntity(criticNode, projectContext);
-
-    if (verdict === 'needs_revision') this.revisionCounter.increment(actorNodeId);
-    else this.revisionCounter.delete(actorNodeId);
 
     return criticNode;
   }
