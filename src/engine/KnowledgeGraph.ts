@@ -149,14 +149,6 @@ export class KnowledgeGraphManager {
     return entity && 'role' in entity ? (entity as DagNode) : undefined;
   }
 
-  getChildren(id: string, project: string): DagNode[] {
-    const state = this.projectStates.get(project);
-    if (!state) return [];
-    return Array.from(state.entities.values()).filter(
-      (entity): entity is DagNode => 'role' in entity && entity.parents.includes(id),
-    );
-  }
-
   getHeads(project: string): DagNode[] {
     const state = this.projectStates.get(project);
     if (!state) return [];
@@ -196,20 +188,14 @@ export class KnowledgeGraphManager {
     return id;
   }
 
-  exportPlan(project: string, filterTag?: string): unknown {
-    const nodes = this.allDagNodes(project).filter((n) =>
+  export({ project, filterTag, limit }: { project: string; filterTag?: string; limit?: number }) {
+    let nodes = this.allDagNodes(project).filter((n) =>
       filterTag ? n.tags?.includes(filterTag) : true,
     );
-    return nodes.map((n) => ({
-      id: n.id,
-      thought: n.thought,
-      tags: n.tags,
-      branchLabel: n.branchLabel,
-      verdict: n.verdict,
-      parents: n.parents,
-      children: n.children,
-      artifacts: n.artifacts?.map((a) => ({ name: a.name, uri: a.uri, path: a.path })),
-    }));
+    if (limit) {
+      nodes = nodes.slice(0, limit);
+    }
+    return nodes;
   }
 
   async listProjects(): Promise<string[]> {

@@ -88,10 +88,10 @@ describe('KnowledgeGraphManager', () => {
   describe('init', () => {
     it('should create a new log file if it does not exist', async () => {
       // Arrange - file does not exist (default mock)
-      
+
       // Act
       await kg.init();
-      
+
       // Assert
       expect(fs.mkdir).toHaveBeenCalledWith(path.dirname(mockLogFilePath), { recursive: true });
       expect(fs.writeFile).toHaveBeenCalledWith(mockLogFilePath, '');
@@ -100,10 +100,10 @@ describe('KnowledgeGraphManager', () => {
     it('should not create a new log file if it already exists', async () => {
       // Arrange - file exists
       vi.mocked(fs.stat).mockResolvedValue({} as any);
-      
+
       // Act
       await kg.init();
-      
+
       // Assert
       expect(fs.mkdir).not.toHaveBeenCalled();
       expect(fs.writeFile).not.toHaveBeenCalled();
@@ -114,19 +114,19 @@ describe('KnowledgeGraphManager', () => {
     it('should append a DagNode entity to the log file', async () => {
       // Arrange
       const node = createTestNode();
-      
+
       // Act
       await kg.appendEntity(node, mockProjectContext);
-      
+
       // Assert
       expect(lock).toHaveBeenCalledWith(mockLogFilePath);
       expect(fs.appendFile).toHaveBeenCalledWith(
         mockLogFilePath,
         expect.stringContaining(node.id),
-        'utf8'
+        'utf8',
       );
       expect(unlock).toHaveBeenCalledWith(mockLogFilePath);
-      
+
       // Should be added to internal state
       const retrievedNode = kg.getNode(node.id, mockProject);
       expect(retrievedNode).toBeDefined();
@@ -136,16 +136,16 @@ describe('KnowledgeGraphManager', () => {
     it('should append an ArtifactRef entity to the log file', async () => {
       // Arrange
       const artifact = createTestArtifact();
-      
+
       // Act
       await kg.appendEntity(artifact, mockProjectContext);
-      
+
       // Assert
       expect(lock).toHaveBeenCalledWith(mockLogFilePath);
       expect(fs.appendFile).toHaveBeenCalledWith(
         mockLogFilePath,
         expect.stringContaining(artifact.id),
-        'utf8'
+        'utf8',
       );
       expect(unlock).toHaveBeenCalledWith(mockLogFilePath);
     });
@@ -153,7 +153,7 @@ describe('KnowledgeGraphManager', () => {
     it('should throw an error if projectContext is invalid', async () => {
       // Arrange
       const node = createTestNode();
-      
+
       // Act & Assert
       await expect(kg.appendEntity(node, '')).rejects.toThrow('Invalid projectContext');
     });
@@ -162,7 +162,7 @@ describe('KnowledgeGraphManager', () => {
       // Arrange
       const node = createTestNode();
       vi.mocked(lock).mockRejectedValue(new Error('Lock error'));
-      
+
       // Act & Assert
       await expect(kg.appendEntity(node, mockProjectContext)).rejects.toThrow('Lock error');
     });
@@ -171,10 +171,10 @@ describe('KnowledgeGraphManager', () => {
       // Arrange
       const node = createTestNode();
       const appendEntitySpy = vi.spyOn(kg, 'appendEntity').mockResolvedValue();
-      
+
       // Act
       await kg.createEntity(node, mockProject);
-      
+
       // Assert
       expect(appendEntitySpy).toHaveBeenCalledWith(node, mockProject);
     });
@@ -184,55 +184,22 @@ describe('KnowledgeGraphManager', () => {
     it('should return undefined for non-existent nodes', () => {
       // Act
       const result = kg.getNode('non-existent-id', mockProject);
-      
+
       // Assert
       expect(result).toBeUndefined();
     });
-    
+
     it('should retrieve a node by ID', async () => {
       // Arrange
       const node = createTestNode();
       await kg.appendEntity(node, mockProjectContext);
-      
+
       // Act
       const result = kg.getNode(node.id, mockProject);
-      
+
       // Assert
       expect(result).toBeDefined();
       expect(result?.id).toBe(node.id);
-    });
-  });
-
-  describe('getChildren', () => {
-    it('should return an empty array for a node with no children', async () => {
-      // Arrange
-      const parentNode = createTestNode();
-      await kg.appendEntity(parentNode, mockProjectContext);
-      
-      // Act
-      const children = kg.getChildren(parentNode.id, mockProject);
-      
-      // Assert
-      expect(children).toEqual([]);
-    });
-    
-    it('should retrieve child nodes correctly', async () => {
-      // Arrange
-      const parentNode = createTestNode();
-      await kg.appendEntity(parentNode, mockProjectContext);
-      
-      const childNode1 = createTestNode('actor', [parentNode.id]);
-      const childNode2 = createTestNode('critic', [parentNode.id]);
-      await kg.appendEntity(childNode1, mockProjectContext);
-      await kg.appendEntity(childNode2, mockProjectContext);
-      
-      // Act
-      const children = kg.getChildren(parentNode.id, mockProject);
-      
-      // Assert
-      expect(children).toHaveLength(2);
-      expect(children.map(c => c.id)).toContain(childNode1.id);
-      expect(children.map(c => c.id)).toContain(childNode2.id);
     });
   });
 
@@ -240,25 +207,25 @@ describe('KnowledgeGraphManager', () => {
     it('should return all nodes without outgoing edges', async () => {
       // Instead of trying to mock the internal implementation,
       // we'll test a simplified scenario that's easier to verify
-      
+
       // Arrange - Create a fresh instance to avoid state from other tests
       const testKg = new KnowledgeGraphManager();
-      
+
       // Create a simple graph where node2 is a head (no outgoing edges)
       const node1 = createTestNode();
       const node2 = createTestNode();
-      
+
       // Mock getHeads directly
       const getHeadsSpy = vi.spyOn(testKg, 'getHeads');
       getHeadsSpy.mockReturnValue([node2]);
-      
+
       // Act
       const heads = testKg.getHeads(mockProject);
-      
+
       // Assert
       expect(heads).toHaveLength(1);
       expect(heads[0].id).toBe(node2.id);
-      
+
       // Clean up
       getHeadsSpy.mockRestore();
     });
@@ -267,20 +234,20 @@ describe('KnowledgeGraphManager', () => {
   describe('listBranches', () => {
     it('should return branch heads with depth information', async () => {
       // Arrange
-      const node1 = {...createTestNode(), branchLabel: 'branch-1'};
+      const node1 = { ...createTestNode(), branchLabel: 'branch-1' };
       const node2 = createTestNode('actor', [node1.id]);
       const node3 = createTestNode('actor', [node2.id]);
-      
+
       await kg.appendEntity(node1, mockProjectContext);
       await kg.appendEntity(node2, mockProjectContext);
       await kg.appendEntity(node3, mockProjectContext);
-      
+
       // Mock depth implementation
       const depthSpy = vi.spyOn(kg as any, 'depth').mockReturnValue(3);
-      
+
       // Act
       const branches = kg.listBranches(mockProject);
-      
+
       // Assert
       expect(branches).toHaveLength(1);
       expect(branches[0].branchId).toBe(node3.id);
@@ -295,66 +262,82 @@ describe('KnowledgeGraphManager', () => {
       // Arrange
       const node = createTestNode();
       await kg.appendEntity(node, mockProjectContext);
-      
+
       // Act
       const result = kg.resume(node.id, mockProject);
-      
+
       // Assert
       expect(result).toBe(node.id);
     });
-    
+
     it('should resume a branch by label', async () => {
       // Arrange
-      const node = {...createTestNode(), branchLabel: 'test-branch'};
+      const node = { ...createTestNode(), branchLabel: 'test-branch' };
       await kg.appendEntity(node, mockProjectContext);
-      
+
       // Manually set label index since we're not using the actual file loading
       (kg as any).labelIndex.set('test-branch', node.id);
-      
+
       // Act
       const result = kg.resume('test-branch', mockProject);
-      
+
       // Assert
       expect(result).toBe(node.id);
     });
-    
+
     it('should throw an error for non-existent branch', async () => {
       // Act & Assert
       expect(() => kg.resume('non-existent', mockProject)).toThrow('branch not found');
     });
   });
 
-  describe('exportPlan', () => {
+  describe('export', () => {
     it('should export all nodes when no filter tag is provided', async () => {
       // Arrange
       const node1 = createTestNode();
       const node2 = createTestNode();
       await kg.appendEntity(node1, mockProjectContext);
       await kg.appendEntity(node2, mockProjectContext);
-      
+
       // Act
-      const result = kg.exportPlan(mockProject) as Array<{id: string, thought: string}>;
-      
+      const result = kg.export({ project: mockProject }) as Array<{ id: string; thought: string }>;
+
       // Assert
       expect(result).toHaveLength(2);
       expect(result).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: node1.id }),
-          expect.objectContaining({ id: node2.id })
-        ])
+          expect.objectContaining({ id: node2.id }),
+        ]),
       );
     });
-    
+
     it('should filter nodes by tag', async () => {
       // Arrange
-      const node1 = {...createTestNode(), tags: ['test', 'filter-me']};
+      const node1 = { ...createTestNode(), tags: ['test', 'filter-me'] };
       const node2 = createTestNode(); // Only has 'test' tag
       await kg.appendEntity(node1, mockProjectContext);
       await kg.appendEntity(node2, mockProjectContext);
-      
+
       // Act
-      const result = kg.exportPlan(mockProject, 'filter-me') as Array<{id: string}>;
-      
+      const result = kg.export({ project: mockProject, filterTag: 'filter-me' }) as Array<{
+        id: string;
+      }>;
+
+      // Assert
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe(node1.id);
+    });
+    it('should limit number of nodes', async () => {
+      // Arrange
+      const node1 = createTestNode();
+      const node2 = createTestNode();
+      await kg.appendEntity(node1, mockProjectContext);
+      await kg.appendEntity(node2, mockProjectContext);
+
+      // Act
+      const result = kg.export({ project: mockProject, limit: 1 }) as Array<{ id: string }>;
+
       // Assert
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe(node1.id);
@@ -367,42 +350,42 @@ describe('KnowledgeGraphManager', () => {
       const node1 = createTestNode();
       const node2 = createTestNode('actor', [node1.id]);
       const node3 = createTestNode('actor', [node2.id]);
-      
+
       await kg.appendEntity(node1, mockProjectContext);
       await kg.appendEntity(node2, mockProjectContext);
       await kg.appendEntity(node3, mockProjectContext);
-      
+
       // Act
       const depth = (kg as any).depth(node3.id, mockProject);
-      
+
       // Assert
       expect(depth).toBe(3); // node3 -> node2 -> node1 = depth 3
     });
-    
+
     it('should handle cycles in the graph', async () => {
       // Arrange
       const node1 = createTestNode();
       const node2Id = uuid();
-      const node2 = {...createTestNode(), id: node2Id, parents: [node1.id]};
-      const node3 = {...createTestNode(), parents: [node2Id]};
+      const node2 = { ...createTestNode(), id: node2Id, parents: [node1.id] };
+      const node3 = { ...createTestNode(), parents: [node2Id] };
       // Update node1 to create a cycle
       node1.parents = [node3.id];
-      
+
       await kg.appendEntity(node1, mockProjectContext);
       await kg.appendEntity(node2, mockProjectContext);
       await kg.appendEntity(node3, mockProjectContext);
-      
+
       // Since the depth calculation currently doesn't handle cycles correctly
       // we'll mock the depth method directly instead of the recursive helper
       const depthSpy = vi.spyOn(kg as any, 'depth');
       depthSpy.mockReturnValue(1); // This is what we expect with proper cycle detection
-      
+
       // Act
       const depth = (kg as any).depth(node1.id, mockProject);
-      
+
       // Assert
       expect(depth).toBe(1); // With cycle detection, should be 1
-      
+
       // Clean up
       depthSpy.mockRestore();
     });
@@ -414,13 +397,13 @@ describe('KnowledgeGraphManager', () => {
       const mockData = [
         { project: 'project1', id: uuid() },
         { project: 'project2', id: uuid() },
-        { project: 'project1', id: uuid() } // Duplicate to test unique
+        { project: 'project1', id: uuid() }, // Duplicate to test unique
       ];
-      
+
       const mockReadable = new Readable();
       mockReadable._read = () => {};
       vi.mocked(fsSync.createReadStream).mockReturnValue(mockReadable as any);
-      
+
       // Create a mock readline interface
       const mockReadline = {
         [Symbol.asyncIterator]: vi.fn().mockImplementation(() => {
@@ -435,30 +418,30 @@ describe('KnowledgeGraphManager', () => {
           };
         }),
       };
-      
+
       // Override the readline mock for this test only
       const mockReadlineModule = await import('node:readline');
       mockReadlineModule.default.createInterface = vi.fn().mockReturnValue(mockReadline);
-      
+
       // Act
       const result: string[] = await kg.listProjects();
-      
+
       // Assert
       expect(result).toEqual(['project1', 'project2']);
     });
-    
+
     it('should handle errors in the log file', async () => {
       // Arrange - Mock readline with invalid JSON line
       const mockData = [
         { project: 'project1', id: uuid() },
-        'invalid json',  // This will cause an error
-        { project: 'project2', id: uuid() }
+        'invalid json', // This will cause an error
+        { project: 'project2', id: uuid() },
       ];
-      
+
       const mockReadable = new Readable();
       mockReadable._read = () => {};
       vi.mocked(fsSync.createReadStream).mockReturnValue(mockReadable as any);
-      
+
       // Create a mock readline interface that returns invalid JSON for one item
       const mockReadline = {
         [Symbol.asyncIterator]: vi.fn().mockImplementation(() => {
@@ -466,11 +449,12 @@ describe('KnowledgeGraphManager', () => {
           return {
             next: async () => {
               if (index < mockData.length) {
-                return { 
-                  value: typeof mockData[index] === 'string' 
-                    ? mockData[index++] 
-                    : JSON.stringify(mockData[index++]), 
-                  done: false 
+                return {
+                  value:
+                    typeof mockData[index] === 'string'
+                      ? mockData[index++]
+                      : JSON.stringify(mockData[index++]),
+                  done: false,
                 };
               }
               return { done: true };
@@ -478,14 +462,14 @@ describe('KnowledgeGraphManager', () => {
           };
         }),
       };
-      
+
       // Override the readline mock for this test only
       const mockReadlineModule = await import('node:readline');
       mockReadlineModule.default.createInterface = vi.fn().mockReturnValue(mockReadline);
-      
+
       // Act
       const result: string[] = await kg.listProjects();
-      
+
       // Assert - should still return projects despite error
       expect(result).toEqual(['project1', 'project2']);
     });

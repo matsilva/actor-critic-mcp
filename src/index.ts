@@ -166,10 +166,12 @@ async function main() {
     },
   );
 
-  /** export_plan – dump the current graph, optionally filtered by tag */
+  /** export_knowledge_graph – dump the current graph, optionally filtered by tag */
   server.tool(
-    'export_plan',
+    'export_knowledge_graph',
+    'dump the current knowledge graph, optionally filtered by tag',
     {
+      limit: z.number().optional().describe('Limit the number of nodes returned.'),
       projectContext: z.string().describe('Full path to the project directory.'),
       filterTag: z.string().optional().describe('Return only nodes containing this tag.'),
     },
@@ -177,7 +179,14 @@ async function main() {
       const projectName = await loadProjectOrThrow({ logger, kg, args: a, onProjectLoad: runOnce });
       return {
         content: [
-          { type: 'text', text: JSON.stringify(kg.exportPlan(projectName, a.filterTag), null, 2) },
+          {
+            type: 'text',
+            text: JSON.stringify(
+              kg.export({ project: projectName, filterTag: a.filterTag, limit: a.limit }),
+              null,
+              2,
+            ),
+          },
         ],
       };
     },
