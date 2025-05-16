@@ -165,8 +165,10 @@ async function main() {
     { projectContext: z.string().describe('Full path to the project directory.') },
     async (a) => {
       const projectName = await loadProjectOrThrow({ logger, kg, args: a, onProjectLoad: runOnce });
+      const branches = await kg.listBranches(projectName);
+      const text = branches.length ? JSON.stringify(branches, null, 2) : 'No branches found';
       return {
-        content: [{ type: 'text', text: JSON.stringify(kg.listBranches(projectName), null, 2) }],
+        content: [{ type: 'text', text }],
       };
     },
   );
