@@ -37,7 +37,6 @@ export interface DagNode extends ActorThinkInput, WithProjectContext {
   parents: string[];
   children: string[];
   createdAt: string; // ISO timestamp
-  branchLabel?: string;
   summarizedSegment?: string[]; // IDs of nodes summarized (for summary nodes)
 }
 
@@ -67,7 +66,6 @@ export class KnowledgeGraphManager {
 
   private logFilePath: string = path.resolve(dataDir, 'knowledge_graph.ndjson');
   private logger: CodeLoopsLogger;
-  public labelIndex: Map<string, string> = new Map(); // branchLabel ➜ nodeId
 
   // Schema for validating DagNode entries
   private static DagNodeSchema = z.object({
@@ -79,7 +77,6 @@ export class KnowledgeGraphManager {
     createdAt: z.string().datetime(),
     parents: z.array(z.string()),
     children: z.array(z.string()),
-    branchLabel: z.string().optional(),
     verdict: z.enum(['approved', 'needs_revision', 'reject']).optional(),
     verdictReason: z.string().optional(),
     verdictReferences: z.array(z.string()).optional(),
@@ -106,27 +103,6 @@ export class KnowledgeGraphManager {
     }
   }
 
-  async tryLoadProject() {
-    await this.refreshLabelIndex();
-  }
-
-  private async refreshLabelIndex() {
-    this.labelIndex.clear();
-    const fileStream = fsSync.createReadStream(this.logFilePath);
-    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
-    try {
-      for await (const line of rl) {
-        const entry = this.parseDagNode(line);
-        if (entry?.branchLabel) {
-          this.labelIndex.set(entry.branchLabel, entry.id);
-        }
-      }
-    } finally {
-      rl.close();
-      fileStream.close();
-    }
-  }
-
   private parseDagNode(line: string): DagNode | null {
     try {
       const parsed = JSON.parse(line);
@@ -139,9 +115,6 @@ export class KnowledgeGraphManager {
   }
 
   async appendEntity(entity: DagNode, retries = 3) {
-    if (entity.branchLabel && this.labelIndex.has(entity.branchLabel)) {
-      throw new Error(`Duplicate branchLabel: ${entity.branchLabel}`);
-    }
     if (await this.wouldCreateCycle(entity)) {
       throw new Error(`Appending node ${entity.id} would create a cycle`);
     }
@@ -154,9 +127,6 @@ export class KnowledgeGraphManager {
       try {
         await lock(this.logFilePath, { retries: 0 });
         await fs.appendFile(this.logFilePath, line, 'utf8');
-        if (entity.branchLabel) {
-          this.labelIndex.set(entity.branchLabel, entity.id);
-        }
         return;
       } catch (e: unknown) {
         err = e as Error;
@@ -181,7 +151,7 @@ export class KnowledgeGraphManager {
     async function dfs(id: string, manager: KnowledgeGraphManager): Promise<boolean> {
       if (visited.has(id)) return true;
       visited.add(id);
-      const node = await manager.getNode(id, entity.project);
+      const node = await manager.getNode(id);
       if (!node) return false;
       for (const childId of node.children) {
         if (childId === entity.id || (await dfs(childId, manager))) return true;
@@ -194,38 +164,17 @@ export class KnowledgeGraphManager {
     return false;
   }
 
-  async getNode(id: string, project: string): Promise<DagNode | undefined> {
+  async getNode(id: string): Promise<DagNode | undefined> {
     const fileStream = fsSync.createReadStream(this.logFilePath);
     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
     try {
       for await (const line of rl) {
         const entry = this.parseDagNode(line);
-        if (entry?.project === project && entry.id === id) {
+        if (entry?.id === id) {
           return entry;
         }
       }
       return undefined;
-    } finally {
-      rl.close();
-      fileStream.close();
-    }
-  }
-
-  async getHeads(project: string): Promise<DagNode[]> {
-    const nodes = new Map<string, DagNode>();
-    const hasOutgoing = new Set<string>();
-    const fileStream = fsSync.createReadStream(this.logFilePath);
-    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
-    try {
-      for await (const line of rl) {
-        const node = this.parseDagNode(line);
-        if (!node || node.project !== project) continue;
-        nodes.set(node.id, node);
-        for (const parentId of node.parents) {
-          hasOutgoing.add(parentId);
-        }
-      }
-      return Array.from(nodes.values()).filter((node) => !hasOutgoing.has(node.id));
     } finally {
       rl.close();
       fileStream.close();
@@ -256,20 +205,6 @@ export class KnowledgeGraphManager {
     return nodes;
   }
 
-  async listBranches(project: string): Promise<BranchHead[]> {
-    const heads = await this.getHeads(project);
-    const branches: BranchHead[] = [];
-    for (const head of heads) {
-      branches.push({
-        branchId: head.id,
-        label: head.branchLabel,
-        head,
-        depth: await this.depth(head.id, project),
-      });
-    }
-    return branches;
-  }
-
   async resume({ project, limit = 5 }: { project: string; limit?: number }): Promise<DagNode[]> {
     return this.export({ project, limit });
   }
@@ -292,7 +227,7 @@ export class KnowledgeGraphManager {
         if (!node || node.project !== project) continue;
         if (filterFn && !filterFn(node)) continue;
         nodes.push(node);
-        if (limit && nodes.length >= limit) nodes.shift();
+        if (limit && nodes.length > limit) nodes.shift();
       }
       return nodes;
     } finally {
@@ -317,35 +252,5 @@ export class KnowledgeGraphManager {
       rl.close();
       fileStream.close();
     }
-  }
-
-  private async getBranchNodes(id: string, project: string, limit: number): Promise<DagNode[]> {
-    const nodes: DagNode[] = [];
-    let currentId = id;
-    while (nodes.length < limit) {
-      const node = await this.getNode(currentId, project);
-      if (!node) break;
-      nodes.push(node);
-      if (!node.parents.length) break;
-      currentId = node.parents[0]; // Follow the first parent
-    }
-    return nodes.reverse();
-  }
-
-  private async depth(id: string, project: string): Promise<number> {
-    return this.depthRecursive(id, new Set(), project);
-  }
-
-  private async depthRecursive(id: string, visited: Set<string>, project: string): Promise<number> {
-    if (visited.has(id)) return 0;
-    visited.add(id);
-    const node = await this.getNode(id, project);
-    if (!node || !node.parents.length) return 1;
-    let maxParentDepth = 0;
-    for (const parentId of node.parents) {
-      const parentDepth = await this.depthRecursive(parentId, visited, project);
-      maxParentDepth = Math.max(maxParentDepth, parentDepth);
-    }
-    return 1 + maxParentDepth;
   }
 }

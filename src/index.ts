@@ -41,7 +41,6 @@ const loadProjectOrThrow = async ({
     logger.error({ projectContext: args.projectContext }, 'Invalid projectContext');
     throw new Error(`Invalid projectContext: ${args.projectContext}`);
   }
-  await kg.tryLoadProject();
   onProjectLoad(projectName);
   return projectName;
 };
@@ -158,22 +157,25 @@ async function main() {
     },
   );
 
-  /** list_branches – quick overview for navigation */
   server.tool(
-    'list_branches',
-    'List all branches in the knowledge graph.',
-    { projectContext: z.string().describe('Full path to the project directory.') },
+    'get_node',
+    'Get a specific node by ID',
+    {
+      id: z.string().describe('ID of the node to retrieve.'),
+    },
     async (a) => {
-      const projectName = await loadProjectOrThrow({ logger, kg, args: a, onProjectLoad: runOnce });
-      const branches = await kg.listBranches(projectName);
-      const text = branches.length ? JSON.stringify(branches, null, 2) : 'No branches found';
+      const node = await kg.getNode(a.id);
       return {
-        content: [{ type: 'text', text }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(node, null, 2),
+          },
+        ],
       };
     },
   );
 
-  /** resume – fetch WINDOW‑sized recent context for a branch */
   server.tool(
     'resume',
     'Pick up where you left off by fetching the most recent nodes from the knowledge graph for this project. Use limit to control the number of nodes returned. Increase it if you need more context.',
@@ -196,10 +198,10 @@ async function main() {
     },
   );
 
-  /** export – dump the current graph, optionally filtered by tag */
+  /** export – dump the current graph */
   server.tool(
     'export',
-    'dump the current knowledge graph, optionally filtered by tag',
+    'dump the current knowledge graph, with optional limit',
     {
       limit: z.number().optional().describe('Limit the number of nodes returned.'),
       projectContext: z.string().describe('Full path to the project directory.'),
@@ -215,86 +217,6 @@ async function main() {
           },
         ],
       };
-    },
-  );
-
-  /** summarize_branch – generate a summary for a specific branch */
-  server.tool(
-    'summarize_branch',
-    {
-      projectContext: z.string().describe('Full path to the project directory.'),
-      branchIdOrLabel: z.string().describe('Branch id OR label'),
-    },
-    async (args) => {
-      const projectName = await loadProjectOrThrow({ logger, kg, args, onProjectLoad: runOnce });
-      try {
-        const summary = await engine.summarizeBranch({
-          branchIdOrLabel: args.branchIdOrLabel,
-          projectContext: args.projectContext,
-          project: projectName,
-        });
-
-        if (summary) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(summary, null, 2),
-              },
-            ],
-          };
-        } else {
-          // If summarization failed, get the branch information to provide context
-          const branches = await kg.listBranches(projectName);
-          const targetBranch = branches.find(
-            (b) =>
-              b.branchId === args.branchIdOrLabel || b.head.branchLabel === args.branchIdOrLabel,
-          );
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(
-                  {
-                    error: true,
-                    message:
-                      'Summarization failed. This could be due to insufficient nodes, already summarized content, or an error in the summarization process.',
-                    branchInfo: targetBranch
-                      ? {
-                          branchId: targetBranch.branchId,
-                          label: targetBranch.head.branchLabel,
-                          depth: targetBranch.depth,
-                        }
-                      : null,
-                    tip: 'Check logs for detailed error information.',
-                  },
-                  null,
-                  2,
-                ),
-              },
-            ],
-          };
-        }
-      } catch (error) {
-        const logger = getLogger();
-        logger.error({ error }, '[summarize_branch] Error:');
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(
-                {
-                  error: true,
-                  message: `Summarization error: ${error instanceof Error ? error.message : String(error)}`,
-                },
-                null,
-                2,
-              ),
-            },
-          ],
-        };
-      }
     },
   );
 

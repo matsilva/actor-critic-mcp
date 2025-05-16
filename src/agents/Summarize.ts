@@ -30,9 +30,6 @@ export class SummarizationAgent {
   // Number of nodes after which to trigger summarization
   private static SUMMARIZATION_THRESHOLD = 20;
 
-  // Maximum number of nodes to include in a summary
-  private static SUMMARY_CHUNK_SIZE = 10;
-
   /**
    * Creates a new SummarizationAgent.
    * @param knowledgeGraph The knowledge graph manager instance
@@ -128,132 +125,21 @@ export class SummarizationAgent {
     project: string;
     projectContext: string;
   }): Promise<void> {
-    const branches = await this.knowledgeGraph.listBranches(project);
+    const nodes = await this.knowledgeGraph.resume({
+      project,
+      limit: SummarizationAgent.SUMMARIZATION_THRESHOLD,
+    });
 
-    for (const branch of branches) {
-      // Only summarize branches that have enough nodes
-      if (branch.depth >= SummarizationAgent.SUMMARIZATION_THRESHOLD) {
-        await this.summarizeBranch({
-          branchId: branch.branchId,
-          project,
-          projectContext,
-        });
-      }
-    }
-  }
+    const lastSummaryIndex = nodes.findIndex((node) => node.role === 'summary');
+    const nodesToSummarize = nodes.slice(lastSummaryIndex + 1);
 
-  /**
-   * Summarizes the oldest segment of nodes in a branch.
-   * @param branchId ID of the branch to summarize
-   * @returns A SummarizationResult object containing the summary or error information
-   */
-  async summarizeBranch({
-    branchId,
-    project,
-    projectContext,
-  }: {
-    branchId: string;
-    project: string;
-    projectContext: string;
-  }): Promise<SummarizationResult> {
-    // Get the branch head
-    const head = await this.knowledgeGraph.getNode(branchId, project);
-    if (!head) {
-      getLogger().error(`[summarizeBranch] Branch not found: ${branchId}`);
-      return {
-        summary: null,
-        success: false,
-        errorCode: 'BRANCH_NOT_FOUND',
-        errorMessage: `Branch with ID or label "${branchId}" not found`,
-      };
-    }
-
-    // Collect all nodes in the branch
-    const branchNodes: DagNode[] = [];
-    let current: DagNode | undefined = head;
-
-    while (current) {
-      branchNodes.push(current);
-      current = current.parents[0]
-        ? await this.knowledgeGraph.getNode(current.parents[0], project)
-        : undefined;
-    }
-
-    // Reverse to get chronological order
-    branchNodes.reverse();
-
-    // Log branch information for debugging
-    getLogger().info(`[summarizeBranch] Branch ${branchId} has ${branchNodes.length} nodes`);
-
-    // Check if the branch has enough nodes to meet the summarization threshold
-    if (branchNodes.length < SummarizationAgent.SUMMARIZATION_THRESHOLD) {
-      return {
-        summary: null,
-        success: false,
-        errorCode: 'INSUFFICIENT_NODES',
-        errorMessage: `Branch has only ${branchNodes.length} nodes, which is below the summarization threshold of ${SummarizationAgent.SUMMARIZATION_THRESHOLD}`,
-        details: `Current nodes: ${branchNodes.length}, Required: ${SummarizationAgent.SUMMARIZATION_THRESHOLD}`,
-      };
-    }
-
-    // Check if we already have summaries for this branch
-    const existingSummaries = branchNodes.filter(
-      (node): node is SummaryNode =>
-        node.role === 'summary' && node.summarizedSegment !== undefined,
-    );
-
-    getLogger().info(`[summarizeBranch] Branch has ${existingSummaries.length} existing summaries`);
-
-    // Determine which nodes need to be summarized
-    let nodesToSummarize: DagNode[] = [];
-
-    if (existingSummaries.length === 0) {
-      // If no summaries exist, summarize the oldest chunk
-      nodesToSummarize = branchNodes.slice(
-        0,
-        Math.min(SummarizationAgent.SUMMARY_CHUNK_SIZE, branchNodes.length),
-      );
-    } else {
-      // Find the newest summary
-      const newestSummary = existingSummaries.reduce((newest, current) => {
-        const newestDate = new Date(newest.createdAt);
-        const currentDate = new Date(current.createdAt);
-        return currentDate > newestDate ? current : newest;
-      }, existingSummaries[0]);
-
-      // Find nodes that were created after the newest summary but are old enough to summarize
-      const summaryIndex = branchNodes.findIndex((node) => node.id === newestSummary.id);
-
-      if (
-        summaryIndex !== -1 &&
-        branchNodes.length - summaryIndex > SummarizationAgent.SUMMARIZATION_THRESHOLD
-      ) {
-        nodesToSummarize = branchNodes.slice(
-          summaryIndex + 1,
-          summaryIndex + 1 + SummarizationAgent.SUMMARY_CHUNK_SIZE,
-        );
-      }
-    }
-
-    try {
-      const summaryNode = await this.createSummary({
-        nodes: nodesToSummarize,
-        projectContext,
+    // Only summarize branches that have enough nodes
+    if (nodesToSummarize.length >= SummarizationAgent.SUMMARIZATION_THRESHOLD) {
+      await this.createSummary({
         project,
+        projectContext,
+        nodes: nodesToSummarize,
       });
-      return {
-        summary: summaryNode,
-        success: true,
-      };
-    } catch (error) {
-      getLogger().error({ error }, `[summarizeBranch] Error creating summary:`);
-      return {
-        summary: null,
-        success: false,
-        errorCode: 'SUMMARIZATION_ERROR',
-        errorMessage: 'Error occurred during summarization process',
-        details: error instanceof Error ? error.message : String(error),
-      };
     }
   }
 

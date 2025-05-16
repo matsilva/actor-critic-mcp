@@ -8,19 +8,19 @@ export class Actor {
   async think(
     input: ActorThinkInput & { artifacts?: Partial<ArtifactRef>[]; project: string },
   ): Promise<{ node: DagNode }> {
-    const { thought, branchLabel, tags, artifacts, project, projectContext } = input;
+    const { thought, tags, artifacts, project, projectContext } = input;
 
-    const parents = (await this.kg.getHeads(project)).map((h) => h.id);
+    //TODO: rework parents
+    // const parents = (await this.kg.getHeads(project)).map((h) => h.id);
 
     const node: DagNode = {
       id: uuid(),
       project,
       thought,
       role: 'actor',
-      parents,
+      parents: [],
       children: [],
       createdAt: '', // Will be set by appendEntity
-      branchLabel,
       tags,
       artifacts: artifacts as ArtifactRef[],
       projectContext,
@@ -28,7 +28,6 @@ export class Actor {
 
     // Persist node
     await this.kg.appendEntity(node);
-    if (branchLabel) this.kg.labelIndex.set(branchLabel, node.id);
 
     return { node };
   }
