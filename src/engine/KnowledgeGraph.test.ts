@@ -95,9 +95,9 @@ describe('KnowledgeGraphManager', () => {
       await kg.appendEntity(nodeD);
 
       // Verify the graph structure
-      const heads = await kg.getHeads('test-project');
-      expect(heads.length).toBe(1);
-      expect(heads[0].id).toBe(nodeD.id);
+      const nodes = await kg.resume({ project: 'test-project' });
+      expect(nodes.length).toBe(4);
+      expect(nodes[nodes.length - 1].id).toBe(nodeD.id);
     });
   });
 
@@ -134,92 +134,6 @@ describe('KnowledgeGraphManager', () => {
       // Should not find project-a's node when looking in project-b
       const resultB = await kg.getNode(projectANode.id, 'project-b');
       expect(resultB).toBeUndefined();
-    });
-  });
-
-  describe('getHeads', () => {
-    it('should return nodes with no outgoing edges as heads', async () => {
-      // Create a chain of nodes A -> B -> C
-      const nodeA = createTestNode('test-project');
-      await kg.appendEntity(nodeA);
-
-      const nodeB = createTestNode('test-project', 'actor', [nodeA.id]);
-      await kg.appendEntity(nodeB);
-
-      const nodeC = createTestNode('test-project', 'actor', [nodeB.id]);
-      await kg.appendEntity(nodeC);
-
-      // C should be the only head
-      const heads = await kg.getHeads('test-project');
-      expect(heads.length).toBe(1);
-      expect(heads[0].id).toBe(nodeC.id);
-    });
-
-    it('should return multiple heads if there are multiple leaf nodes', async () => {
-      // Create two separate branches A -> B and C -> D
-      const nodeA = createTestNode('test-project');
-      await kg.appendEntity(nodeA);
-
-      const nodeB = createTestNode('test-project', 'actor', [nodeA.id]);
-      await kg.appendEntity(nodeB);
-
-      const nodeC = createTestNode('test-project');
-      await kg.appendEntity(nodeC);
-
-      const nodeD = createTestNode('test-project', 'actor', [nodeC.id]);
-      await kg.appendEntity(nodeD);
-
-      // B and D should both be heads
-      const heads = await kg.getHeads('test-project');
-      expect(heads.length).toBe(2);
-      expect(heads.map((h: DagNode) => h.id).sort()).toEqual([nodeB.id, nodeD.id].sort());
-    });
-
-    it('should return an empty array if no nodes exist for the project', async () => {
-      const heads = await kg.getHeads('non-existent-project');
-      expect(heads).toEqual([]);
-    });
-  });
-
-  describe('listBranches', () => {
-    it('should list all branches with their heads and depths', async () => {
-      // Create a simple branch with depth 2
-      const nodeA = createTestNode('test-project');
-      await kg.appendEntity(nodeA);
-
-      const nodeB = createTestNode('test-project', 'actor', [nodeA.id]);
-      nodeB.branchLabel = 'test-branch';
-      await kg.appendEntity(nodeB);
-
-      // List branches
-      const branches = await kg.listBranches('test-project');
-      expect(branches.length).toBe(1);
-      expect(branches[0].branchId).toBe(nodeB.id);
-      expect(branches[0].label).toBe('test-branch');
-      expect(branches[0].depth).toBe(2); // A -> B = depth 2
-    });
-
-    it('should correctly calculate branch depths', async () => {
-      // Create a deeper branch A -> B -> C -> D
-      const nodeA = createTestNode('test-project');
-      await kg.appendEntity(nodeA);
-
-      const nodeB = createTestNode('test-project', 'actor', [nodeA.id]);
-      await kg.appendEntity(nodeB);
-
-      const nodeC = createTestNode('test-project', 'actor', [nodeB.id]);
-      await kg.appendEntity(nodeC);
-
-      const nodeD = createTestNode('test-project', 'actor', [nodeC.id]);
-      nodeD.branchLabel = 'deep-branch';
-      await kg.appendEntity(nodeD);
-
-      // List branches
-      const branches = await kg.listBranches('test-project');
-      expect(branches.length).toBe(1);
-      expect(branches[0].branchId).toBe(nodeD.id);
-      expect(branches[0].label).toBe('deep-branch');
-      expect(branches[0].depth).toBe(4); // A -> B -> C -> D = depth 4
     });
   });
 

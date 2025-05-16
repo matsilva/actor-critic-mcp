@@ -37,7 +37,6 @@ export interface DagNode extends ActorThinkInput, WithProjectContext {
   parents: string[];
   children: string[];
   createdAt: string; // ISO timestamp
-  branchLabel?: string;
   summarizedSegment?: string[]; // IDs of nodes summarized (for summary nodes)
 }
 
@@ -67,7 +66,6 @@ export class KnowledgeGraphManager {
 
   private logFilePath: string = path.resolve(dataDir, 'knowledge_graph.ndjson');
   private logger: CodeLoopsLogger;
-  public labelIndex: Map<string, string> = new Map(); // branchLabel ➜ nodeId
 
   // Schema for validating DagNode entries
   private static DagNodeSchema = z.object({
@@ -79,7 +77,6 @@ export class KnowledgeGraphManager {
     createdAt: z.string().datetime(),
     parents: z.array(z.string()),
     children: z.array(z.string()),
-    branchLabel: z.string().optional(),
     verdict: z.enum(['approved', 'needs_revision', 'reject']).optional(),
     verdictReason: z.string().optional(),
     verdictReferences: z.array(z.string()).optional(),
@@ -107,24 +104,7 @@ export class KnowledgeGraphManager {
   }
 
   async tryLoadProject() {
-    await this.refreshLabelIndex();
-  }
-
-  private async refreshLabelIndex() {
-    this.labelIndex.clear();
-    const fileStream = fsSync.createReadStream(this.logFilePath);
-    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
-    try {
-      for await (const line of rl) {
-        const entry = this.parseDagNode(line);
-        if (entry?.branchLabel) {
-          this.labelIndex.set(entry.branchLabel, entry.id);
-        }
-      }
-    } finally {
-      rl.close();
-      fileStream.close();
-    }
+    //currently noop
   }
 
   private parseDagNode(line: string): DagNode | null {
@@ -139,9 +119,6 @@ export class KnowledgeGraphManager {
   }
 
   async appendEntity(entity: DagNode, retries = 3) {
-    if (entity.branchLabel && this.labelIndex.has(entity.branchLabel)) {
-      throw new Error(`Duplicate branchLabel: ${entity.branchLabel}`);
-    }
     if (await this.wouldCreateCycle(entity)) {
       throw new Error(`Appending node ${entity.id} would create a cycle`);
     }
@@ -154,9 +131,6 @@ export class KnowledgeGraphManager {
       try {
         await lock(this.logFilePath, { retries: 0 });
         await fs.appendFile(this.logFilePath, line, 'utf8');
-        if (entity.branchLabel) {
-          this.labelIndex.set(entity.branchLabel, entity.id);
-        }
         return;
       } catch (e: unknown) {
         err = e as Error;
@@ -211,27 +185,6 @@ export class KnowledgeGraphManager {
     }
   }
 
-  async getHeads(project: string): Promise<DagNode[]> {
-    const nodes = new Map<string, DagNode>();
-    const hasOutgoing = new Set<string>();
-    const fileStream = fsSync.createReadStream(this.logFilePath);
-    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
-    try {
-      for await (const line of rl) {
-        const node = this.parseDagNode(line);
-        if (!node || node.project !== project) continue;
-        nodes.set(node.id, node);
-        for (const parentId of node.parents) {
-          hasOutgoing.add(parentId);
-        }
-      }
-      return Array.from(nodes.values()).filter((node) => !hasOutgoing.has(node.id));
-    } finally {
-      rl.close();
-      fileStream.close();
-    }
-  }
-
   async *streamDagNodes(project: string): AsyncGenerator<DagNode, void, unknown> {
     const fileStream = fsSync.createReadStream(this.logFilePath);
     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
@@ -254,20 +207,6 @@ export class KnowledgeGraphManager {
       nodes.push(node);
     }
     return nodes;
-  }
-
-  async listBranches(project: string): Promise<BranchHead[]> {
-    const heads = await this.getHeads(project);
-    const branches: BranchHead[] = [];
-    for (const head of heads) {
-      branches.push({
-        branchId: head.id,
-        label: head.branchLabel,
-        head,
-        depth: await this.depth(head.id, project),
-      });
-    }
-    return branches;
   }
 
   async resume({ project, limit = 5 }: { project: string; limit?: number }): Promise<DagNode[]> {

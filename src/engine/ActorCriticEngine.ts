@@ -18,7 +18,6 @@ Add a new thought node to the knowledge‑graph.
   – e.g. requirement, task, risk, design, definition.
 • **If your thought references a file you just created or modified**, list it in
   the 'artifacts' array so the graph stores a durable link.
-• Use 'branchLabel' **only** on the first node of an alternative approach.
 • Think of 'tags' + 'artifacts' as the breadcrumbs that future you (or another
   agent) will follow to avoid duplicate work or forgotten decisions.
 `.trim();
@@ -37,11 +36,6 @@ export type FileRef = z.infer<typeof FILE_REF>;
 
 export const ActorThinkSchema = {
   thought: z.string().describe(THOUGHT_DESCRIPTION),
-
-  branchLabel: z
-    .string()
-    .optional()
-    .describe('Human‑friendly name for the *first* node of an alternative branch.'),
 
   projectContext: z
     .string()
@@ -130,40 +124,5 @@ export class ActorCriticEngine {
     });
 
     return criticNode;
-  }
-
-  /**
-   * Explicitly triggers summarization for a specific branch.
-   * This can be used to generate summaries on demand.
-   * @param branchIdOrLabel Branch ID or label
-   * @returns The summary node if successful, or null with error information if unsuccessful
-   */
-  async summarizeBranch({
-    branchIdOrLabel,
-    project,
-    projectContext,
-  }: {
-    branchIdOrLabel: string;
-    project: string;
-    projectContext: string;
-  }): Promise<DagNode | null> {
-    const branchId = this.kg.labelIndex.get(branchIdOrLabel) ?? branchIdOrLabel;
-    const result = await this.summarizationAgent.summarizeBranch({
-      branchId,
-      project,
-      projectContext,
-    });
-
-    // Log the result for debugging
-    if (!result.success) {
-      getLogger().info(
-        `[summarizeBranch] Summarization failed: ${result.errorCode} - ${result.errorMessage}`,
-      );
-      if (result.details) {
-        getLogger().info(`[summarizeBranch] Details: ${result.details}`);
-      }
-    }
-
-    return result.summary as DagNode | null;
   }
 }
