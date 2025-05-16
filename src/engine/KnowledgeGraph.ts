@@ -1,12 +1,21 @@
 import fs from 'node:fs/promises';
-import { v4 as uuid } from 'uuid';
-import { CFG } from '../config.ts';
-import { ProjectManager } from './ProjectManager.ts';
+import { lock, unlock } from 'proper-lockfile';
+import * as fsSync from 'node:fs';
+import path from 'node:path';
+import { z } from 'zod';
+import readline from 'node:readline';
+import { dataDir } from '../config.ts';
+import { CodeLoopsLogger, getInstance as getLogger } from '../logger.ts';
 import { ActorThinkInput, FileRef } from './ActorCriticEngine.ts';
 
 // -----------------------------------------------------------------------------
-// Minimal JSON‑file Knowledge Graph adapter ------------------------------------
+// Interfaces ------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+
+export interface WithProjectContext {
+  project: string;
+  projectContext: string;
+}
 
 export interface BranchHead {
   branchId: string;
@@ -15,11 +24,9 @@ export interface BranchHead {
   depth: number;
 }
 
-export interface ArtifactRef extends FileRef {
-  id: string; // uuid for KG reference
-}
+export interface ArtifactRef extends FileRef {}
 
-export interface DagNode extends ActorThinkInput {
+export interface DagNode extends ActorThinkInput, WithProjectContext {
   id: string;
   thought: string;
   role: 'actor' | 'critic' | 'summary';
@@ -29,13 +36,14 @@ export interface DagNode extends ActorThinkInput {
   target?: string; // nodeId this criticises
   parents: string[];
   children: string[];
-  createdAt: string; // ISO timestamp for durability
-  summarizedSegment?: string[]; // IDs of the nodes that were summarized (for summary nodes)
+  createdAt: string; // ISO timestamp
+  branchLabel?: string;
+  summarizedSegment?: string[]; // IDs of nodes summarized (for summary nodes)
 }
 
 export interface SummaryNode extends DagNode {
   role: 'summary';
-  summarizedSegment: string[]; // IDs of the nodes that were summarized
+  summarizedSegment: string[]; // IDs of nodes summarized
 }
 
 export interface SummarizationResult {
@@ -50,212 +58,297 @@ export interface SummarizationResult {
   details?: string;
 }
 
+// -----------------------------------------------------------------------------
+// KnowledgeGraphManager -------------------------------------------------------
+// -----------------------------------------------------------------------------
+
 export class KnowledgeGraphManager {
-  public static WINDOW = CFG.WINDOW;
+  public static WINDOW = 20;
 
-  private entities: Record<string, DagNode | ArtifactRef> = {};
-  private relations: { from: string; to: string; type: string }[] = [];
-  private dirty = false;
-
+  private logFilePath: string = path.resolve(dataDir, 'knowledge_graph.ndjson');
+  private logger: CodeLoopsLogger;
   public labelIndex: Map<string, string> = new Map(); // branchLabel ➜ nodeId
 
-  private filePath: string;
+  // Schema for validating DagNode entries
+  private static DagNodeSchema = z.object({
+    id: z.string(),
+    project: z.string(),
+    projectContext: z.string(),
+    thought: z.string(),
+    role: z.enum(['actor', 'critic', 'summary']),
+    createdAt: z.string().datetime(),
+    parents: z.array(z.string()),
+    children: z.array(z.string()),
+    branchLabel: z.string().optional(),
+    verdict: z.enum(['approved', 'needs_revision', 'reject']).optional(),
+    verdictReason: z.string().optional(),
+    verdictReferences: z.array(z.string()).optional(),
+    target: z.string().optional(),
+    summarizedSegment: z.array(z.string()).optional(),
+    tags: z.array(z.string()).optional(),
+  });
 
-  /**
-   * Creates a new KnowledgeGraphManager instance
-   * @param projectManager The project manager to use for project operations
-   */
-  constructor(private readonly projectManager: ProjectManager) {
-    this.filePath = projectManager.getCurrentProjectPath();
+  constructor(logger: CodeLoopsLogger) {
+    this.logger = logger;
   }
 
   async init() {
+    this.logger.info(`[KnowledgeGraphManager] Initializing from ${this.logFilePath}`);
+    await this.loadLog();
+  }
+
+  private async loadLog() {
+    if (!(await fs.stat(this.logFilePath).catch(() => null))) {
+      this.logger.info(`[KnowledgeGraphManager] Creating new log file at ${this.logFilePath}`);
+      await fs.mkdir(path.dirname(this.logFilePath), { recursive: true });
+      await fs.writeFile(this.logFilePath, '');
+      return;
+    }
+  }
+
+  async tryLoadProject() {
+    await this.refreshLabelIndex();
+  }
+
+  private async refreshLabelIndex() {
+    this.labelIndex.clear();
+    const fileStream = fsSync.createReadStream(this.logFilePath);
+    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
     try {
-      const blob = await fs.readFile(this.filePath, 'utf8');
-      const json = JSON.parse(blob);
-      this.entities = json.entities ?? {};
-      this.relations = json.relations ?? [];
-      console.log(`[KnowledgeGraphManager] Initialized with file: ${this.filePath}`);
+      for await (const line of rl) {
+        const entry = this.parseDagNode(line);
+        if (entry?.branchLabel) {
+          this.labelIndex.set(entry.branchLabel, entry.id);
+        }
+      }
+    } finally {
+      rl.close();
+      fileStream.close();
+    }
+  }
+
+  private parseDagNode(line: string): DagNode | null {
+    try {
+      const parsed = JSON.parse(line);
+      const validated = KnowledgeGraphManager.DagNodeSchema.parse(parsed);
+      return validated as DagNode;
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-        console.error(`[KnowledgeGraphManager] Error initializing from ${this.filePath}:`, err);
-        throw err;
-      }
-      console.log(
-        `[KnowledgeGraphManager] No existing file found at ${this.filePath}, starting fresh`,
-      );
+      this.logger.error({ err, line }, 'Invalid DagNode entry');
+      return null;
     }
   }
 
-  /**
-   * Get the name of the current active project
-   * @returns The current project name
-   */
-  getCurrentProject(): string {
-    return this.projectManager.getCurrentProject();
+  async appendEntity(entity: DagNode, retries = 3) {
+    if (entity.branchLabel && this.labelIndex.has(entity.branchLabel)) {
+      throw new Error(`Duplicate branchLabel: ${entity.branchLabel}`);
+    }
+    if (await this.wouldCreateCycle(entity)) {
+      throw new Error(`Appending node ${entity.id} would create a cycle`);
+    }
+
+    entity.createdAt = new Date().toISOString();
+    const line = JSON.stringify(entity) + '\n';
+    let err: Error | null = null;
+
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        await lock(this.logFilePath, { retries: 0 });
+        await fs.appendFile(this.logFilePath, line, 'utf8');
+        if (entity.branchLabel) {
+          this.labelIndex.set(entity.branchLabel, entity.id);
+        }
+        return;
+      } catch (e: unknown) {
+        err = e as Error;
+        this.logger.warn({ err, attempt }, `Retry ${attempt} failed appending entity`);
+        if (attempt === retries) break;
+        await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
+      } finally {
+        try {
+          await unlock(this.logFilePath);
+        } catch (unlockErr) {
+          this.logger.error({ err: unlockErr }, 'Failed to unlock file');
+        }
+      }
+    }
+
+    this.logger.error({ err }, 'Error appending entity after retries');
+    throw err;
   }
 
-  /**
-   * Switch to a different project and load its data
-   * @param projectName Name of the project to switch to
-   * @returns Object with success status and message
-   */
-  async switchProject(projectName: string): Promise<{ success: boolean; message: string }> {
+  private async wouldCreateCycle(entity: DagNode): Promise<boolean> {
+    const visited = new Set<string>();
+    async function dfs(id: string, manager: KnowledgeGraphManager): Promise<boolean> {
+      if (visited.has(id)) return true;
+      visited.add(id);
+      const node = await manager.getNode(id, entity.project);
+      if (!node) return false;
+      for (const childId of node.children) {
+        if (childId === entity.id || (await dfs(childId, manager))) return true;
+      }
+      return false;
+    }
+    for (const parentId of entity.parents) {
+      if (await dfs(parentId, this)) return true;
+    }
+    return false;
+  }
+
+  async getNode(id: string, project: string): Promise<DagNode | undefined> {
+    const fileStream = fsSync.createReadStream(this.logFilePath);
+    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
     try {
-      // First, flush any pending changes to the current project
-      await this.flush();
-      console.log(
-        `[KnowledgeGraphManager] Flushed changes to current project: ${this.getCurrentProject()}`,
-      );
-
-      // Use the project manager to switch projects
-      const result = await this.projectManager.switchProject(projectName);
-      if (!result.success) {
-        return result;
+      for await (const line of rl) {
+        const entry = this.parseDagNode(line);
+        if (entry?.project === project && entry.id === id) {
+          return entry;
+        }
       }
-
-      // Update the file path to the new project's file
-      const newFilePath = this.projectManager.getCurrentProjectPath();
-      console.log(`[KnowledgeGraphManager] Switching from ${this.filePath} to ${newFilePath}`);
-      this.filePath = newFilePath;
-
-      // Clear current data
-      this.entities = {};
-      this.relations = [];
-      this.labelIndex.clear();
-      this.dirty = false;
-
-      // Load the new project data
-      await this.init();
-
-      return result;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(
-        `[KnowledgeGraphManager] Error switching to project ${projectName}:`,
-        errorMessage,
-      );
-      return { success: false, message: `Error switching to project: ${errorMessage}` };
+      return undefined;
+    } finally {
+      rl.close();
+      fileStream.close();
     }
   }
 
-  async flush() {
-    if (!this.dirty) return;
+  async getHeads(project: string): Promise<DagNode[]> {
+    const nodes = new Map<string, DagNode>();
+    const hasOutgoing = new Set<string>();
+    const fileStream = fsSync.createReadStream(this.logFilePath);
+    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
     try {
-      await fs.writeFile(
-        this.filePath,
-        JSON.stringify({ entities: this.entities, relations: this.relations }),
-        'utf8',
-      );
-      this.dirty = false;
-    } catch (error) {
-      console.error(`[KnowledgeGraphManager] Error flushing to ${this.filePath}:`, error);
-      throw error;
-    }
-  }
-
-  // ----------------------------- entities ----------------------------------
-  createEntity(entity: DagNode | ArtifactRef) {
-    this.entities[entity.id] = entity;
-    this.dirty = true;
-  }
-
-  createRelation(from: string, to: string, type: string) {
-    this.relations.push({ from, to, type });
-    this.dirty = true;
-  }
-
-  getNode(id: string) {
-    return this.entities[id] as DagNode | undefined;
-  }
-
-  getChildren(id: string, type: string) {
-    return this.relations
-      .filter((r) => r.from === id && r.type === type)
-      .map((r) => this.entities[r.to])
-      .filter(Boolean) as DagNode[];
-  }
-
-  getHeads(): DagNode[] {
-    const hasOutgoing = new Set(this.relations.map((r) => r.from));
-    return Object.values(this.entities).filter(
-      (n): n is DagNode => 'role' in n && !hasOutgoing.has(n.id),
-    );
-  }
-
-  allDagNodes(): DagNode[] {
-    return Object.values(this.entities).filter((e): e is DagNode => 'role' in e);
-  }
-
-  listBranches(): BranchHead[] {
-    return this.getHeads().map((head) => ({
-      branchId: head.id,
-      label: head.branchLabel,
-      head,
-      depth: this.depth(head.id),
-    }));
-  }
-
-  resume(branchIdOrLabel: string): string {
-    const id = this.labelIndex.get(branchIdOrLabel) ?? branchIdOrLabel;
-    const node = this.getNode(id);
-    if (!node) throw new Error('branch not found');
-
-    // Collect nodes in the branch
-    const path: DagNode[] = [];
-    let curr: DagNode | undefined = node;
-
-    // First, collect the most recent nodes up to the window size
-    while (curr && path.length < CFG.WINDOW) {
-      path.unshift(curr);
-      curr = curr.parents[0] ? this.getNode(curr.parents[0]) : undefined;
-    }
-
-    // If we've reached the window limit but there are more nodes,
-    // look for summaries to include
-    if (curr) {
-      // Find summaries that cover the older nodes
-      const summaries = this.allDagNodes().filter(
-        (n): n is SummaryNode =>
-          !!(n.role === 'summary' && n?.summarizedSegment?.includes(curr!.id)),
-      );
-
-      // Add relevant summaries to the beginning of the path
-      if (summaries.length > 0) {
-        // Sort summaries by creation date (oldest first)
-        summaries.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-
-        // Add summaries to the beginning of the path
-        path.unshift(...summaries);
+      for await (const line of rl) {
+        const node = this.parseDagNode(line);
+        if (!node || node.project !== project) continue;
+        nodes.set(node.id, node);
+        for (const parentId of node.parents) {
+          hasOutgoing.add(parentId);
+        }
       }
+      return Array.from(nodes.values()).filter((node) => !hasOutgoing.has(node.id));
+    } finally {
+      rl.close();
+      fileStream.close();
     }
-
-    return path.map((n) => n.thought).join('\n');
   }
 
-  exportPlan(filterTag?: string): unknown {
-    const nodes = this.allDagNodes().filter((n) =>
-      filterTag ? n.tags?.includes(filterTag) : true,
-    );
-    return nodes.map((n) => ({
-      id: n.id,
-      thought: n.thought,
-      tags: n.tags,
-      branchLabel: n.branchLabel,
-      verdict: n.verdict,
-      parents: n.parents,
-      artifacts: n.artifacts?.map((a) => ({ name: a.name, uri: a.uri })),
-    }));
+  async *streamDagNodes(project: string): AsyncGenerator<DagNode, void, unknown> {
+    const fileStream = fsSync.createReadStream(this.logFilePath);
+    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+    try {
+      for await (const line of rl) {
+        const node = this.parseDagNode(line);
+        if (node?.project === project) {
+          yield node;
+        }
+      }
+    } finally {
+      rl.close();
+      fileStream.close();
+    }
   }
 
-  /* ------------------------- helpers ------------------------------- */
-  private depth(id: string): number {
-    let d = 0;
-    let n: DagNode | undefined = this.getNode(id);
-    while (n && n.parents.length) {
-      d += 1;
-      n = this.getNode(n.parents[0]);
+  async allDagNodes(project: string): Promise<DagNode[]> {
+    const nodes: DagNode[] = [];
+    for await (const node of this.streamDagNodes(project)) {
+      nodes.push(node);
     }
-    return d;
+    return nodes;
+  }
+
+  async listBranches(project: string): Promise<BranchHead[]> {
+    const heads = await this.getHeads(project);
+    const branches: BranchHead[] = [];
+    for (const head of heads) {
+      branches.push({
+        branchId: head.id,
+        label: head.branchLabel,
+        head,
+        depth: await this.depth(head.id, project),
+      });
+    }
+    return branches;
+  }
+
+  async resume({ project, limit = 5 }: { project: string; limit?: number }): Promise<DagNode[]> {
+    return this.export({ project, limit });
+  }
+
+  async export({
+    project,
+    filterTag,
+    filterFn,
+    limit,
+  }: {
+    project: string;
+    filterTag?: string;
+    filterFn?: (node: DagNode) => boolean;
+    limit?: number;
+  }): Promise<DagNode[]> {
+    let nodes: DagNode[] = [];
+    const fileStream = fsSync.createReadStream(this.logFilePath);
+    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+    try {
+      for await (const line of rl) {
+        const node = this.parseDagNode(line);
+        if (!node || node.project !== project) continue;
+        if (filterTag && !node.tags?.includes(filterTag)) continue;
+        if (filterFn && !filterFn(node)) continue;
+        nodes.push(node);
+        if (limit && nodes.length >= limit) nodes.shift();
+      }
+      return nodes;
+    } finally {
+      rl.close();
+      fileStream.close();
+    }
+  }
+
+  async listProjects(): Promise<string[]> {
+    const projects = new Set<string>();
+    const fileStream = fsSync.createReadStream(this.logFilePath);
+    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+    try {
+      for await (const line of rl) {
+        const entry = this.parseDagNode(line);
+        if (entry?.project && !projects.has(entry.project)) {
+          projects.add(entry.project);
+        }
+      }
+      return Array.from(projects);
+    } finally {
+      rl.close();
+      fileStream.close();
+    }
+  }
+
+  private async getBranchNodes(id: string, project: string, limit: number): Promise<DagNode[]> {
+    const nodes: DagNode[] = [];
+    let currentId = id;
+    while (nodes.length < limit) {
+      const node = await this.getNode(currentId, project);
+      if (!node) break;
+      nodes.push(node);
+      if (!node.parents.length) break;
+      currentId = node.parents[0]; // Follow the first parent
+    }
+    return nodes.reverse();
+  }
+
+  private async depth(id: string, project: string): Promise<number> {
+    return this.depthRecursive(id, new Set(), project);
+  }
+
+  private async depthRecursive(id: string, visited: Set<string>, project: string): Promise<number> {
+    if (visited.has(id)) return 0;
+    visited.add(id);
+    const node = await this.getNode(id, project);
+    if (!node || !node.parents.length) return 1;
+    let maxParentDepth = 0;
+    for (const parentId of node.parents) {
+      const parentDepth = await this.depthRecursive(parentId, visited, project);
+      maxParentDepth = Math.max(maxParentDepth, parentDepth);
+    }
+    return 1 + maxParentDepth;
   }
 }

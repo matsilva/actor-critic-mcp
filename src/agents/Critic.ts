@@ -2,7 +2,7 @@ import { execa } from 'execa';
 import { to } from 'await-to-js';
 import { v4 as uuid } from 'uuid';
 import { KnowledgeGraphManager, DagNode } from '../engine/KnowledgeGraph.ts';
-import { RevisionCounter } from '../engine/RevisionCounter.ts';
+import { getInstance as getLogger } from '../logger.ts';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
@@ -41,12 +41,19 @@ function missingArtifactGuard(actorNode: DagNode): { needsFix: boolean; reason?:
 }
 
 export class Critic {
-  constructor(
-    private readonly kg: KnowledgeGraphManager,
-    private readonly revisionCounter: RevisionCounter,
-  ) {}
-  async review(actorNodeId: string): Promise<DagNode> {
-    const target = this.kg.getNode(actorNodeId);
+  constructor(private readonly kg: KnowledgeGraphManager) {}
+
+  // Use the centralized extractProjectName function from utils
+  async review({
+    actorNodeId,
+    project,
+    projectContext,
+  }: {
+    actorNodeId: string;
+    project: string;
+    projectContext: string;
+  }): Promise<DagNode> {
+    const target = await this.kg.getNode(actorNodeId, project);
     if (!target || (target as DagNode).role !== 'actor')
       throw new Error('invalid target for critic');
 
@@ -54,7 +61,6 @@ export class Critic {
     let reason: DagNode['verdictReason'] | undefined;
 
     if ((target as DagNode).thought.trim() === '') verdict = 'needs_revision';
-    if (this.revisionCounter.isAtMaxRevisions(actorNodeId)) verdict = 'reject';
     const artifactGuard = missingArtifactGuard(target as DagNode);
     if (artifactGuard.needsFix) verdict = 'needs_revision';
     if (artifactGuard.reason) reason = artifactGuard.reason;
@@ -81,12 +87,13 @@ export class Critic {
         verdict = json.verdict;
         reason = json.verdictReason;
       } catch (err) {
-        console.error('Failed to parse JSON from uv mcp-server-fetch:', err);
+        getLogger().error({ err }, 'Failed to parse JSON from uv mcp-server-fetch');
       }
     }
 
     const criticNode: DagNode = {
       id: uuid(),
+      project,
       thought:
         verdict === 'approved'
           ? '✔ Approved'
@@ -101,18 +108,19 @@ export class Critic {
       children: [],
       tags: [],
       artifacts: [],
-      needsMore: false,
-      createdAt: new Date().toISOString(),
+      createdAt: '', // Will be set by appendEntity
+      projectContext,
     };
 
-    const relType =
-      verdict === 'approved' ? 'approves' : verdict === 'needs_revision' ? 'criticises' : 'rejects';
-    this.kg.createEntity(criticNode);
-    this.kg.createRelation(actorNodeId, criticNode.id, relType);
-    await this.kg.flush();
+    // Update the target node's children to include this critic node
+    if (target && !target.children.includes(criticNode.id)) {
+      target.children.push(criticNode.id);
+      // Update the target node in the knowledge graph
+      await this.kg.appendEntity(target);
+    }
 
-    if (verdict === 'needs_revision') this.revisionCounter.increment(actorNodeId);
-    else this.revisionCounter.delete(actorNodeId);
+    // Persist the critic node
+    await this.kg.appendEntity(criticNode);
 
     return criticNode;
   }

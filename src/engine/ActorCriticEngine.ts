@@ -1,8 +1,11 @@
 import { Critic } from '../agents/Critic.ts';
 import { Actor } from '../agents/Actor.ts';
 import { KnowledgeGraphManager, ArtifactRef, DagNode } from './KnowledgeGraph.ts';
+import { getInstance as getLogger } from '../logger.ts';
 import { SummarizationAgent } from '../agents/Summarize.ts';
 import { z } from 'zod';
+import path from 'node:path';
+import { extractProjectName } from '../utils/project.ts';
 // -----------------------------------------------------------------------------
 // Actor–Critic engine ----------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -35,15 +38,16 @@ export type FileRef = z.infer<typeof FILE_REF>;
 export const ActorThinkSchema = {
   thought: z.string().describe(THOUGHT_DESCRIPTION),
 
-  needsMore: z
-    .boolean()
-    .optional()
-    .describe('True if further actor work is expected before critic review.'),
-
   branchLabel: z
     .string()
     .optional()
     .describe('Human‑friendly name for the *first* node of an alternative branch.'),
+
+  projectContext: z
+    .string()
+    .describe(
+      'Full path to the currently open directory in the code editor. Used to infer the project name from the last item in the path.',
+    ),
 
   tags: z
     .array(z.string())
@@ -70,26 +74,27 @@ export class ActorCriticEngine {
     private readonly actor: Actor,
     private readonly summarizationAgent: SummarizationAgent,
   ) {}
+
+  // Use the centralized extractProjectName function from utils
   /* --------------------------- public API --------------------------- */
   /**
    * Adds a new thought node to the knowledge graph and automatically triggers
-   * critic review when appropriate.
-   *
-   * The critic review is automatically triggered when:
-   * 1. A certain number of steps have been taken (configured by CRITIC_EVERY_N_STEPS)
-   * 2. The actor indicates the thought doesn't need more work (needsMore=false)
+   * critic review
    *
    * @param input The actor thought input
    * @returns Either the actor node (if no review was triggered) or the critic node (if review was triggered)
    */
-  async actorThink(input: ActorThinkInput): Promise<DagNode> {
-    const { node, decision } = await this.actor.think(input);
+  async actorThink(input: ActorThinkInput & { project: string }): Promise<DagNode> {
+    // Actor.think will handle project switching based on projectContext
+    const { node } = await this.actor.think(input);
 
-    // Trigger summarization check after adding a new node
-    await this.summarizationAgent.checkAndTriggerSummarization();
+    const criticNode = await this.criticReview({
+      actorNodeId: node.id,
+      projectContext: input.projectContext,
+      project: input.project,
+    });
 
-    if (decision === Actor.THINK_DECISION.NEEDS_REVIEW) return await this.criticReview(node.id);
-    return node;
+    return criticNode;
   }
 
   /**
@@ -104,13 +109,25 @@ export class ActorCriticEngine {
    * - Debugging or testing purposes
    *
    * @param actorNodeId The ID of the actor node to review
+   * @param projectContext The project context for the review
    * @returns The critic node
    */
-  async criticReview(actorNodeId: string): Promise<DagNode> {
-    const criticNode = await this.critic.review(actorNodeId);
+  async criticReview({
+    actorNodeId,
+    projectContext,
+    project,
+  }: {
+    actorNodeId: string;
+    projectContext: string;
+    project: string;
+  }): Promise<DagNode> {
+    const criticNode = await this.critic.review({ actorNodeId, projectContext, project });
 
     // Trigger summarization check after adding a critic node
-    await this.summarizationAgent.checkAndTriggerSummarization();
+    await this.summarizationAgent.checkAndTriggerSummarization({
+      project,
+      projectContext,
+    });
 
     return criticNode;
   }
@@ -121,17 +138,29 @@ export class ActorCriticEngine {
    * @param branchIdOrLabel Branch ID or label
    * @returns The summary node if successful, or null with error information if unsuccessful
    */
-  async summarizeBranch(branchIdOrLabel: string): Promise<DagNode | null> {
+  async summarizeBranch({
+    branchIdOrLabel,
+    project,
+    projectContext,
+  }: {
+    branchIdOrLabel: string;
+    project: string;
+    projectContext: string;
+  }): Promise<DagNode | null> {
     const branchId = this.kg.labelIndex.get(branchIdOrLabel) ?? branchIdOrLabel;
-    const result = await this.summarizationAgent.summarizeBranch(branchId);
+    const result = await this.summarizationAgent.summarizeBranch({
+      branchId,
+      project,
+      projectContext,
+    });
 
     // Log the result for debugging
     if (!result.success) {
-      console.log(
+      getLogger().info(
         `[summarizeBranch] Summarization failed: ${result.errorCode} - ${result.errorMessage}`,
       );
       if (result.details) {
-        console.log(`[summarizeBranch] Details: ${result.details}`);
+        getLogger().info(`[summarizeBranch] Details: ${result.details}`);
       }
     }
 

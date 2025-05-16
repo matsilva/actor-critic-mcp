@@ -3,49 +3,96 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { ActorCriticEngine, ActorThinkSchema } from './engine/ActorCriticEngine.ts';
 import { KnowledgeGraphManager } from './engine/KnowledgeGraph.ts';
-import { ProjectManager } from './engine/ProjectManager.ts';
-import { Critic, CriticSchema } from './agents/Critic.ts';
-import { RevisionCounter } from './engine/RevisionCounter.ts';
+import { Critic } from './agents/Critic.ts';
 import { Actor } from './agents/Actor.ts';
 import { SummarizationAgent } from './agents/Summarize.ts';
-import { version as VERSION } from '../package.json';
+import pkg from '../package.json' with { type: 'json' };
+import { CodeLoopsLogger, getInstance as getLogger, setGlobalLogger } from './logger.ts';
+import { extractProjectName } from './utils/project.ts';
 
 // -----------------------------------------------------------------------------
-// MCP Server -------------------------------------------------------------------
+// MCP Server -------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
+/**
+ * Utilities for main entry point
+ */
+
+const runOnceOnProjectLoad = ({ logger }: { logger: CodeLoopsLogger }) => {
+  return (project: string) => {
+    const child = logger.child({ project });
+    setGlobalLogger(child);
+  };
+};
+
+const loadProjectOrThrow = async ({
+  logger,
+  kg,
+  args,
+  onProjectLoad,
+}: {
+  logger: CodeLoopsLogger;
+  kg: KnowledgeGraphManager;
+  args: { projectContext: string };
+  onProjectLoad: (project: string) => void;
+}) => {
+  const projectName = extractProjectName(args.projectContext);
+  if (!projectName) {
+    logger.error({ projectContext: args.projectContext }, 'Invalid projectContext');
+    throw new Error(`Invalid projectContext: ${args.projectContext}`);
+  }
+  await kg.tryLoadProject();
+  onProjectLoad(projectName);
+  return projectName;
+};
+
+/**
+ * Main entry point for the CodeLoops MCP server.
+ */
 async function main() {
-  // Create ProjectManager first
-  const projectManager = new ProjectManager();
+  // Initialize logger
+  const logger = getLogger();
+  const runOnce = runOnceOnProjectLoad({ logger });
+  logger.info('Starting CodeLoops MCP server...');
 
-  // Create KnowledgeGraphManager with ProjectManager
-  const kg = new KnowledgeGraphManager(projectManager);
+  // Create KnowledgeGraphManager
+  const kg = new KnowledgeGraphManager(logger);
   await kg.init();
 
   // Create SummarizationAgent with KnowledgeGraphManager
   const summarizationAgent = new SummarizationAgent(kg);
 
   // Create other dependencies
-  const revisionCounter = new RevisionCounter(RevisionCounter.MAX_REVISION_CYCLES);
-  const critic = new Critic(kg, revisionCounter);
+  const critic = new Critic(kg);
   const actor = new Actor(kg);
 
   // Create ActorCriticEngine with all dependencies
   const engine = new ActorCriticEngine(kg, critic, actor, summarizationAgent);
 
-  const server = new McpServer({ name: 'codeloops', version: VERSION });
+  const server = new McpServer({ name: 'codeloops', version: pkg.version });
 
   const ACTOR_THINK_DESCRIPTION = `
-  Add a new thought node to the knowledge‑graph.
-
-  • Use for any creative / planning step, requirement capture, task break‑down, etc.
-  • **Always include at least one semantic 'tag'** so future searches can find this node
-    – e.g. requirement, task, risk, design, definition.
-  • **If your thought references a file you just created or modified**, list it in the 'artifacts' array.
-  • Use 'branchLabel' **only** on the first node of an alternative approach.
-  • Think of 'tags' + 'artifacts' as the breadcrumbs that future you (or another
-    agent) will follow to avoid duplicate work or forgotten decisions.
-  *
+  Add a new thought node to the CodeLoops knowledge graph to plan, execute, or document coding tasks.
+  
+  **Purpose**: This is the **primary tool** for interacting with the actor-critic system. It records your work, triggers critic reviews when needed, and guides you through iterative development. **You must call 'actor_think' iteratively** after every significant action to ensure your work is reviewed and refined.
+  
+  **Instructions**:
+  1. **Call 'actor_think' for all actions**:
+     - Planning, requirement capture, task breakdown, or coding steps.
+     - Use the 'projectContext' property to specify the full path to the currently open directory.
+  2. **Always include at least one semantic tag** (e.g., 'requirement', 'task', 'file-modification', 'task-complete') to enable searchability and trigger appropriate reviews.
+  3. **Iterative Workflow**:
+     - File modifications or task completions automatically trigger critic reviews.
+     - Use the critic's feedback (in 'criticNode') to refine your next thought.
+  4. **Tags and artifacts are critical for tracking decisions and avoiding duplicate work**.
+  
+  **Example Workflow**:
+  - Step 1: Call 'actor_think' with thought: "Create main.ts with initial setup", projectContext: "/path/to/project", artifacts: ['src/main.ts'], tags: ['file-modification'].
+      - Response: Includes feedback from the critic
+  - Step 2:  Make any necessary changes and call 'actor_think' again with the updated thought.
+  - Repeat until the all work is completed.
+  
+  **Note**: Do not call 'critic_review' directly unless debugging; 'actor_think' manages reviews automatically.
   `;
 
   /**
@@ -59,9 +106,21 @@ async function main() {
    * - The actor node if no critic review was triggered
    * - The critic node if a review was automatically triggered
    */
-  server.tool('actor_think', ACTOR_THINK_DESCRIPTION, ActorThinkSchema, async (args) => ({
-    content: [{ type: 'text', text: JSON.stringify(await engine.actorThink(args), null, 2) }],
-  }));
+  server.tool('actor_think', ACTOR_THINK_DESCRIPTION, ActorThinkSchema, async (args) => {
+    const projectName = await loadProjectOrThrow({ logger, kg, args, onProjectLoad: runOnce });
+    const node = await engine.actorThink({
+      ...args,
+      project: projectName,
+    });
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(node, null, 2),
+        },
+      ],
+    };
+  });
 
   // -----------------------------------------------------------------------------
   // Tool definitions ---------------------------------------------------------------------
@@ -70,50 +129,114 @@ async function main() {
   /**
    * critic_review – manually evaluates an actor node.
    *
-   * NOTE: In most cases, you don't need to call this directly.
-   * The actor_think function automatically triggers critic reviews when:
-   * 1. A certain number of steps have been taken (configured by CRITIC_EVERY_N_STEPS)
-   * 2. The actor indicates the thought doesn't need more work (needsMore=false)
-   *
-   * This tool is primarily useful for:
-   * - Manual intervention in the workflow
-   * - Forcing a review of a specific previous node
-   * - Debugging or testing purposes
    */
-  server.tool('critic_review', CriticSchema, async (a) => ({
-    content: [
-      { type: 'text', text: JSON.stringify(await engine.criticReview(a.actorNodeId), null, 2) },
-    ],
-  }));
+  server.tool(
+    'critic_review',
+    'Call this tool when you want explicit feedback on your thought, idea or final implementation of a task.',
+    {
+      actorNodeId: z.string().describe('ID of the actor node to critique.'),
+      projectContext: z.string().describe('Full path to the project directory.'),
+    },
+    async (a) => {
+      const projectName = await loadProjectOrThrow({ logger, kg, args: a, onProjectLoad: runOnce });
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              await engine.criticReview({
+                actorNodeId: a.actorNodeId,
+                projectContext: a.projectContext,
+                project: projectName,
+              }),
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    },
+  );
 
   /** list_branches – quick overview for navigation */
-  server.tool('list_branches', {}, async () => ({
-    content: [{ type: 'text', text: JSON.stringify(kg.listBranches(), null, 2) }],
-  }));
+  server.tool(
+    'list_branches',
+    'List all branches in the knowledge graph.',
+    { projectContext: z.string().describe('Full path to the project directory.') },
+    async (a) => {
+      const projectName = await loadProjectOrThrow({ logger, kg, args: a, onProjectLoad: runOnce });
+      const branches = await kg.listBranches(projectName);
+      const text = branches.length ? JSON.stringify(branches, null, 2) : 'No branches found';
+      return {
+        content: [{ type: 'text', text }],
+      };
+    },
+  );
 
   /** resume – fetch WINDOW‑sized recent context for a branch */
-  server.tool('resume', { branchId: z.string().describe('Branch id OR label') }, async (a) => ({
-    content: [{ type: 'text', text: kg.resume(a.branchId) }],
-  }));
-
-  /** export_plan – dump the current graph, optionally filtered by tag */
   server.tool(
-    'export_plan',
-    { filterTag: z.string().optional().describe('Return only nodes containing this tag.') },
-    async (a) => ({
-      content: [{ type: 'text', text: JSON.stringify(kg.exportPlan(a.filterTag), null, 2) }],
-    }),
+    'resume',
+    'Pick up where you left off by fetching the most recent nodes from the knowledge graph for this project. Use limit to control the number of nodes returned. Increase it if you need more context.',
+    {
+      projectContext: z.string().describe('Full path to the project directory.'),
+      limit: z
+        .number()
+        .optional()
+        .describe('Limit the number of nodes returned. Increase it if you need more context.'),
+    },
+    async (a) => {
+      const projectName = await loadProjectOrThrow({ logger, kg, args: a, onProjectLoad: runOnce });
+      const text = await kg.resume({
+        project: projectName,
+        limit: a.limit,
+      });
+      return {
+        content: [{ type: 'text', text: JSON.stringify(text, null, 2) }],
+      };
+    },
+  );
+
+  /** export – dump the current graph, optionally filtered by tag */
+  server.tool(
+    'export',
+    'dump the current knowledge graph, optionally filtered by tag',
+    {
+      limit: z.number().optional().describe('Limit the number of nodes returned.'),
+      projectContext: z.string().describe('Full path to the project directory.'),
+      filterTag: z.string().optional().describe('Return only nodes containing this tag.'),
+    },
+    async (a) => {
+      const projectName = await loadProjectOrThrow({ logger, kg, args: a, onProjectLoad: runOnce });
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              kg.export({ project: projectName, filterTag: a.filterTag, limit: a.limit }),
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    },
   );
 
   /** summarize_branch – generate a summary for a specific branch */
   server.tool(
     'summarize_branch',
     {
-      branchId: z.string().describe('Branch id OR label'),
+      projectContext: z.string().describe('Full path to the project directory.'),
+      branchIdOrLabel: z.string().describe('Branch id OR label'),
     },
     async (args) => {
+      const projectName = await loadProjectOrThrow({ logger, kg, args, onProjectLoad: runOnce });
       try {
-        const summary = await engine.summarizeBranch(args.branchId);
+        const summary = await engine.summarizeBranch({
+          branchIdOrLabel: args.branchIdOrLabel,
+          projectContext: args.projectContext,
+          project: projectName,
+        });
 
         if (summary) {
           return {
@@ -126,9 +249,10 @@ async function main() {
           };
         } else {
           // If summarization failed, get the branch information to provide context
-          const branches = kg.listBranches();
+          const branches = await kg.listBranches(projectName);
           const targetBranch = branches.find(
-            (b) => b.branchId === args.branchId || b.head.branchLabel === args.branchId,
+            (b) =>
+              b.branchId === args.branchIdOrLabel || b.head.branchLabel === args.branchIdOrLabel,
           );
 
           return {
@@ -147,7 +271,7 @@ async function main() {
                           depth: targetBranch.depth,
                         }
                       : null,
-                    tip: 'Check console logs for detailed error information.',
+                    tip: 'Check logs for detailed error information.',
                   },
                   null,
                   2,
@@ -157,7 +281,8 @@ async function main() {
           };
         }
       } catch (error) {
-        console.error(`[summarize_branch] Error:`, error);
+        const logger = getLogger();
+        logger.error({ error }, '[summarize_branch] Error:');
         return {
           content: [
             {
@@ -178,49 +303,30 @@ async function main() {
   );
 
   /** list_projects – list all available knowledge graph projects */
-  server.tool('list_projects', {}, async () => {
-    const current = projectManager.getCurrentProject();
-    const projects = projectManager.listProjects();
-
-    console.log(
-      `[list_projects] Current project: ${current}, Available projects: ${projects.join(', ')}`,
-    );
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(
-            {
-              current,
-              projects,
-            },
-            null,
-            2,
-          ),
-        },
-      ],
-    };
-  });
-
-  /** switch_project – switch to a different knowledge graph project */
   server.tool(
-    'switch_project',
+    'list_projects',
     {
-      projectName: z
+      projectContext: z
         .string()
-        .min(1, 'Project name cannot be empty')
-        .max(50, 'Project name is too long (max 50 characters)')
-        .regex(
-          /^[a-zA-Z0-9_-]+$/,
-          'Project name can only contain letters, numbers, dashes, and underscores',
-        )
-        .describe('Name of the project to switch to'),
+        .optional()
+        .describe(
+          'Optional full path to the project directory. If provided, the project name will be extracted and highlighted as current.',
+        ),
     },
     async (a) => {
-      console.log(`[switch_project] Attempting to switch to project: ${a.projectName}`);
+      let activeProject: string | null = null;
+      if (a.projectContext) {
+        const projectName = extractProjectName(a.projectContext);
+        if (!projectName) {
+          throw new Error('Invalid projectContext');
+        }
+        activeProject = projectName;
+      }
+      const projects = await kg.listProjects();
 
-      const result = await kg.switchProject(a.projectName);
+      logger.info(
+        `[list_projects] Current project: ${activeProject}, Available projects: ${projects.join(', ')}`,
+      );
 
       return {
         content: [
@@ -228,48 +334,8 @@ async function main() {
             type: 'text',
             text: JSON.stringify(
               {
-                success: result.success,
-                message: result.message,
-                current: projectManager.getCurrentProject(),
-              },
-              null,
-              2,
-            ),
-          },
-        ],
-      };
-    },
-  );
-
-  /** create_project – create a new knowledge graph project */
-  server.tool(
-    'create_project',
-    {
-      projectName: z
-        .string()
-        .min(1, 'Project name cannot be empty')
-        .max(50, 'Project name is too long (max 50 characters)')
-        .regex(
-          /^[a-zA-Z0-9_-]+$/,
-          'Project name can only contain letters, numbers, dashes, and underscores',
-        )
-        .describe('Name of the new project to create'),
-    },
-    async (a) => {
-      console.log(`[create_project] Attempting to create project: ${a.projectName}`);
-
-      const result = await projectManager.createProject(a.projectName);
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(
-              {
-                success: result.success,
-                message: result.message,
-                current: projectManager.getCurrentProject(),
-                projects: projectManager.listProjects(),
+                activeProject,
+                projects,
               },
               null,
               2,
@@ -285,10 +351,11 @@ async function main() {
   // ------------------------------------------------------------------
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.log('CodeLoops MCP server running on stdio');
+  logger.info('CodeLoops MCP server running on stdio');
 }
 
 main().catch((err) => {
-  console.error(err);
+  const logger = getLogger();
+  logger.error({ err }, 'Fatal error in main');
   process.exit(1);
 });

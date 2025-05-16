@@ -1,6 +1,7 @@
 import { execa } from 'execa';
 import { to } from 'await-to-js';
 import path from 'node:path';
+import { getInstance as getLogger } from '../logger.ts';
 import { fileURLToPath } from 'node:url';
 import { v4 as uuid } from 'uuid';
 import { DagNode, KnowledgeGraphManager, SummaryNode } from '../engine/KnowledgeGraph.ts';
@@ -69,7 +70,7 @@ export class SummarizationAgent {
 
       // Handle execution errors
       if (execError) {
-        console.error('Summarization agent execution error:', execError);
+        getLogger().error({ execError }, 'Summarization agent execution error');
         return {
           summary: '',
           error: `Failed to execute summarization agent: ${execError.message}`,
@@ -78,7 +79,7 @@ export class SummarizationAgent {
 
       // Handle stderr output
       if (output.stderr) {
-        console.error('Summarization agent error:', output.stderr);
+        getLogger().error({ stderr: output.stderr }, 'Summarization agent error');
       }
 
       // Parse the response
@@ -100,16 +101,18 @@ export class SummarizationAgent {
           error: 'Response format not recognized, using raw output as summary',
         };
       } catch (parseError) {
+        let err = parseError as Error;
         // If the response isn't valid JSON, use the raw output as the summary
         return {
           summary: output.stdout.trim(),
-          error: `Failed to parse agent response: ${parseError.message}`,
+          error: `Failed to parse agent response: ${err.message}`,
         };
       }
     } catch (error) {
+      let err = error as Error;
       return {
         summary: '',
-        error: `Unexpected error during summarization: ${error.message}`,
+        error: `Unexpected error during summarization: ${err.message}`,
       };
     }
   }
@@ -118,13 +121,23 @@ export class SummarizationAgent {
    * Checks if summarization is needed and triggers it if necessary.
    * This should be called after adding new nodes to the graph.
    */
-  async checkAndTriggerSummarization(): Promise<void> {
-    const branches = this.knowledgeGraph.listBranches();
+  async checkAndTriggerSummarization({
+    project,
+    projectContext,
+  }: {
+    project: string;
+    projectContext: string;
+  }): Promise<void> {
+    const branches = await this.knowledgeGraph.listBranches(project);
 
     for (const branch of branches) {
       // Only summarize branches that have enough nodes
       if (branch.depth >= SummarizationAgent.SUMMARIZATION_THRESHOLD) {
-        await this.summarizeBranch(branch.branchId);
+        await this.summarizeBranch({
+          branchId: branch.branchId,
+          project,
+          projectContext,
+        });
       }
     }
   }
@@ -134,11 +147,19 @@ export class SummarizationAgent {
    * @param branchId ID of the branch to summarize
    * @returns A SummarizationResult object containing the summary or error information
    */
-  async summarizeBranch(branchId: string): Promise<SummarizationResult> {
+  async summarizeBranch({
+    branchId,
+    project,
+    projectContext,
+  }: {
+    branchId: string;
+    project: string;
+    projectContext: string;
+  }): Promise<SummarizationResult> {
     // Get the branch head
-    const head = this.knowledgeGraph.getNode(branchId);
+    const head = await this.knowledgeGraph.getNode(branchId, project);
     if (!head) {
-      console.error(`[summarizeBranch] Branch not found: ${branchId}`);
+      getLogger().error(`[summarizeBranch] Branch not found: ${branchId}`);
       return {
         summary: null,
         success: false,
@@ -153,14 +174,16 @@ export class SummarizationAgent {
 
     while (current) {
       branchNodes.push(current);
-      current = current.parents[0] ? this.knowledgeGraph.getNode(current.parents[0]) : undefined;
+      current = current.parents[0]
+        ? await this.knowledgeGraph.getNode(current.parents[0], project)
+        : undefined;
     }
 
     // Reverse to get chronological order
     branchNodes.reverse();
 
     // Log branch information for debugging
-    console.log(`[summarizeBranch] Branch ${branchId} has ${branchNodes.length} nodes`);
+    getLogger().info(`[summarizeBranch] Branch ${branchId} has ${branchNodes.length} nodes`);
 
     // Check if the branch has enough nodes to meet the summarization threshold
     if (branchNodes.length < SummarizationAgent.SUMMARIZATION_THRESHOLD) {
@@ -179,7 +202,7 @@ export class SummarizationAgent {
         node.role === 'summary' && node.summarizedSegment !== undefined,
     );
 
-    console.log(`[summarizeBranch] Branch has ${existingSummaries.length} existing summaries`);
+    getLogger().info(`[summarizeBranch] Branch has ${existingSummaries.length} existing summaries`);
 
     // Determine which nodes need to be summarized
     let nodesToSummarize: DagNode[] = [];
@@ -213,13 +236,17 @@ export class SummarizationAgent {
     }
 
     try {
-      const summaryNode = await this.createSummary(nodesToSummarize);
+      const summaryNode = await this.createSummary({
+        nodes: nodesToSummarize,
+        projectContext,
+        project,
+      });
       return {
         summary: summaryNode,
         success: true,
       };
     } catch (error) {
-      console.error(`[summarizeBranch] Error creating summary:`, error);
+      getLogger().error({ error }, `[summarizeBranch] Error creating summary:`);
       return {
         summary: null,
         success: false,
@@ -235,46 +262,61 @@ export class SummarizationAgent {
    * @param nodes Nodes to summarize
    * @throws Error if summarization fails
    */
-  async createSummary(nodes: DagNode[]): Promise<SummaryNode> {
+  async createSummary({
+    nodes,
+    projectContext,
+    project,
+  }: {
+    nodes: DagNode[];
+    projectContext: string;
+    project: string;
+  }): Promise<SummaryNode> {
     if (!nodes || nodes.length === 0) {
       throw new Error('Cannot create summary: No nodes provided');
     }
 
-    console.log(`[createSummary] Creating summary for ${nodes.length} nodes`);
+    getLogger().info(`[createSummary] Creating summary for ${nodes.length} nodes`);
 
     const result = await this.summarize(nodes);
 
     // Check for errors in the summarization result
     if (result.error) {
-      console.error(`[createSummary] Summarization agent error:`, result.error);
+      getLogger().error({ error: result.error }, `[createSummary] Summarization agent error:`);
       throw new Error(`Summarization failed: ${result.error}`);
     }
 
     // Validate the summary content
     if (!result.summary || result.summary.trim() === '') {
-      console.error(`[createSummary] Summarization agent returned empty summary`);
+      getLogger().error(`[createSummary] Summarization agent returned empty summary`);
       throw new Error('Summarization failed: Empty summary returned');
     }
 
     // Create a summary node
     const summaryNode: SummaryNode = {
       id: uuid(),
+      project,
       thought: result.summary,
       role: 'summary',
       parents: [nodes[nodes.length - 1].id], // Link to the newest node in the segment
       children: [],
-      createdAt: new Date().toISOString(),
+      createdAt: '', // Will be set by appendEntity
+      projectContext,
       summarizedSegment: nodes.map((node) => node.id),
       tags: ['summary'],
       artifacts: [],
     };
 
-    console.log(`[createSummary] Created summary node with ID ${summaryNode.id}`);
+    getLogger().info(`[createSummary] Created summary node with ID ${summaryNode.id}`);
 
     // Persist the summary node
-    this.knowledgeGraph.createEntity(summaryNode);
-    this.knowledgeGraph.createRelation(nodes[nodes.length - 1].id, summaryNode.id, 'has_summary');
-    await this.knowledgeGraph.flush();
+    await this.knowledgeGraph.appendEntity(summaryNode);
+
+    // Update the last node to include the summary node in its children
+    const lastNode = nodes[nodes.length - 1];
+    if (lastNode && !lastNode.children.includes(summaryNode.id)) {
+      lastNode.children.push(summaryNode.id);
+      await this.knowledgeGraph.appendEntity(lastNode);
+    }
 
     return summaryNode;
   }
