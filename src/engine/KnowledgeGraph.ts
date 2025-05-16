@@ -276,12 +276,10 @@ export class KnowledgeGraphManager {
 
   async export({
     project,
-    filterTag,
     filterFn,
     limit,
   }: {
     project: string;
-    filterTag?: string;
     filterFn?: (node: DagNode) => boolean;
     limit?: number;
   }): Promise<DagNode[]> {
@@ -292,7 +290,6 @@ export class KnowledgeGraphManager {
       for await (const line of rl) {
         const node = this.parseDagNode(line);
         if (!node || node.project !== project) continue;
-        if (filterTag && !node.tags?.includes(filterTag)) continue;
         if (filterFn && !filterFn(node)) continue;
         nodes.push(node);
         if (limit && nodes.length >= limit) nodes.shift();

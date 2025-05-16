@@ -203,19 +203,15 @@ async function main() {
     {
       limit: z.number().optional().describe('Limit the number of nodes returned.'),
       projectContext: z.string().describe('Full path to the project directory.'),
-      filterTag: z.string().optional().describe('Return only nodes containing this tag.'),
     },
     async (a) => {
       const projectName = await loadProjectOrThrow({ logger, kg, args: a, onProjectLoad: runOnce });
+      const nodes = await kg.export({ project: projectName, limit: a.limit });
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(
-              kg.export({ project: projectName, filterTag: a.filterTag, limit: a.limit }),
-              null,
-              2,
-            ),
+            text: JSON.stringify(nodes, null, 2),
           },
         ],
       };
