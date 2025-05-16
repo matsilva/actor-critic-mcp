@@ -41,7 +41,8 @@ const loadProjectOrThrow = async ({
     logger.error({ projectContext: args.projectContext }, 'Invalid projectContext');
     throw new Error(`Invalid projectContext: ${args.projectContext}`);
   }
-  await kg.tryLoadProject(projectName, onProjectLoad);
+  await kg.tryLoadProject();
+  onProjectLoad(projectName);
   return projectName;
 };
 
@@ -55,7 +56,7 @@ async function main() {
   logger.info('Starting CodeLoops MCP server...');
 
   // Create KnowledgeGraphManager
-  const kg = new KnowledgeGraphManager();
+  const kg = new KnowledgeGraphManager(logger);
   await kg.init();
 
   // Create SummarizationAgent with KnowledgeGraphManager
@@ -107,11 +108,15 @@ async function main() {
    */
   server.tool('actor_think', ACTOR_THINK_DESCRIPTION, ActorThinkSchema, async (args) => {
     const projectName = await loadProjectOrThrow({ logger, kg, args, onProjectLoad: runOnce });
+    const node = await engine.actorThink({
+      ...args,
+      project: projectName,
+    });
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(await engine.actorThink({ ...args, project: projectName }), null, 2),
+          text: JSON.stringify(node, null, 2),
         },
       ],
     };
@@ -127,6 +132,7 @@ async function main() {
    */
   server.tool(
     'critic_review',
+    'Call this tool when you want explicit feedback on your thought, idea or final implementation of a task.',
     {
       actorNodeId: z.string().describe('ID of the actor node to critique.'),
       projectContext: z.string().describe('Full path to the project directory.'),
@@ -155,6 +161,7 @@ async function main() {
   /** list_branches – quick overview for navigation */
   server.tool(
     'list_branches',
+    'List all branches in the knowledge graph.',
     { projectContext: z.string().describe('Full path to the project directory.') },
     async (a) => {
       const projectName = await loadProjectOrThrow({ logger, kg, args: a, onProjectLoad: runOnce });
@@ -167,14 +174,22 @@ async function main() {
   /** resume – fetch WINDOW‑sized recent context for a branch */
   server.tool(
     'resume',
+    'Pick up where you left off by fetching the most recent nodes from the knowledge graph for this project. Use limit to control the number of nodes returned. Increase it if you need more context.',
     {
       projectContext: z.string().describe('Full path to the project directory.'),
-      branchId: z.string().describe('Branch id OR label'),
+      limit: z
+        .number()
+        .optional()
+        .describe('Limit the number of nodes returned. Increase it if you need more context.'),
     },
     async (a) => {
       const projectName = await loadProjectOrThrow({ logger, kg, args: a, onProjectLoad: runOnce });
+      const text = await kg.resume({
+        project: projectName,
+        limit: a.limit,
+      });
       return {
-        content: [{ type: 'text', text: kg.resume(a.branchId, projectName) }],
+        content: [{ type: 'text', text: JSON.stringify(text, null, 2) }],
       };
     },
   );
@@ -232,7 +247,7 @@ async function main() {
           };
         } else {
           // If summarization failed, get the branch information to provide context
-          const branches = kg.listBranches(projectName);
+          const branches = await kg.listBranches(projectName);
           const targetBranch = branches.find(
             (b) =>
               b.branchId === args.branchIdOrLabel || b.head.branchLabel === args.branchIdOrLabel,

@@ -128,7 +128,7 @@ export class SummarizationAgent {
     project: string;
     projectContext: string;
   }): Promise<void> {
-    const branches = this.knowledgeGraph.listBranches(project);
+    const branches = await this.knowledgeGraph.listBranches(project);
 
     for (const branch of branches) {
       // Only summarize branches that have enough nodes
@@ -157,7 +157,7 @@ export class SummarizationAgent {
     projectContext: string;
   }): Promise<SummarizationResult> {
     // Get the branch head
-    const head = this.knowledgeGraph.getNode(branchId, project);
+    const head = await this.knowledgeGraph.getNode(branchId, project);
     if (!head) {
       getLogger().error(`[summarizeBranch] Branch not found: ${branchId}`);
       return {
@@ -175,7 +175,7 @@ export class SummarizationAgent {
     while (current) {
       branchNodes.push(current);
       current = current.parents[0]
-        ? this.knowledgeGraph.getNode(current.parents[0], project)
+        ? await this.knowledgeGraph.getNode(current.parents[0], project)
         : undefined;
     }
 

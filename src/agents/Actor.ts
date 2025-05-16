@@ -10,7 +10,7 @@ export class Actor {
   ): Promise<{ node: DagNode }> {
     const { thought, branchLabel, tags, artifacts, project, projectContext } = input;
 
-    const parents = this.kg.getHeads(project).map((h) => h.id);
+    const parents = (await this.kg.getHeads(project)).map((h) => h.id);
 
     const node: DagNode = {
       id: uuid(),

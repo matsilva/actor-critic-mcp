@@ -23,7 +23,6 @@ interface DagNode {
   role: 'actor' | 'critic';
   verdict?: 'approved' | 'needs_revision' | 'reject';
   verdictReason?: string;
-  verdictReferences?: string[];
   target?: string; // nodeId this criticises
   parents: string[];
   children: string[];
@@ -60,8 +59,6 @@ When reviewing an actor node:
 - `approved`: The node meets all requirements and can proceed
 - `needs_revision`: The node needs specific improvements (always include verdictReason)
 - `reject`: The node is fundamentally flawed or has reached max revision attempts (default: 2)
-
-Remember: Your goal is to prevent temporal difference problems by ensuring early decisions are properly linked to later outcomes, and to maintain consistency across the entire project.
 """
 )
 async def main():

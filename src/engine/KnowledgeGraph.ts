@@ -2,14 +2,14 @@ import fs from 'node:fs/promises';
 import { lock, unlock } from 'proper-lockfile';
 import * as fsSync from 'node:fs';
 import path from 'node:path';
-import { extractProjectName } from '../utils/project.ts';
+import { z } from 'zod';
 import readline from 'node:readline';
 import { dataDir } from '../config.ts';
-import { getInstance as getLogger } from '../logger.ts';
+import { CodeLoopsLogger, getInstance as getLogger } from '../logger.ts';
 import { ActorThinkInput, FileRef } from './ActorCriticEngine.ts';
 
 // -----------------------------------------------------------------------------
-// Minimal JSON‑file Knowledge Graph adapter ------------------------------------
+// Interfaces ------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
 export interface WithProjectContext {
@@ -36,13 +36,14 @@ export interface DagNode extends ActorThinkInput, WithProjectContext {
   target?: string; // nodeId this criticises
   parents: string[];
   children: string[];
-  createdAt: string; // ISO timestamp for durability
-  summarizedSegment?: string[]; // IDs of the nodes that were summarized (for summary nodes)
+  createdAt: string; // ISO timestamp
+  branchLabel?: string;
+  summarizedSegment?: string[]; // IDs of nodes summarized (for summary nodes)
 }
 
 export interface SummaryNode extends DagNode {
   role: 'summary';
-  summarizedSegment: string[]; // IDs of the nodes that were summarized
+  summarizedSegment: string[]; // IDs of nodes summarized
 }
 
 export interface SummarizationResult {
@@ -57,16 +58,39 @@ export interface SummarizationResult {
   details?: string;
 }
 
+// -----------------------------------------------------------------------------
+// KnowledgeGraphManager -------------------------------------------------------
+// -----------------------------------------------------------------------------
+
 export class KnowledgeGraphManager {
   public static WINDOW = 20;
 
   private logFilePath: string = path.resolve(dataDir, 'knowledge_graph.ndjson');
-  private projectStates: Map<string, { entities: Map<string, DagNode | ArtifactRef> }> = new Map();
-  // No currentProject state - all operations must be explicitly scoped by project
-  private logger = getLogger();
+  private logger: CodeLoopsLogger;
   public labelIndex: Map<string, string> = new Map(); // branchLabel ➜ nodeId
 
-  constructor() {}
+  // Schema for validating DagNode entries
+  private static DagNodeSchema = z.object({
+    id: z.string(),
+    project: z.string(),
+    projectContext: z.string(),
+    thought: z.string(),
+    role: z.enum(['actor', 'critic', 'summary']),
+    createdAt: z.string().datetime(),
+    parents: z.array(z.string()),
+    children: z.array(z.string()),
+    branchLabel: z.string().optional(),
+    verdict: z.enum(['approved', 'needs_revision', 'reject']).optional(),
+    verdictReason: z.string().optional(),
+    verdictReferences: z.array(z.string()).optional(),
+    target: z.string().optional(),
+    summarizedSegment: z.array(z.string()).optional(),
+    tags: z.array(z.string()).optional(),
+  });
+
+  constructor(logger: CodeLoopsLogger) {
+    this.logger = logger;
+  }
 
   async init() {
     this.logger.info(`[KnowledgeGraphManager] Initializing from ${this.logFilePath}`);
@@ -75,146 +99,256 @@ export class KnowledgeGraphManager {
 
   private async loadLog() {
     if (!(await fs.stat(this.logFilePath).catch(() => null))) {
-      this.logger.info(
-        `[KnowledgeGraphManager] No log file found, creating new one at ${this.logFilePath}`,
-      );
+      this.logger.info(`[KnowledgeGraphManager] Creating new log file at ${this.logFilePath}`);
       await fs.mkdir(path.dirname(this.logFilePath), { recursive: true });
       await fs.writeFile(this.logFilePath, '');
       return;
     }
   }
 
-  async tryLoadProject(project: string, onDidLoadProject?: (project: string) => void) {
-    if (this.projectStates.has(project)) {
-      return;
-    }
-    onDidLoadProject?.(project);
-    this.projectStates.set(project, { entities: new Map() });
+  async tryLoadProject() {
+    await this.refreshLabelIndex();
+  }
+
+  private async refreshLabelIndex() {
+    this.labelIndex.clear();
     const fileStream = fsSync.createReadStream(this.logFilePath);
     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
-    for await (const line of rl) {
-      try {
-        const entry = JSON.parse(line);
-        if (entry.project !== project) continue;
-        this.projectStates.get(project)!.entities.set(entry.id, entry);
-
-        // Update label index if it's a branch label
-        if ('branchLabel' in entry && entry.branchLabel) {
+    try {
+      for await (const line of rl) {
+        const entry = this.parseDagNode(line);
+        if (entry?.branchLabel) {
           this.labelIndex.set(entry.branchLabel, entry.id);
         }
-      } catch (err) {
-        this.logger.error({ err, line }, 'Error parsing entry');
+      }
+    } finally {
+      rl.close();
+      fileStream.close();
+    }
+  }
+
+  private parseDagNode(line: string): DagNode | null {
+    try {
+      const parsed = JSON.parse(line);
+      const validated = KnowledgeGraphManager.DagNodeSchema.parse(parsed);
+      return validated as DagNode;
+    } catch (err) {
+      this.logger.error({ err, line }, 'Invalid DagNode entry');
+      return null;
+    }
+  }
+
+  async appendEntity(entity: DagNode, retries = 3) {
+    if (entity.branchLabel && this.labelIndex.has(entity.branchLabel)) {
+      throw new Error(`Duplicate branchLabel: ${entity.branchLabel}`);
+    }
+    if (await this.wouldCreateCycle(entity)) {
+      throw new Error(`Appending node ${entity.id} would create a cycle`);
+    }
+
+    entity.createdAt = new Date().toISOString();
+    const line = JSON.stringify(entity) + '\n';
+    let err: Error | null = null;
+
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        await lock(this.logFilePath, { retries: 0 });
+        await fs.appendFile(this.logFilePath, line, 'utf8');
+        if (entity.branchLabel) {
+          this.labelIndex.set(entity.branchLabel, entity.id);
+        }
+        return;
+      } catch (e: unknown) {
+        err = e as Error;
+        this.logger.warn({ err, attempt }, `Retry ${attempt} failed appending entity`);
+        if (attempt === retries) break;
+        await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
+      } finally {
+        try {
+          await unlock(this.logFilePath);
+        } catch (unlockErr) {
+          this.logger.error({ err: unlockErr }, 'Failed to unlock file');
+        }
       }
     }
+
+    this.logger.error({ err }, 'Error appending entity after retries');
+    throw err;
   }
 
-  // Use the centralized extractProjectName function from utils
-
-  async appendEntity(entity: DagNode) {
-    // Set createdAt for DagNode, ensure it exists for ArtifactRef
-    if ('role' in entity) {
-      entity.createdAt = new Date().toISOString();
-    } else {
-      (entity as any).createdAt = new Date().toISOString();
+  private async wouldCreateCycle(entity: DagNode): Promise<boolean> {
+    const visited = new Set<string>();
+    async function dfs(id: string, manager: KnowledgeGraphManager): Promise<boolean> {
+      if (visited.has(id)) return true;
+      visited.add(id);
+      const node = await manager.getNode(id, entity.project);
+      if (!node) return false;
+      for (const childId of node.children) {
+        if (childId === entity.id || (await dfs(childId, manager))) return true;
+      }
+      return false;
     }
-    const line = JSON.stringify(entity) + '\n';
-    //lockfile
-    let err: Error | null = null;
+    for (const parentId of entity.parents) {
+      if (await dfs(parentId, this)) return true;
+    }
+    return false;
+  }
+
+  async getNode(id: string, project: string): Promise<DagNode | undefined> {
+    const fileStream = fsSync.createReadStream(this.logFilePath);
+    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
     try {
-      await lock(this.logFilePath);
-      await fs.appendFile(this.logFilePath, line, 'utf8');
-    } catch (e: unknown) {
-      err = e as Error;
+      for await (const line of rl) {
+        const entry = this.parseDagNode(line);
+        if (entry?.project === project && entry.id === id) {
+          return entry;
+        }
+      }
+      return undefined;
     } finally {
-      await unlock(this.logFilePath);
+      rl.close();
+      fileStream.close();
     }
-    if (err) {
-      this.logger.error({ err }, 'Error appending entity');
-      throw err;
+  }
+
+  async getHeads(project: string): Promise<DagNode[]> {
+    const nodes = new Map<string, DagNode>();
+    const hasOutgoing = new Set<string>();
+    const fileStream = fsSync.createReadStream(this.logFilePath);
+    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+    try {
+      for await (const line of rl) {
+        const node = this.parseDagNode(line);
+        if (!node || node.project !== project) continue;
+        nodes.set(node.id, node);
+        for (const parentId of node.parents) {
+          hasOutgoing.add(parentId);
+        }
+      }
+      return Array.from(nodes.values()).filter((node) => !hasOutgoing.has(node.id));
+    } finally {
+      rl.close();
+      fileStream.close();
     }
-    this.logger.info(
-      `[KnowledgeGraphManager] node_append: ${entity.id} to project: ${entity.project}`,
-    );
-    const state = this.projectStates.get(entity.project) || { entities: new Map() };
-    state.entities.set(entity.id, entity);
-    this.projectStates.set(entity.project, state);
   }
 
-  getNode(id: string, project: string): DagNode | undefined {
-    const entity = this.projectStates.get(project)?.entities.get(id);
-    return entity && 'role' in entity ? (entity as DagNode) : undefined;
+  async *streamDagNodes(project: string): AsyncGenerator<DagNode, void, unknown> {
+    const fileStream = fsSync.createReadStream(this.logFilePath);
+    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+    try {
+      for await (const line of rl) {
+        const node = this.parseDagNode(line);
+        if (node?.project === project) {
+          yield node;
+        }
+      }
+    } finally {
+      rl.close();
+      fileStream.close();
+    }
   }
 
-  getHeads(project: string): DagNode[] {
-    const state = this.projectStates.get(project);
-    if (!state) return [];
-    const hasOutgoing = new Set(
-      Array.from(state.entities.values())
-        .filter((e): e is DagNode => 'role' in e)
-        .flatMap((n) => n.parents),
-    );
-    return Array.from(state.entities.values()).filter(
-      (n): n is DagNode => 'role' in n && !hasOutgoing.has(n.id),
-    );
-  }
-
-  allDagNodes(project: string): DagNode[] {
-    const state = this.projectStates.get(project);
-    if (!state) return [];
-    return Array.from(state.entities.values()).filter((e): e is DagNode => 'role' in e);
-  }
-
-  listBranches(project: string): BranchHead[] {
-    return this.getHeads(project).map((head) => ({
-      branchId: head.id,
-      label: head.branchLabel,
-      head,
-      depth: this.depth(head.id, project),
-    }));
-  }
-
-  resume(branchIdOrLabel: string, project: string): string {
-    const id = this.labelIndex.get(branchIdOrLabel) ?? branchIdOrLabel;
-    const node = this.getNode(id, project);
-    if (!node) throw new Error('branch not found');
-    return id;
-  }
-
-  export({ project, filterTag, limit }: { project: string; filterTag?: string; limit?: number }) {
-    let nodes = this.allDagNodes(project).filter((n) =>
-      filterTag ? n.tags?.includes(filterTag) : true,
-    );
-    if (limit) {
-      nodes = nodes.slice(0, limit);
+  async allDagNodes(project: string): Promise<DagNode[]> {
+    const nodes: DagNode[] = [];
+    for await (const node of this.streamDagNodes(project)) {
+      nodes.push(node);
     }
     return nodes;
   }
 
-  async listProjects(): Promise<string[]> {
-    const fileStream = fsSync.createReadStream(this.logFilePath);
-    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
-    const projects = new Set<string>();
-    for await (const line of rl) {
-      try {
-        const entry = JSON.parse(line);
-        const project = entry.project;
-        if (project && !projects.has(project)) projects.add(project);
-      } catch (err) {
-        this.logger.error({ err, line }, 'Error parsing entry');
-      }
+  async listBranches(project: string): Promise<BranchHead[]> {
+    const heads = await this.getHeads(project);
+    const branches: BranchHead[] = [];
+    for (const head of heads) {
+      branches.push({
+        branchId: head.id,
+        label: head.branchLabel,
+        head,
+        depth: await this.depth(head.id, project),
+      });
     }
-    return Array.from(projects);
+    return branches;
   }
 
-  private depth(id: string, project: string): number {
+  async resume({ project, limit = 5 }: { project: string; limit?: number }): Promise<DagNode[]> {
+    return this.export({ project, limit });
+  }
+
+  async export({
+    project,
+    filterTag,
+    filterFn,
+    limit,
+  }: {
+    project: string;
+    filterTag?: string;
+    filterFn?: (node: DagNode) => boolean;
+    limit?: number;
+  }): Promise<DagNode[]> {
+    let nodes: DagNode[] = [];
+    const fileStream = fsSync.createReadStream(this.logFilePath);
+    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+    try {
+      for await (const line of rl) {
+        const node = this.parseDagNode(line);
+        if (!node || node.project !== project) continue;
+        if (filterTag && !node.tags?.includes(filterTag)) continue;
+        if (filterFn && !filterFn(node)) continue;
+        nodes.push(node);
+        if (limit && nodes.length >= limit) nodes.shift();
+      }
+      return nodes;
+    } finally {
+      rl.close();
+      fileStream.close();
+    }
+  }
+
+  async listProjects(): Promise<string[]> {
+    const projects = new Set<string>();
+    const fileStream = fsSync.createReadStream(this.logFilePath);
+    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+    try {
+      for await (const line of rl) {
+        const entry = this.parseDagNode(line);
+        if (entry?.project && !projects.has(entry.project)) {
+          projects.add(entry.project);
+        }
+      }
+      return Array.from(projects);
+    } finally {
+      rl.close();
+      fileStream.close();
+    }
+  }
+
+  private async getBranchNodes(id: string, project: string, limit: number): Promise<DagNode[]> {
+    const nodes: DagNode[] = [];
+    let currentId = id;
+    while (nodes.length < limit) {
+      const node = await this.getNode(currentId, project);
+      if (!node) break;
+      nodes.push(node);
+      if (!node.parents.length) break;
+      currentId = node.parents[0]; // Follow the first parent
+    }
+    return nodes.reverse();
+  }
+
+  private async depth(id: string, project: string): Promise<number> {
     return this.depthRecursive(id, new Set(), project);
   }
 
-  private depthRecursive(id: string, visited: Set<string>, project: string): number {
+  private async depthRecursive(id: string, visited: Set<string>, project: string): Promise<number> {
     if (visited.has(id)) return 0;
     visited.add(id);
-    const node = this.getNode(id, project);
+    const node = await this.getNode(id, project);
     if (!node || !node.parents.length) return 1;
-    return 1 + Math.max(...node.parents.map((p) => this.depthRecursive(p, visited, project)));
+    let maxParentDepth = 0;
+    for (const parentId of node.parents) {
+      const parentDepth = await this.depthRecursive(parentId, visited, project);
+      maxParentDepth = Math.max(maxParentDepth, parentDepth);
+    }
+    return 1 + maxParentDepth;
   }
 }

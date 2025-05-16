@@ -88,13 +88,13 @@ export class ActorCriticEngine {
     // Actor.think will handle project switching based on projectContext
     const { node } = await this.actor.think(input);
 
-    await this.criticReview({
+    const criticNode = await this.criticReview({
       actorNodeId: node.id,
       projectContext: input.projectContext,
       project: input.project,
     });
 
-    return node;
+    return criticNode;
   }
 
   /**
