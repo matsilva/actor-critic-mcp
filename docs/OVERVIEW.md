@@ -95,14 +95,6 @@ The actor-critic system supports working with multiple knowledge graph projects:
 
 1. **`list_projects`**: Lists all available knowledge graph projects
 
-   - Returns the current active project and all available projects
-
-2. **`create_project`**: Creates a new knowledge graph project
-   - Parameter: `projectName` - Name of the new project to create
-   - Same naming rules as `switch_project`
-
-These tools allow you to organize your work into separate projects, each with its own knowledge graph. This is useful for working on multiple codebases or features without mixing contexts.
-
 ## Background
 
 While the context gap is not directly a temporal difference problem, it lends itself to the concepts of temporal difference and credit assignment.
