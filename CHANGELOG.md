@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2] - 2025-05-16
+
+* chore: fix unit test
+* feat: add get node tool and remove project from getNode
+* feat: iniitial branch label removal
+* chore: release v0.3.1
+
 ## [0.3.1] - 2025-05-16
 
 * refactor: simplify export functionality by removing filterTag
