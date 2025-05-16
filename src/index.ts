@@ -41,7 +41,6 @@ const loadProjectOrThrow = async ({
     logger.error({ projectContext: args.projectContext }, 'Invalid projectContext');
     throw new Error(`Invalid projectContext: ${args.projectContext}`);
   }
-  await kg.tryLoadProject();
   onProjectLoad(projectName);
   return projectName;
 };
@@ -159,6 +158,25 @@ async function main() {
   );
 
   server.tool(
+    'get_node',
+    'Get a specific node by ID',
+    {
+      id: z.string().describe('ID of the node to retrieve.'),
+    },
+    async (a) => {
+      const node = await kg.getNode(a.id);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(node, null, 2),
+          },
+        ],
+      };
+    },
+  );
+
+  server.tool(
     'resume',
     'Pick up where you left off by fetching the most recent nodes from the knowledge graph for this project. Use limit to control the number of nodes returned. Increase it if you need more context.',
     {
@@ -180,10 +198,10 @@ async function main() {
     },
   );
 
-  /** export – dump the current graph, optionally filtered by tag */
+  /** export – dump the current graph */
   server.tool(
     'export',
-    'dump the current knowledge graph, optionally filtered by tag',
+    'dump the current knowledge graph, with optional limit',
     {
       limit: z.number().optional().describe('Limit the number of nodes returned.'),
       projectContext: z.string().describe('Full path to the project directory.'),

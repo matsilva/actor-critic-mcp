@@ -53,7 +53,7 @@ export class Critic {
     project: string;
     projectContext: string;
   }): Promise<DagNode> {
-    const target = await this.kg.getNode(actorNodeId, project);
+    const target = await this.kg.getNode(actorNodeId);
     if (!target || (target as DagNode).role !== 'actor')
       throw new Error('invalid target for critic');
 

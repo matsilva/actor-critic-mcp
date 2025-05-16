@@ -106,7 +106,7 @@ describe('KnowledgeGraphManager', () => {
       const testNode = createTestNode('test-project');
       await kg.appendEntity(testNode);
 
-      const retrievedNode = await kg.getNode(testNode.id, testNode.project);
+      const retrievedNode = await kg.getNode(testNode.id);
       expect(retrievedNode).toBeDefined();
       expect(retrievedNode?.id).toBe(testNode.id);
       expect(retrievedNode?.thought).toBe(testNode.thought);
@@ -114,7 +114,7 @@ describe('KnowledgeGraphManager', () => {
 
     it('should return undefined for non-existent nodes', async () => {
       const nonExistentId = uuid();
-      const result = await kg.getNode(nonExistentId, 'test-project');
+      const result = await kg.getNode(nonExistentId);
       expect(result).toBeUndefined();
     });
 
@@ -127,12 +127,12 @@ describe('KnowledgeGraphManager', () => {
       await kg.appendEntity(projectBNode);
 
       // Should only find the node in project-a
-      const resultA = await kg.getNode(projectANode.id, 'project-a');
+      const resultA = await kg.getNode(projectANode.id);
       expect(resultA).toBeDefined();
       expect(resultA?.id).toBe(projectANode.id);
 
       // Should not find project-a's node when looking in project-b
-      const resultB = await kg.getNode(projectANode.id, 'project-b');
+      const resultB = await kg.getNode(projectANode.id);
       expect(resultB).toBeUndefined();
     });
   });

@@ -103,10 +103,6 @@ export class KnowledgeGraphManager {
     }
   }
 
-  async tryLoadProject() {
-    //currently noop
-  }
-
   private parseDagNode(line: string): DagNode | null {
     try {
       const parsed = JSON.parse(line);
@@ -155,7 +151,7 @@ export class KnowledgeGraphManager {
     async function dfs(id: string, manager: KnowledgeGraphManager): Promise<boolean> {
       if (visited.has(id)) return true;
       visited.add(id);
-      const node = await manager.getNode(id, entity.project);
+      const node = await manager.getNode(id);
       if (!node) return false;
       for (const childId of node.children) {
         if (childId === entity.id || (await dfs(childId, manager))) return true;
@@ -168,13 +164,13 @@ export class KnowledgeGraphManager {
     return false;
   }
 
-  async getNode(id: string, project: string): Promise<DagNode | undefined> {
+  async getNode(id: string): Promise<DagNode | undefined> {
     const fileStream = fsSync.createReadStream(this.logFilePath);
     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
     try {
       for await (const line of rl) {
         const entry = this.parseDagNode(line);
-        if (entry?.project === project && entry.id === id) {
+        if (entry?.id === id) {
           return entry;
         }
       }
@@ -231,7 +227,7 @@ export class KnowledgeGraphManager {
         if (!node || node.project !== project) continue;
         if (filterFn && !filterFn(node)) continue;
         nodes.push(node);
-        if (limit && nodes.length >= limit) nodes.shift();
+        if (limit && nodes.length > limit) nodes.shift();
       }
       return nodes;
     } finally {
@@ -256,35 +252,5 @@ export class KnowledgeGraphManager {
       rl.close();
       fileStream.close();
     }
-  }
-
-  private async getBranchNodes(id: string, project: string, limit: number): Promise<DagNode[]> {
-    const nodes: DagNode[] = [];
-    let currentId = id;
-    while (nodes.length < limit) {
-      const node = await this.getNode(currentId, project);
-      if (!node) break;
-      nodes.push(node);
-      if (!node.parents.length) break;
-      currentId = node.parents[0]; // Follow the first parent
-    }
-    return nodes.reverse();
-  }
-
-  private async depth(id: string, project: string): Promise<number> {
-    return this.depthRecursive(id, new Set(), project);
-  }
-
-  private async depthRecursive(id: string, visited: Set<string>, project: string): Promise<number> {
-    if (visited.has(id)) return 0;
-    visited.add(id);
-    const node = await this.getNode(id, project);
-    if (!node || !node.parents.length) return 1;
-    let maxParentDepth = 0;
-    for (const parentId of node.parents) {
-      const parentDepth = await this.depthRecursive(parentId, visited, project);
-      maxParentDepth = Math.max(maxParentDepth, parentDepth);
-    }
-    return 1 + maxParentDepth;
   }
 }
