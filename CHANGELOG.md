@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.1] - 2025-05-16
+
+* refactor: simplify export functionality by removing filterTag
+* chore: release v0.3.0
+
 ## [0.3.0] - 2025-05-16
 
 * chore: remove next steps
