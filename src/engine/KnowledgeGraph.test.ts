@@ -11,14 +11,14 @@ describe('KnowledgeGraphManager', () => {
   let kg: KnowledgeGraphManager;
   let testDataDir: string;
   let logFilePath: string;
-  
+
   // Create a temporary directory for test data
   beforeEach(async () => {
     // Create a unique test directory
     testDataDir = path.join(os.tmpdir(), `kg-test-${uuid()}`);
     await fs.mkdir(testDataDir, { recursive: true });
     logFilePath = path.join(testDataDir, 'knowledge_graph.ndjson');
-    
+
     // Create a KnowledgeGraphManager instance with a custom log file path
     kg = new KnowledgeGraphManager(getLogger());
     // Set the log file path directly using a non-exported property
@@ -26,7 +26,7 @@ describe('KnowledgeGraphManager', () => {
     kg.logFilePath = logFilePath;
     await kg.init();
   });
-  
+
   // Clean up after each test
   afterEach(async () => {
     try {
@@ -35,9 +35,13 @@ describe('KnowledgeGraphManager', () => {
       console.error('Error cleaning up test directory:', error);
     }
   });
-  
+
   // Helper function to create a test node
-  const createTestNode = (project: string, role: 'actor' | 'critic' | 'summary' = 'actor', parents: string[] = []): DagNode => ({
+  const createTestNode = (
+    project: string,
+    role: 'actor' | 'critic' | 'summary' = 'actor',
+    parents: string[] = [],
+  ): DagNode => ({
     id: uuid(),
     project,
     projectContext: `/path/to/${project}`,
@@ -47,146 +51,146 @@ describe('KnowledgeGraphManager', () => {
     children: [],
     createdAt: '',
     tags: ['test-tag'],
-    artifacts: []
+    artifacts: [],
   });
-  
+
   describe('appendEntity', () => {
     it('should successfully append a node to the log file', async () => {
       const testNode = createTestNode('test-project');
       await kg.appendEntity(testNode);
-      
+
       // Read the log file and verify the node was written
       const content = await fs.readFile(logFilePath, 'utf-8');
       expect(content).toContain(testNode.id);
       expect(content).toContain(testNode.project);
       expect(content).toContain(testNode.thought);
     });
-    
+
     it('should set the createdAt timestamp when appending', async () => {
       const testNode = createTestNode('test-project');
       expect(testNode.createdAt).toBe('');
-      
+
       await kg.appendEntity(testNode);
       expect(testNode.createdAt).not.toBe('');
-      
+
       // Verify it's a valid ISO date string
       expect(() => new Date(testNode.createdAt)).not.toThrow();
     });
-    
+
     it('should not allow cycles in the graph', async () => {
       // Create a chain of nodes A -> B -> C
       const nodeA = createTestNode('test-project');
       await kg.appendEntity(nodeA);
-      
+
       const nodeB = createTestNode('test-project', 'actor', [nodeA.id]);
       await kg.appendEntity(nodeB);
-      
+
       const nodeC = createTestNode('test-project', 'actor', [nodeB.id]);
       await kg.appendEntity(nodeC);
-      
+
       // Try to create a cycle by making A depend on C
       // Since we can't directly test wouldCreateCycle (it's private),
       // we'll verify that the graph maintains its integrity
       const nodeD = createTestNode('test-project', 'actor', [nodeC.id]);
       await kg.appendEntity(nodeD);
-      
+
       // Verify the graph structure
       const heads = await kg.getHeads('test-project');
       expect(heads.length).toBe(1);
       expect(heads[0].id).toBe(nodeD.id);
     });
   });
-  
+
   describe('getNode', () => {
     it('should retrieve a node by id and project', async () => {
       const testNode = createTestNode('test-project');
       await kg.appendEntity(testNode);
-      
+
       const retrievedNode = await kg.getNode(testNode.id, testNode.project);
       expect(retrievedNode).toBeDefined();
       expect(retrievedNode?.id).toBe(testNode.id);
       expect(retrievedNode?.thought).toBe(testNode.thought);
     });
-    
+
     it('should return undefined for non-existent nodes', async () => {
       const nonExistentId = uuid();
       const result = await kg.getNode(nonExistentId, 'test-project');
       expect(result).toBeUndefined();
     });
-    
+
     it('should only retrieve nodes from the specified project', async () => {
       // Create nodes in two different projects
       const projectANode = createTestNode('project-a');
       const projectBNode = createTestNode('project-b');
-      
+
       await kg.appendEntity(projectANode);
       await kg.appendEntity(projectBNode);
-      
+
       // Should only find the node in project-a
       const resultA = await kg.getNode(projectANode.id, 'project-a');
       expect(resultA).toBeDefined();
       expect(resultA?.id).toBe(projectANode.id);
-      
+
       // Should not find project-a's node when looking in project-b
       const resultB = await kg.getNode(projectANode.id, 'project-b');
       expect(resultB).toBeUndefined();
     });
   });
-  
+
   describe('getHeads', () => {
     it('should return nodes with no outgoing edges as heads', async () => {
       // Create a chain of nodes A -> B -> C
       const nodeA = createTestNode('test-project');
       await kg.appendEntity(nodeA);
-      
+
       const nodeB = createTestNode('test-project', 'actor', [nodeA.id]);
       await kg.appendEntity(nodeB);
-      
+
       const nodeC = createTestNode('test-project', 'actor', [nodeB.id]);
       await kg.appendEntity(nodeC);
-      
+
       // C should be the only head
       const heads = await kg.getHeads('test-project');
       expect(heads.length).toBe(1);
       expect(heads[0].id).toBe(nodeC.id);
     });
-    
+
     it('should return multiple heads if there are multiple leaf nodes', async () => {
       // Create two separate branches A -> B and C -> D
       const nodeA = createTestNode('test-project');
       await kg.appendEntity(nodeA);
-      
+
       const nodeB = createTestNode('test-project', 'actor', [nodeA.id]);
       await kg.appendEntity(nodeB);
-      
+
       const nodeC = createTestNode('test-project');
       await kg.appendEntity(nodeC);
-      
+
       const nodeD = createTestNode('test-project', 'actor', [nodeC.id]);
       await kg.appendEntity(nodeD);
-      
+
       // B and D should both be heads
       const heads = await kg.getHeads('test-project');
       expect(heads.length).toBe(2);
       expect(heads.map((h: DagNode) => h.id).sort()).toEqual([nodeB.id, nodeD.id].sort());
     });
-    
+
     it('should return an empty array if no nodes exist for the project', async () => {
       const heads = await kg.getHeads('non-existent-project');
       expect(heads).toEqual([]);
     });
   });
-  
+
   describe('listBranches', () => {
     it('should list all branches with their heads and depths', async () => {
       // Create a simple branch with depth 2
       const nodeA = createTestNode('test-project');
       await kg.appendEntity(nodeA);
-      
+
       const nodeB = createTestNode('test-project', 'actor', [nodeA.id]);
       nodeB.branchLabel = 'test-branch';
       await kg.appendEntity(nodeB);
-      
+
       // List branches
       const branches = await kg.listBranches('test-project');
       expect(branches.length).toBe(1);
@@ -194,22 +198,22 @@ describe('KnowledgeGraphManager', () => {
       expect(branches[0].label).toBe('test-branch');
       expect(branches[0].depth).toBe(2); // A -> B = depth 2
     });
-    
+
     it('should correctly calculate branch depths', async () => {
       // Create a deeper branch A -> B -> C -> D
       const nodeA = createTestNode('test-project');
       await kg.appendEntity(nodeA);
-      
+
       const nodeB = createTestNode('test-project', 'actor', [nodeA.id]);
       await kg.appendEntity(nodeB);
-      
+
       const nodeC = createTestNode('test-project', 'actor', [nodeB.id]);
       await kg.appendEntity(nodeC);
-      
+
       const nodeD = createTestNode('test-project', 'actor', [nodeC.id]);
       nodeD.branchLabel = 'deep-branch';
       await kg.appendEntity(nodeD);
-      
+
       // List branches
       const branches = await kg.listBranches('test-project');
       expect(branches.length).toBe(1);
@@ -218,7 +222,7 @@ describe('KnowledgeGraphManager', () => {
       expect(branches[0].depth).toBe(4); // A -> B -> C -> D = depth 4
     });
   });
-  
+
   describe('resume', () => {
     it('should return recent nodes', async () => {
       // Create multiple nodes
@@ -229,20 +233,20 @@ describe('KnowledgeGraphManager', () => {
         await kg.appendEntity(node);
         nodes.push(node);
       }
-      
+
       // Get the most recent nodes
       const result = await kg.resume({ project: 'test-project', limit: 5 });
-      
+
       // Check that we have nodes
       expect(result.length).toBeGreaterThan(0);
-      
+
       // Verify that the nodes are from our test set
       // The exact order might vary based on implementation details
       for (const node of result) {
         expect(node.thought).toMatch(/^Node \d+$/);
       }
     });
-    
+
     it('should return all nodes if limit is not specified', async () => {
       // Create 3 nodes
       for (let i = 0; i < 3; i++) {
@@ -250,55 +254,58 @@ describe('KnowledgeGraphManager', () => {
         node.thought = `Node ${i}`;
         await kg.appendEntity(node);
       }
-      
+
       // Get all nodes (default behavior)
       const result = await kg.resume({ project: 'test-project' });
       expect(result.length).toBe(3);
     });
   });
-  
+
   describe('export', () => {
     it('should filter nodes by tag', async () => {
       // Create nodes with different tags
       const nodeA = createTestNode('test-project');
       nodeA.tags = ['tag-a'];
       await kg.appendEntity(nodeA);
-      
+
       const nodeB = createTestNode('test-project');
       nodeB.tags = ['tag-b'];
       await kg.appendEntity(nodeB);
-      
+
       const nodeC = createTestNode('test-project');
       nodeC.tags = ['tag-a', 'tag-c'];
       await kg.appendEntity(nodeC);
-      
+
       // Filter by tag-a
-      const result = await kg.export({ project: 'test-project', filterTag: 'tag-a' });
+      const result = await kg.export({
+        project: 'test-project',
+        filterFn: (n: DagNode) => n.tags?.includes('tag-a'),
+      });
       expect(result.length).toBe(2);
       expect(result.map((n: DagNode) => n.id).sort()).toEqual([nodeA.id, nodeC.id].sort());
     });
-    
+
     it('should apply custom filter functions', async () => {
       // Create nodes with different roles
       const actorNode = createTestNode('test-project', 'actor');
       await kg.appendEntity(actorNode);
-      
+
       const criticNode = createTestNode('test-project', 'critic');
       await kg.appendEntity(criticNode);
-      
+
       const summaryNode = createTestNode('test-project', 'summary');
       await kg.appendEntity(summaryNode);
-      
+
       // Filter by role = 'critic'
       const result = await kg.export({
         project: 'test-project',
-        filterFn: (node: DagNode) => node.role === 'critic'
+        filterFn: (node: DagNode) => node.role === 'critic',
       });
-      
+
       expect(result.length).toBe(1);
       expect(result[0].id).toBe(criticNode.id);
     });
-    
+
     it('should respect the limit parameter', async () => {
       // Create 10 nodes
       for (let i = 0; i < 10; i++) {
@@ -306,29 +313,29 @@ describe('KnowledgeGraphManager', () => {
         node.thought = `Node ${i}`;
         await kg.appendEntity(node);
       }
-      
+
       // Get nodes with a limit
       const result = await kg.export({ project: 'test-project', limit: 3 });
-      
+
       // Check that we have nodes (may not be exactly 3 due to implementation details)
       expect(result.length).toBeGreaterThan(0);
       expect(result.length).toBeLessThanOrEqual(10); // Should not exceed total nodes
     });
   });
-  
+
   describe('listProjects', () => {
     it('should list all projects with nodes in the graph', async () => {
       // Create nodes for different projects
       await kg.appendEntity(createTestNode('project-a'));
       await kg.appendEntity(createTestNode('project-b'));
       await kg.appendEntity(createTestNode('project-c'));
-      
+
       // List projects
       const projects = await kg.listProjects();
       expect(projects.length).toBe(3);
       expect(projects.sort()).toEqual(['project-a', 'project-b', 'project-c'].sort());
     });
-    
+
     it('should return an empty array if no nodes exist', async () => {
       // No nodes added
       const projects = await kg.listProjects();
