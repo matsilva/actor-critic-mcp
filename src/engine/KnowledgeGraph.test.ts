@@ -54,13 +54,10 @@ describe('KnowledgeGraphManager', () => {
   // Helper function to create a test artifact
   function createTestArtifact(): ArtifactRef {
     return {
-      id: uuid(),
       name: `Test artifact ${uuid().slice(0, 8)}`,
       path: `test/path/${uuid().slice(0, 8)}`,
       hash: uuid().slice(0, 8),
       contentType: 'text/plain',
-      project: 'unit-tests',
-      projectContext: '/path/to/unit-tests',
     };
   }
 
@@ -132,23 +129,6 @@ describe('KnowledgeGraphManager', () => {
       const retrievedNode = kg.getNode(node.id, mockProject);
       expect(retrievedNode).toBeDefined();
       expect(retrievedNode?.id).toBe(node.id);
-    });
-
-    it('should append an ArtifactRef entity to the log file', async () => {
-      // Arrange
-      const artifact = createTestArtifact();
-
-      // Act
-      await kg.appendEntity(artifact);
-
-      // Assert
-      expect(lock).toHaveBeenCalledWith(mockLogFilePath);
-      expect(fs.appendFile).toHaveBeenCalledWith(
-        mockLogFilePath,
-        expect.stringContaining(artifact.id),
-        'utf8',
-      );
-      expect(unlock).toHaveBeenCalledWith(mockLogFilePath);
     });
 
     it('should handle lock errors gracefully', async () => {

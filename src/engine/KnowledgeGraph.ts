@@ -24,9 +24,7 @@ export interface BranchHead {
   depth: number;
 }
 
-export interface ArtifactRef extends FileRef, WithProjectContext {
-  id: string; // uuid for KG reference
-}
+export interface ArtifactRef extends FileRef {}
 
 export interface DagNode extends ActorThinkInput, WithProjectContext {
   id: string;
@@ -112,7 +110,7 @@ export class KnowledgeGraphManager {
 
   // Use the centralized extractProjectName function from utils
 
-  async appendEntity(entity: DagNode | ArtifactRef) {
+  async appendEntity(entity: DagNode) {
     // Set createdAt for DagNode, ensure it exists for ArtifactRef
     if ('role' in entity) {
       entity.createdAt = new Date().toISOString();

@@ -17,7 +17,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dataDir } from '../../src/config.ts';
 import { createLogger, getInstance as getLogger } from '../../src/logger.ts';
-import { extractProjectName } from '../../src/utils/projectUtils.ts';
+import { extractProjectName } from '../../src/utils/project.ts';
 import { createInterface } from 'node:readline';
 import { createCodeLoopsAscii } from '../../src/utils/fun.ts';
 import { table } from 'table';
@@ -125,6 +125,9 @@ async function migrateProjectFiles() {
 
         // Process and write entities to NDJSON
         for (const [id, entity] of Object.entries(entities)) {
+          //skip non-actor or critic entities
+          if (!entity.role) continue;
+
           // Add project field to the entity
           const enrichedEntity = {
             ...entity,

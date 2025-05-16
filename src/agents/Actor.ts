@@ -28,23 +28,6 @@ export class Actor {
 
     // Persist node
     await this.kg.appendEntity(node);
-
-    // Handle artifacts
-    if (artifacts && artifacts.length) {
-      for (const artifact of artifacts) {
-        const artifactEntity: ArtifactRef = {
-          ...artifact,
-          id: artifact.id ?? uuid(),
-          project,
-        } as ArtifactRef;
-        await this.kg.appendEntity(artifactEntity);
-
-        // Update node's children to include artifact reference
-        if (!node.children.includes(artifactEntity.id)) {
-          node.children.push(artifactEntity.id);
-        }
-      }
-    }
     if (branchLabel) this.kg.labelIndex.set(branchLabel, node.id);
 
     return { node };
