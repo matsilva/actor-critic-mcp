@@ -81,10 +81,9 @@ Use codeloops to plan and implement the following:
 CodeLoops provides tools to enable autonomous agent operation:
 
 - `actor_think`: Drives interaction with the actor-critic system, automatically triggering critic reviews when needed.
-- `list_branches`: Lists all knowledge graph branches for context.
 - `resume`: Retrieves recent branch context for continuity.
-- `export_plan`: Exports the current graph for agent review.
-- `summarize_branch`: Generates a summary of branch progress.
+- `export`: Exports the current graph for agent review.
+- `summarize`: Generates a summary of branch progress.
 - `list_projects`: Displays all projects for navigation.
 
 ## Basic Workflow
@@ -92,7 +91,7 @@ CodeLoops provides tools to enable autonomous agent operation:
 1. **Plan**: Add planning nodes with `actor_think`, guided by the critic.
 2. **Implement**: Use `actor_think` for coding steps, refined in real time.
 3. **Review**: The critic autonomously evaluates and corrects.
-4. **Summarize**: Use `summarize_branch` to generate clear summaries.
+4. **Summarize**: Use `summarize` to generate clear summaries.
 5. **Provide Feedback**: Offer human-in-the-loop input as needed to refine outcomes. YMMV depenting on how smart the coding agent is.
 
 CodeLoops leverages an actor-critic model with a knowledge graph, where the Critic can delegate to a chain of specialized agents for enhanced precision:
