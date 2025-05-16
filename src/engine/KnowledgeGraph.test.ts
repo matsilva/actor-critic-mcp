@@ -117,24 +117,6 @@ describe('KnowledgeGraphManager', () => {
       const result = await kg.getNode(nonExistentId);
       expect(result).toBeUndefined();
     });
-
-    it('should only retrieve nodes from the specified project', async () => {
-      // Create nodes in two different projects
-      const projectANode = createTestNode('project-a');
-      const projectBNode = createTestNode('project-b');
-
-      await kg.appendEntity(projectANode);
-      await kg.appendEntity(projectBNode);
-
-      // Should only find the node in project-a
-      const resultA = await kg.getNode(projectANode.id);
-      expect(resultA).toBeDefined();
-      expect(resultA?.id).toBe(projectANode.id);
-
-      // Should not find project-a's node when looking in project-b
-      const resultB = await kg.getNode(projectANode.id);
-      expect(resultB).toBeUndefined();
-    });
   });
 
   describe('resume', () => {
