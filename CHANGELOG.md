@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.3.0] - 2025-05-16
+
+* chore: remove next steps
+* fix: list branches
+* feat: enhance KnowledgeGraphManager with async operations
+* chore: remove artifacts as individual
+* chore: further remove un-needed config
+* refactor: improve project context handling in actor-critic workflow
+* refactor: migrate to TypeScript with strict type checking and project context
+* refactor: rename export_knowledge_graph tool to export for better clarity
+* refactor: rename export_plan to export_knowledge_graph and add limit option
+* refactor: centralize project loading logic and add per-project logger contexts
+* refactor: remove RevisionCounter and simplify critic review logic
+* refactor: rename loadProject to tryLoadProject and add unit tests
+* chore: remove technical overview
+* refactor: rename selectedProject variable to activeProject for clarity
+* refactor: migrate to unified NDJSON format and enhance logging with pino-roll
+* chore: remove notes
+* feat: implement knowledge graph persistence redesign with NDJSON and explicit project context
+* refactor: replace console logging with logger usage across multiple files and delete todos.md file
+* feat: add logger
+* feat: implement project context switching to support multiple concurrent projects
+* chore: remove needs more from input schema
+* chore: update think descriptioon
+* chore: release v0.2.1
+
 ## [0.2.1] - 2025-05-10
 
 * chore: update prompt in readme
