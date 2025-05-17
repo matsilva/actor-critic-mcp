@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.3] - 2025-05-17
+
+* feat: silence test logs
+* chore: update readme
+* chore: release v0.3.2
+
 ## [0.3.2] - 2025-05-16
 
 * chore: fix unit test
