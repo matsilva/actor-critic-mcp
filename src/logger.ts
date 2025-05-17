@@ -11,6 +11,7 @@ let globalLogger: CodeLoopsLogger | null = null;
 
 interface CreateLoggerOptions {
   withDevStdout?: boolean;
+  withFile?: boolean;
   sync?: boolean;
   setGlobal?: boolean;
 }
@@ -26,8 +27,9 @@ if (!fs.existsSync(logsDir)) {
  */
 export function createLogger(options?: CreateLoggerOptions): CodeLoopsLogger {
   // Ensure logs directory exists
-  const targets: pino.TransportTargetOptions[] = [
-    {
+  const targets: pino.TransportTargetOptions[] = [];
+  if (options?.withFile) {
+    targets.push({
       target: 'pino-roll',
       options: {
         file: logFile,
@@ -37,8 +39,8 @@ export function createLogger(options?: CreateLoggerOptions): CodeLoopsLogger {
           count: 14, // 14 days of log retention
         },
       },
-    },
-  ];
+    });
+  }
   if (options?.withDevStdout) {
     targets.push({
       target: 'pino-pretty',
@@ -63,7 +65,7 @@ export function createLogger(options?: CreateLoggerOptions): CodeLoopsLogger {
  */
 export function getInstance(options?: CreateLoggerOptions): CodeLoopsLogger {
   if (!globalLogger) {
-    createLogger({ ...options, setGlobal: true });
+    createLogger({ withFile: true, ...options, setGlobal: true });
   }
   return globalLogger!;
 }
