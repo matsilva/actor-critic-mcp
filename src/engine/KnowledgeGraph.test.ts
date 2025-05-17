@@ -5,7 +5,9 @@ import * as fsSync from 'node:fs';
 import path from 'node:path';
 import { v4 as uuid } from 'uuid';
 import os from 'node:os';
-import { getInstance as getLogger } from '../logger.js';
+import { createLogger, setGlobalLogger, getInstance as getLogger } from '../logger.js';
+const logger = createLogger({ withFile: false, withDevStdout: true });
+setGlobalLogger(logger);
 
 describe('KnowledgeGraphManager', () => {
   let kg: KnowledgeGraphManager;
