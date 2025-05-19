@@ -56,6 +56,9 @@ export class SummarizationAgent {
     try {
       // Serialize the nodes to JSON
       const nodesJson = JSON.stringify(nodes);
+      
+      // Log input for debugging
+      getLogger().info({ nodesJson }, 'Summarization agent input');
 
       // Call the Python agent using execa
       const [execError, output] = await to(
@@ -76,35 +79,47 @@ export class SummarizationAgent {
 
       // Handle stderr output
       if (output.stderr) {
-        getLogger().error({ stderr: output.stderr }, 'Summarization agent error');
+        getLogger().error({ stderr: output.stderr }, 'Summarization agent stderr output');
       }
 
-      // Parse the response
+      // Log raw output for debugging
+      getLogger().info({ rawOutput: output.stdout }, 'Summarization agent raw output');
+
+      // Parse the response with improved error handling
+      let response;
       try {
-        // The agent should return a JSON object with a summary field
-        const response = JSON.parse(output.stdout.trim());
+        response = JSON.parse(output.stdout.trim());
+      } catch (parseError) {
+        const err = parseError as Error;
+        getLogger().error(
+          { parseError, rawOutput: output.stdout },
+          'Failed to parse summarization agent response',
+        );
+        return { summary: '', error: `Failed to parse JSON response: ${err.message}` };
+      }
 
-        if (response.error) {
-          return { summary: '', error: response.error };
-        }
+      // Check if response has the expected format
+      if (response.error) {
+        return { summary: '', error: response.error };
+      }
 
-        if (response.summary) {
-          return { summary: response.summary };
-        }
+      if (response.summary) {
+        return { summary: response.summary };
+      }
 
-        // If the response doesn't match the expected format, try to extract a summary
+      // If the response doesn't match the expected format
+      if (typeof response !== 'object' || response === null) {
         return {
           summary: output.stdout.trim(),
           error: 'Response format not recognized, using raw output as summary',
         };
-      } catch (parseError) {
-        let err = parseError as Error;
-        // If the response isn't valid JSON, use the raw output as the summary
-        return {
-          summary: output.stdout.trim(),
-          error: `Failed to parse agent response: ${err.message}`,
-        };
       }
+
+      // Fallback for unexpected valid JSON object response
+      return {
+        summary: '',
+        error: 'Unexpected response format: no summary or error provided',
+      };
     } catch (error) {
       let err = error as Error;
       return {
