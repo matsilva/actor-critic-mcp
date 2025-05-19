@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.4] - 2025-05-19
+
+* feat: implement initial fix and enhanced logging
+* chore: release v0.3.3
+
 ## [0.3.3] - 2025-05-17
 
 * feat: silence test logs
