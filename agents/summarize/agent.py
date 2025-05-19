@@ -62,6 +62,7 @@ async def main():
         if len(sys.argv) > 1 and sys.argv[1] == "--summarize":
             # Read input from stdin
             input_data = sys.stdin.read()
+            print(f"Input: {input_data}", file=sys.stderr)
             try:
                 # Parse the input as JSON
                 nodes_data = json.loads(input_data)
@@ -90,15 +91,28 @@ async def main():
                     response = await agent.send(
                         f"Please summarize the following knowledge graph segment:\n\n{formatted_input}"
                     )
+                    print(f"Response: {response}", file=sys.stderr)
 
-                    # Try to parse the response as JSON
-                    try:
-                        json_response = json.loads(response)
-                        # If it's already JSON, just print it
-                        print(response)
-                    except json.JSONDecodeError:
-                        # If it's not JSON, wrap it in a JSON object
-                        print(json.dumps({"summary": response}))
+                    # Try to parse the response as JSON with retry logic
+                    max_retries = 1
+                    for attempt in range(max_retries + 1):
+                        print(f"Response (attempt {attempt + 1}): {response}", file=sys.stderr)
+                        try:
+                            response_dict = json.loads(response) if response.startswith("{") else {"summary": response}
+                            break
+                        except json.JSONDecodeError as e:
+                            if attempt == max_retries:
+                                response_dict = {"summary": "", "error": f"Response parsing failed after retries: {str(e)}"}
+                                break
+                            # Retry with feedback
+                            feedback_prompt = (
+                                f"Your previous response was not valid JSON: {response}. "
+                                'Please reformat it as a valid JSON object with "summary" and "error" fields, '
+                                'like this: {"summary": "your summary", "error": ""}'
+                            )
+                            response = await agent.send(feedback_prompt)
+                    print(f"Response dict: {response_dict}", file=sys.stderr)
+                    print(json.dumps(response_dict))
                 except Exception as e:
                     # Handle any errors during summarization
                     print(
