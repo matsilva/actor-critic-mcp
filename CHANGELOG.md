@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.5] - 2025-05-21
+
+* fix: chatty summarize response
+* chore: release v0.3.4
+
 ## [0.3.4] - 2025-05-19
 
 * feat: implement initial fix and enhanced logging
