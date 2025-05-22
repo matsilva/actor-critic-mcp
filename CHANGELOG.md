@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.6] - 2025-05-22
+
+* chore: update eslint config
+* chore: move lint to pre-commit
+* chore: remove dup config
+* feat: add eslint
+* chore: general cleanup
+* chore: release v0.3.5
+
 ## [0.3.5] - 2025-05-21
 
 * fix: chatty summarize response
