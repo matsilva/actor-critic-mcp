@@ -1,3 +1,4 @@
+import { Logger } from 'pino';
 import { getInstance as getLogger } from '../logger.ts';
 
 const PROJECT_CONTEXT_CACHE = new Map<string, string>();
@@ -10,7 +11,7 @@ const PROJECT_CONTEXT_CACHE = new Map<string, string>();
  */
 export function extractProjectName(
   projectContext: string,
-  { logger }: { logger?: any } = { logger: getLogger() },
+  { logger }: { logger: Logger } = { logger: getLogger() },
 ): string | null {
   if (!projectContext || typeof projectContext !== 'string' || projectContext.trim() === '') {
     logger.info(`Invalid projectContext: ${projectContext}`);

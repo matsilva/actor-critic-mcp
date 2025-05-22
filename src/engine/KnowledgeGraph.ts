@@ -5,8 +5,8 @@ import path from 'node:path';
 import { z } from 'zod';
 import readline from 'node:readline';
 import { dataDir } from '../config.ts';
-import { CodeLoopsLogger, getInstance as getLogger } from '../logger.ts';
-import { ActorThinkInput, FileRef } from './ActorCriticEngine.ts';
+import { CodeLoopsLogger } from '../logger.ts';
+import { ActorThinkInput } from './ActorCriticEngine.ts';
 
 // -----------------------------------------------------------------------------
 // Interfaces ------------------------------------------------------------------
@@ -16,8 +16,6 @@ export interface WithProjectContext {
   project: string;
   projectContext: string;
 }
-
-export interface ArtifactRef extends FileRef {}
 
 export interface DagNode extends ActorThinkInput, WithProjectContext {
   id: string;
@@ -197,7 +195,7 @@ export class KnowledgeGraphManager {
     filterFn?: (node: DagNode) => boolean;
     limit?: number;
   }): Promise<DagNode[]> {
-    let nodes: DagNode[] = [];
+    const nodes: DagNode[] = [];
     const fileStream = fsSync.createReadStream(this.logFilePath);
     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
     try {

@@ -29,7 +29,7 @@ const FILE_REF = z.object({
   /** Optional MIME, e.g. "text/x-swift" */
   contentType: z.string().optional(),
 });
-export type FileRef = z.infer<typeof FILE_REF>;
+export type ArtifactRef = z.infer<typeof FILE_REF>;
 
 export const ActorThinkSchema = {
   thought: z.string().describe(THOUGHT_DESCRIPTION),

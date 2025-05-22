@@ -14,20 +14,17 @@
 import fs from 'node:fs/promises';
 import * as fsSync from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { dataDir } from '../../src/config.ts';
 import { createLogger, getInstance as getLogger } from '../../src/logger.ts';
 import { extractProjectName } from '../../src/utils/project.ts';
 import { createInterface } from 'node:readline';
 import { createCodeLoopsAscii } from '../../src/utils/fun.ts';
+import { DagNode } from '../../src/engine/KnowledgeGraph.ts';
 import { table } from 'table';
 import chalk from 'chalk';
 
 const logger = getLogger({ withDevStdout: true, sync: true });
 const silentLogger = createLogger({ sync: true });
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Path to the new NDJSON file
 const ndjsonFilePath = path.resolve(dataDir, 'knowledge_graph.ndjson');
@@ -121,10 +118,10 @@ async function migrateProjectFiles() {
         const jsonData = JSON.parse(fileContent);
 
         // Extract entities and relations
-        const entities: Record<string, any> = jsonData.entities || {};
+        const entities: DagNode = jsonData.entities || {};
 
         // Process and write entities to NDJSON
-        for (const [id, entity] of Object.entries(entities)) {
+        for (const [, entity] of Object.entries(entities)) {
           //skip non-actor or critic entities
           if (!entity.role) continue;
 

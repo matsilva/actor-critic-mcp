@@ -108,7 +108,7 @@ export class SummarizationAgent {
         error: 'Unexpected response format: no summary or error provided',
       };
     } catch (error) {
-      let err = error as Error;
+      const err = error as Error;
       return {
         summary: '',
         error: `Unexpected error during summarization: ${err.message}`,

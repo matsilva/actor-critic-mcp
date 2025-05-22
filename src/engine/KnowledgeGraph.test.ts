@@ -23,7 +23,7 @@ describe('KnowledgeGraphManager', () => {
     // Create a KnowledgeGraphManager instance with a custom log file path
     kg = new KnowledgeGraphManager(getLogger());
     // Set the log file path directly using a non-exported property
-    // @ts-ignore - Accessing private property for testing
+    // @ts-expect-error - Accessing private property for testing
     kg.logFilePath = logFilePath;
     await kg.init();
   });
