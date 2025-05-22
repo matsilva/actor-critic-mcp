@@ -7,6 +7,8 @@
     "test": "vitest run",
     "format": "prettier --write .",
     "prepare": "husky",
+    "lint": "eslint .",
+    "lint:all": "npm run lint && npm run type-check",
     "setup": "bash scripts/setup.sh",
     "start": "npx -y tsx src",
     "type-check": "tsc --noEmit",
@@ -41,7 +43,6 @@
     "chalk": "^5.4.1",
     "console-table": "^0.1.2",
     "eslint-config-prettier": "^10.1.5",
-    "eslint-plugin-barrel-files": "^3.0.1",
     "eslint-plugin-import": "^2.31.0",
     "execa": "^9.5.2",
     "nanoid": "^5.1.5",
@@ -53,7 +54,6 @@
     "table": "^6.9.0",
     "typescript": "^5.8.3",
     "uuid": "^11.1.0",
-    "vite-plugin-eslint": "^1.8.1",
     "zod": "^3.24.3"
   }
 }
