@@ -1,7 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { KnowledgeGraphManager, DagNode } from './KnowledgeGraph.js';
 import fs from 'node:fs/promises';
-import * as fsSync from 'node:fs';
 import path from 'node:path';
 import { v4 as uuid } from 'uuid';
 import os from 'node:os';

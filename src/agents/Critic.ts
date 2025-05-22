@@ -43,7 +43,6 @@ function missingArtifactGuard(actorNode: DagNode): { needsFix: boolean; reason?:
 export class Critic {
   constructor(private readonly kg: KnowledgeGraphManager) {}
 
-  // Use the centralized extractProjectName function from utils
   async review({
     actorNodeId,
     project,

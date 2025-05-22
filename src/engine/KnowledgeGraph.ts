@@ -17,13 +17,6 @@ export interface WithProjectContext {
   projectContext: string;
 }
 
-export interface BranchHead {
-  branchId: string;
-  label?: string;
-  head: DagNode;
-  depth: number;
-}
-
 export interface ArtifactRef extends FileRef {}
 
 export interface DagNode extends ActorThinkInput, WithProjectContext {
@@ -45,25 +38,11 @@ export interface SummaryNode extends DagNode {
   summarizedSegment: string[]; // IDs of nodes summarized
 }
 
-export interface SummarizationResult {
-  summary: SummaryNode | null;
-  success: boolean;
-  errorCode?:
-    | 'BRANCH_NOT_FOUND'
-    | 'INSUFFICIENT_NODES'
-    | 'ALREADY_SUMMARIZED'
-    | 'SUMMARIZATION_ERROR';
-  errorMessage?: string;
-  details?: string;
-}
-
 // -----------------------------------------------------------------------------
 // KnowledgeGraphManager -------------------------------------------------------
 // -----------------------------------------------------------------------------
 
 export class KnowledgeGraphManager {
-  public static WINDOW = 20;
-
   private logFilePath: string = path.resolve(dataDir, 'knowledge_graph.ndjson');
   private logger: CodeLoopsLogger;
 

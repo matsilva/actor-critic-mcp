@@ -27,12 +27,10 @@ const runOnceOnProjectLoad = ({ logger }: { logger: CodeLoopsLogger }) => {
 
 const loadProjectOrThrow = async ({
   logger,
-  kg,
   args,
   onProjectLoad,
 }: {
   logger: CodeLoopsLogger;
-  kg: KnowledgeGraphManager;
   args: { projectContext: string };
   onProjectLoad: (project: string) => void;
 }) => {
@@ -106,7 +104,7 @@ async function main() {
    * - The critic node if a review was automatically triggered
    */
   server.tool('actor_think', ACTOR_THINK_DESCRIPTION, ActorThinkSchema, async (args) => {
-    const projectName = await loadProjectOrThrow({ logger, kg, args, onProjectLoad: runOnce });
+    const projectName = await loadProjectOrThrow({ logger, args, onProjectLoad: runOnce });
     const node = await engine.actorThink({
       ...args,
       project: projectName,
@@ -137,7 +135,7 @@ async function main() {
       projectContext: z.string().describe('Full path to the project directory.'),
     },
     async (a) => {
-      const projectName = await loadProjectOrThrow({ logger, kg, args: a, onProjectLoad: runOnce });
+      const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
       return {
         content: [
           {
@@ -187,7 +185,7 @@ async function main() {
         .describe('Limit the number of nodes returned. Increase it if you need more context.'),
     },
     async (a) => {
-      const projectName = await loadProjectOrThrow({ logger, kg, args: a, onProjectLoad: runOnce });
+      const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
       const text = await kg.resume({
         project: projectName,
         limit: a.limit,
@@ -207,7 +205,7 @@ async function main() {
       projectContext: z.string().describe('Full path to the project directory.'),
     },
     async (a) => {
-      const projectName = await loadProjectOrThrow({ logger, kg, args: a, onProjectLoad: runOnce });
+      const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
       const nodes = await kg.export({ project: projectName, limit: a.limit });
       return {
         content: [

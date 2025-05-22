@@ -6,19 +6,6 @@ import { fileURLToPath } from 'node:url';
 import { v4 as uuid } from 'uuid';
 import { DagNode, KnowledgeGraphManager, SummaryNode } from '../engine/KnowledgeGraph.ts';
 
-export interface SummarizationResult {
-  summary: string | SummaryNode | null;
-  success: boolean;
-  error?: string;
-  errorCode?:
-    | 'BRANCH_NOT_FOUND'
-    | 'INSUFFICIENT_NODES'
-    | 'ALREADY_SUMMARIZED'
-    | 'SUMMARIZATION_ERROR';
-  errorMessage?: string;
-  details?: string;
-}
-
 /**
  * SummarizationAgent provides an interface to the Python-based summarization agent.
  * It handles serialization/deserialization of node data and processes the agent's response.
@@ -50,13 +37,13 @@ export class SummarizationAgent {
   /**
    * Summarizes a segment of nodes from the knowledge graph.
    * @param nodes Array of DagNode objects to summarize
-   * @returns A promise that resolves to a SummarizationResult with just the summary text
+   * @returns A promise that resolves to an object containing the summary text and any error
    */
   async summarize(nodes: DagNode[]): Promise<{ summary: string; error?: string }> {
     try {
       // Serialize the nodes to JSON
       const nodesJson = JSON.stringify(nodes);
-      
+
       // Log input for debugging
       getLogger().info({ nodesJson }, 'Summarization agent input');
 
