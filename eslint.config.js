@@ -8,4 +8,8 @@ export default defineConfig([
   { files: ["**/*.{js,mjs,cjs,ts,mts,cts}"], plugins: { js }, extends: ["js/recommended"] },
   { files: ["**/*.{js,mjs,cjs,ts,mts,cts}"], languageOptions: { globals: globals.browser } },
   tseslint.configs.recommended,
+  {
+    //do not lint python files
+    ignores: ['agents/*', 'node_modules/*']
+  }
 ]);
