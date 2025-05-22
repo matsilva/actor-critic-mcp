@@ -1,0 +1,3 @@
+npx -y tsc --noEmit
+npx -y eslint 
+prettier --write --ignore-unknown

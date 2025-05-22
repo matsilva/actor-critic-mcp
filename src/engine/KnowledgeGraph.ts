@@ -9,13 +9,25 @@ import { CodeLoopsLogger } from '../logger.ts';
 import { ActorThinkInput } from './ActorCriticEngine.ts';
 
 // -----------------------------------------------------------------------------
-// Interfaces ------------------------------------------------------------------
+// Interfaces & Schemas --------------------------------------------------------
 // -----------------------------------------------------------------------------
 
 export interface WithProjectContext {
   project: string;
   projectContext: string;
 }
+
+export const FILE_REF = z.object({
+  name: z.string(), // human label ("UML‑AuthSeq")
+  uri: z.string().optional(), // optional external link or S3 key
+  /** Absolute or repo‑relative path, e.g. "QuickRecorder/CameraOverlay.swift" */
+  path: z.string(),
+  /** Optional hash to lock content for provenance */
+  hash: z.string().optional(),
+  /** Optional MIME, e.g. "text/x-swift" */
+  contentType: z.string().optional(),
+});
+export type ArtifactRef = z.infer<typeof FILE_REF>;
 
 export interface DagNode extends ActorThinkInput, WithProjectContext {
   id: string;

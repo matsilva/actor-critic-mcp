@@ -12,13 +12,6 @@
     "type-check": "tsc --noEmit",
     "test-quickstart": "bash scripts/test-quickstart.sh"
   },
-  "lint-staged": {
-    "**/*": [
-      "prettier --write --ignore-unknown",
-      "eslint",
-      "tsc --noEmit"
-    ]
-  },
   "keywords": [
     "codeloops",
     "actor-critic",
