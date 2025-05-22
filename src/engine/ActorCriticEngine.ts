@@ -1,11 +1,8 @@
 import { Critic } from '../agents/Critic.ts';
 import { Actor } from '../agents/Actor.ts';
-import { KnowledgeGraphManager, ArtifactRef, DagNode } from './KnowledgeGraph.ts';
-import { getInstance as getLogger } from '../logger.ts';
+import { KnowledgeGraphManager, type DagNode, FILE_REF } from './KnowledgeGraph.ts';
 import { SummarizationAgent } from '../agents/Summarize.ts';
 import { z } from 'zod';
-import path from 'node:path';
-import { extractProjectName } from '../utils/project.ts';
 // -----------------------------------------------------------------------------
 // Actor–Critic engine ----------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -21,18 +18,6 @@ Add a new thought node to the knowledge‑graph.
 • Think of 'tags' + 'artifacts' as the breadcrumbs that future you (or another
   agent) will follow to avoid duplicate work or forgotten decisions.
 `.trim();
-
-const FILE_REF = z.object({
-  name: z.string(), // human label ("UML‑AuthSeq")
-  uri: z.string().optional(), // optional external link or S3 key
-  /** Absolute or repo‑relative path, e.g. "QuickRecorder/CameraOverlay.swift" */
-  path: z.string(),
-  /** Optional hash to lock content for provenance */
-  hash: z.string().optional(),
-  /** Optional MIME, e.g. "text/x-swift" */
-  contentType: z.string().optional(),
-});
-export type FileRef = z.infer<typeof FILE_REF>;
 
 export const ActorThinkSchema = {
   thought: z.string().describe(THOUGHT_DESCRIPTION),

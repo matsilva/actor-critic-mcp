@@ -5,11 +5,11 @@ import path from 'node:path';
 import { z } from 'zod';
 import readline from 'node:readline';
 import { dataDir } from '../config.ts';
-import { CodeLoopsLogger, getInstance as getLogger } from '../logger.ts';
-import { ActorThinkInput, FileRef } from './ActorCriticEngine.ts';
+import { CodeLoopsLogger } from '../logger.ts';
+import { ActorThinkInput } from './ActorCriticEngine.ts';
 
 // -----------------------------------------------------------------------------
-// Interfaces ------------------------------------------------------------------
+// Interfaces & Schemas --------------------------------------------------------
 // -----------------------------------------------------------------------------
 
 export interface WithProjectContext {
@@ -17,14 +17,17 @@ export interface WithProjectContext {
   projectContext: string;
 }
 
-export interface BranchHead {
-  branchId: string;
-  label?: string;
-  head: DagNode;
-  depth: number;
-}
-
-export interface ArtifactRef extends FileRef {}
+export const FILE_REF = z.object({
+  name: z.string(), // human label ("UML‑AuthSeq")
+  uri: z.string().optional(), // optional external link or S3 key
+  /** Absolute or repo‑relative path, e.g. "QuickRecorder/CameraOverlay.swift" */
+  path: z.string(),
+  /** Optional hash to lock content for provenance */
+  hash: z.string().optional(),
+  /** Optional MIME, e.g. "text/x-swift" */
+  contentType: z.string().optional(),
+});
+export type ArtifactRef = z.infer<typeof FILE_REF>;
 
 export interface DagNode extends ActorThinkInput, WithProjectContext {
   id: string;
@@ -45,25 +48,11 @@ export interface SummaryNode extends DagNode {
   summarizedSegment: string[]; // IDs of nodes summarized
 }
 
-export interface SummarizationResult {
-  summary: SummaryNode | null;
-  success: boolean;
-  errorCode?:
-    | 'BRANCH_NOT_FOUND'
-    | 'INSUFFICIENT_NODES'
-    | 'ALREADY_SUMMARIZED'
-    | 'SUMMARIZATION_ERROR';
-  errorMessage?: string;
-  details?: string;
-}
-
 // -----------------------------------------------------------------------------
 // KnowledgeGraphManager -------------------------------------------------------
 // -----------------------------------------------------------------------------
 
 export class KnowledgeGraphManager {
-  public static WINDOW = 20;
-
   private logFilePath: string = path.resolve(dataDir, 'knowledge_graph.ndjson');
   private logger: CodeLoopsLogger;
 
@@ -218,7 +207,7 @@ export class KnowledgeGraphManager {
     filterFn?: (node: DagNode) => boolean;
     limit?: number;
   }): Promise<DagNode[]> {
-    let nodes: DagNode[] = [];
+    const nodes: DagNode[] = [];
     const fileStream = fsSync.createReadStream(this.logFilePath);
     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
     try {

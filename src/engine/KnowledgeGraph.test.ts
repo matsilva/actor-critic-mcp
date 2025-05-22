@@ -1,7 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { KnowledgeGraphManager, DagNode } from './KnowledgeGraph.js';
 import fs from 'node:fs/promises';
-import * as fsSync from 'node:fs';
 import path from 'node:path';
 import { v4 as uuid } from 'uuid';
 import os from 'node:os';
@@ -24,7 +23,7 @@ describe('KnowledgeGraphManager', () => {
     // Create a KnowledgeGraphManager instance with a custom log file path
     kg = new KnowledgeGraphManager(getLogger());
     // Set the log file path directly using a non-exported property
-    // @ts-ignore - Accessing private property for testing
+    // @ts-expect-error - Accessing private property for testing
     kg.logFilePath = logFilePath;
     await kg.init();
   });
