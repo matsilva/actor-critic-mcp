@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- feat: add debug logger and lower verbosity for summarization agent logs
 - feat: configurable log level via LOG_LEVEL environment variable
 - fix: detect cycles when child already links back to its parent
 - fix: correct cycle detection in KnowledgeGraph to prevent false positives
