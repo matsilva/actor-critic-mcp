@@ -38,6 +38,8 @@ export interface DagNode extends ActorThinkInput, WithProjectContext {
   verdictReason?: string;
   verdictReferences?: string[];
   target?: string; // nodeId this criticises
+  /** Optional git-style diff summarizing code changes. */
+  diff?: string;
   parents: string[];
   children: string[];
   createdAt: string; // ISO timestamp
@@ -72,6 +74,7 @@ export class KnowledgeGraphManager {
     verdictReferences: z.array(z.string()).optional(),
     target: z.string().optional(),
     summarizedSegment: z.array(z.string()).optional(),
+    diff: z.string().optional(),
     tags: z.array(TagEnum).optional(),
     artifacts: z.array(FILE_REF).optional(),
   });
