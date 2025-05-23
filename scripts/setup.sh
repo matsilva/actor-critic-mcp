@@ -99,11 +99,11 @@ fi
 
 # Install Google Gemini Node SDK
 echo -e "${BOLD}${BLUE}Installing Google Gemini Node SDK…${NC}"
-npm install --save @google/generative-ai
+npm install --save @google/genai
 if [ $? -eq 0 ]; then
-  echo -e "✅ ${GREEN}@google/generative-ai installed successfully.${NC}\n"
+  echo -e "✅ ${GREEN}@google/genai installed successfully.${NC}\n"
 else
-  echo -e "❌ ${RED}Failed to install @google/generative-ai. Please check npm logs.${NC}"
+  echo -e "❌ ${RED}Failed to install @google/genai. Please check npm logs.${NC}"
   exit 1
 fi
 
