@@ -171,6 +171,30 @@ export class KnowledgeGraphManager {
     }
   }
 
+  async getNeighbors(id: string, depth = 1): Promise<DagNode[]> {
+    if (depth < 0) depth = 0;
+    const start = await this.getNode(id);
+    if (!start) return [];
+    const result = new Map<string, DagNode>();
+    result.set(start.id, start);
+
+    const traverse = async (node: DagNode, currentDepth: number) => {
+      if (currentDepth >= depth) return;
+      const neighborIds = [...node.parents, ...node.children];
+      for (const nid of neighborIds) {
+        if (result.has(nid)) continue;
+        const neighbor = await this.getNode(nid);
+        if (neighbor) {
+          result.set(nid, neighbor);
+          await traverse(neighbor, currentDepth + 1);
+        }
+      }
+    };
+
+    await traverse(start, 0);
+    return Array.from(result.values());
+  }
+
   async *streamDagNodes(project: string): AsyncGenerator<DagNode, void, unknown> {
     const fileStream = fsSync.createReadStream(this.logFilePath);
     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
