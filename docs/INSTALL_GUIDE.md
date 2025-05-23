@@ -164,6 +164,14 @@ CodeLoops works with Google's Gemini models through fast-agent.
 The template files already include commented Gemini lines that you can
 uncomment when needed.
 
+#### Gemini Input Caching
+
+You can store Gemini prompt context using the caching API. Set the
+`GEMINI_CACHE_TTL` environment variable (in seconds) before starting the server
+to control how long cached inputs persist. See
+[genai-node-reference.md](../genai-node-reference.md) for details on the Gemini
+caching API.
+
 ### Step 5: Test the MCP Server
 
 1. Start the MCP server:

@@ -62,6 +62,14 @@ Set a Gemini model as the default by editing `fastagent.config.yaml`:
 default_model: google.gemini-pro
 ```
 
+### Gemini Input Caching
+
+CodeLoops can store Gemini prompt context using the caching API. Set the
+`GEMINI_CACHE_TTL` environment variable (seconds) to control how long cached
+inputs remain. See
+[`genai-node-reference.md`](./genai-node-reference.md) for details on the
+Gemini caching API.
+
 ### Configure Your Agent
 
 Connect your agent to the CodeLoops server by adding the MCP server configuration. Most platforms follow a similar structure:
