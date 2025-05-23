@@ -55,6 +55,7 @@ describe('KnowledgeGraphManager', () => {
     createdAt: '',
     tags: [Tag.Task],
     artifacts: [],
+    diff: undefined,
   });
 
   describe('appendEntity', () => {
@@ -78,6 +79,15 @@ describe('KnowledgeGraphManager', () => {
 
       // Verify it's a valid ISO date string
       expect(() => new Date(testNode.createdAt)).not.toThrow();
+    });
+
+    it('should store the diff field when provided', async () => {
+      const testNode = createTestNode('test-project');
+      testNode.diff = 'diff --git a/file b/file';
+      await kg.appendEntity(testNode);
+
+      const stored = await kg.getNode(testNode.id);
+      expect(stored?.diff).toBe('diff --git a/file b/file');
     });
 
     it('should not allow cycles in the graph', async () => {
@@ -414,6 +424,7 @@ describe('KnowledgeGraphManager', () => {
         artifacts: [],
         project: 'test-project',
         projectContext: '/path/to/test-project',
+        diff: 'diff text',
       });
 
       const all = await kg.allDagNodes('test-project');
@@ -423,6 +434,7 @@ describe('KnowledgeGraphManager', () => {
       expect(node.parents.sort()).toEqual([head1.id, head2.id].sort());
       expect(latestHead1?.children).toContain(node.id);
       expect(latestHead2?.children).toContain(node.id);
+      expect(node.diff).toBe('diff text');
     });
   });
 });

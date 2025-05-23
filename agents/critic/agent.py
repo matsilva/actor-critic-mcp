@@ -28,6 +28,7 @@ interface DagNode {
   children: string[];
   createdAt: string; // ISO timestamp
   projectContext: string;// full path to the currently open directory in the code editor
+  diff?: string; // optional git-style diff summarizing code changes
   tags?: string[]; // categories ("design", "task", etc.)
   artifacts?: ArtifactRef[]; // attached artifacts
 }
@@ -39,6 +40,7 @@ The actor must follow these schema requirements:
 2. `tags`: Must include at least one semantic tag (requirement, task, risk, design, definition)
 3. `artifacts`: Must be included when files are referenced in the thought
 4. `projectContext`: Must be included to infer the project name from the last item in the path.
+5. `diff`: Optional git-style diff of code changes when applicable
 
 ## Your Review Process
 When reviewing an actor node:

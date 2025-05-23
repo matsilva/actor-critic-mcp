@@ -8,7 +8,15 @@ export class Actor {
   async think(
     input: ActorThinkInput & { artifacts?: Partial<ArtifactRef>[]; project: string },
   ): Promise<{ node: DagNode }> {
-    const { thought, tags, artifacts, project, projectContext, parents: inputParents } = input;
+    const {
+      thought,
+      tags,
+      artifacts,
+      project,
+      projectContext,
+      parents: inputParents,
+      diff,
+    } = input;
 
     const parents =
       inputParents && inputParents.length > 0
@@ -24,6 +32,7 @@ export class Actor {
       children: [],
       createdAt: '', // Will be set by appendEntity
       tags,
+      ...(diff && { diff }),
       artifacts: artifacts as ArtifactRef[],
       projectContext,
     };
