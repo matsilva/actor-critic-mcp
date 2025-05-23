@@ -6,6 +6,7 @@
 - docs: document parents, diff, and tag values in README and overview
 - fix: return latest node version when IDs repeat
 - test: add ActorCriticEngine unit tests
+- feat: introduce Tag enum for thought tags and update docs
 
 ## [0.3.6] - 2025-05-22
 
