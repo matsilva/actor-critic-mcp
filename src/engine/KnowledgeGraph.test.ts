@@ -304,6 +304,42 @@ describe('KnowledgeGraphManager', () => {
     });
   });
 
+  describe('getArtifactHistory', () => {
+    it('returns nodes referencing a path', async () => {
+      const nodeA = createTestNode('test-project');
+      nodeA.artifacts = [{ name: 'A', path: 'src/a.ts' }];
+      await kg.appendEntity(nodeA);
+
+      const nodeB = createTestNode('test-project');
+      nodeB.artifacts = [{ name: 'A', path: 'src/a.ts' }];
+      await kg.appendEntity(nodeB);
+
+      const nodeC = createTestNode('test-project');
+      nodeC.artifacts = [{ name: 'B', path: 'src/b.ts' }];
+      await kg.appendEntity(nodeC);
+
+      const results = await kg.getArtifactHistory('test-project', 'src/a.ts');
+      expect(results.map((n) => n.id).sort()).toEqual([nodeA.id, nodeB.id].sort());
+    });
+
+    it('respects the limit parameter', async () => {
+      const node1 = createTestNode('test-project');
+      node1.artifacts = [{ name: 'A', path: 'file.ts' }];
+      const node2 = createTestNode('test-project');
+      node2.artifacts = [{ name: 'A', path: 'file.ts' }];
+      const node3 = createTestNode('test-project');
+      node3.artifacts = [{ name: 'A', path: 'file.ts' }];
+
+      await kg.appendEntity(node1);
+      await kg.appendEntity(node2);
+      await kg.appendEntity(node3);
+
+      const results = await kg.getArtifactHistory('test-project', 'file.ts', 2);
+      expect(results.length).toBe(2);
+      expect(results.map((n) => n.id)).toEqual([node2.id, node3.id]);
+    });
+  });
+
   describe('listProjects', () => {
     it('should list all projects with nodes in the graph', async () => {
       // Create nodes for different projects
