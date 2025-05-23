@@ -175,6 +175,35 @@ async function main() {
   );
 
   server.tool(
+    'get_neighbors',
+    'Get a node along with its parents and children up to the requested depth',
+    {
+      id: z.string().describe('ID of the node to retrieve neighbors for.'),
+      projectContext: z.string().describe('Full path to the project directory.'),
+      depth: z
+        .number()
+        .optional()
+        .describe('How many levels of neighbors to include. Defaults to 1.'),
+    },
+    async (a) => {
+      await loadProjectOrThrow({
+        logger,
+        args: { projectContext: a.projectContext },
+        onProjectLoad: runOnce,
+      });
+      const nodes = await kg.getNeighbors(a.id, a.depth);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(nodes, null, 2),
+          },
+        ],
+      };
+    },
+  );
+
+  server.tool(
     'resume',
     'Pick up where you left off by fetching the most recent nodes from the knowledge graph for this project. Use limit to control the number of nodes returned. Increase it if you need more context.',
     {

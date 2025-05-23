@@ -263,6 +263,47 @@ describe('KnowledgeGraphManager', () => {
     });
   });
 
+  describe('getNeighbors', () => {
+    it('returns immediate neighbors by default', async () => {
+      const nodeA = createTestNode('test-project');
+      const nodeB = createTestNode('test-project');
+      const nodeC = createTestNode('test-project');
+
+      nodeA.children.push(nodeB.id);
+      nodeB.parents = [nodeA.id];
+      nodeA.parents.push(nodeC.id);
+
+      await kg.appendEntity(nodeB);
+      await kg.appendEntity(nodeA);
+      await kg.appendEntity(nodeC);
+
+      const neighbors = await kg.getNeighbors(nodeA.id);
+      const ids = neighbors.map((n) => n.id).sort();
+      expect(ids).toEqual([nodeA.id, nodeB.id, nodeC.id].sort());
+    });
+
+    it('respects the depth parameter', async () => {
+      const nodeA = createTestNode('test-project');
+      const nodeB = createTestNode('test-project');
+      const nodeC = createTestNode('test-project');
+
+      nodeA.children.push(nodeB.id);
+      nodeB.parents = [nodeA.id];
+      nodeB.children.push(nodeC.id);
+      nodeC.parents = [nodeB.id];
+
+      await kg.appendEntity(nodeC);
+      await kg.appendEntity(nodeB);
+      await kg.appendEntity(nodeA);
+
+      const depth1 = await kg.getNeighbors(nodeA.id, 1);
+      expect(depth1.map((n) => n.id).sort()).toEqual([nodeA.id, nodeB.id].sort());
+
+      const depth2 = await kg.getNeighbors(nodeA.id, 2);
+      expect(depth2.map((n) => n.id).sort()).toEqual([nodeA.id, nodeB.id, nodeC.id].sort());
+    });
+  });
+
   describe('listProjects', () => {
     it('should list all projects with nodes in the graph', async () => {
       // Create nodes for different projects
