@@ -14,6 +14,7 @@ interface CreateLoggerOptions {
   withFile?: boolean;
   sync?: boolean;
   setGlobal?: boolean;
+  level?: string;
 }
 
 const logsDir = path.resolve(__dirname, '../logs');
@@ -53,7 +54,8 @@ export function createLogger(options?: CreateLoggerOptions): CodeLoopsLogger {
     targets,
     ...(options ?? {}),
   });
-  const logger = pino(transports);
+  const level = options?.level ?? process.env.LOG_LEVEL ?? 'info';
+  const logger = pino({ level }, transports);
   if (options?.setGlobal && !globalLogger) {
     globalLogger = logger;
   }

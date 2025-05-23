@@ -70,6 +70,11 @@ inputs remain. See
 [`genai-node-reference.md`](./genai-node-reference.md) for details on the
 Gemini caching API.
 
+### Log Level
+
+Control log verbosity by setting the `LOG_LEVEL` environment variable
+(e.g. `debug`, `info`, `warn`). Defaults to `info` if unset.
+
 ### Configure Your Agent
 
 Connect your agent to the CodeLoops server by adding the MCP server configuration. Most platforms follow a similar structure:
