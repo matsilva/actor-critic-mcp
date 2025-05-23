@@ -72,6 +72,7 @@ export class KnowledgeGraphManager {
     target: z.string().optional(),
     summarizedSegment: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
+    artifacts: z.array(FILE_REF).optional(),
   });
 
   constructor(logger: CodeLoopsLogger) {
