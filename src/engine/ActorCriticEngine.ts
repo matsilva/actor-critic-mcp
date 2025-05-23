@@ -3,6 +3,7 @@ import { Actor } from '../agents/Actor.ts';
 import { KnowledgeGraphManager, type DagNode, FILE_REF } from './KnowledgeGraph.ts';
 import { SummarizationAgent } from '../agents/Summarize.ts';
 import { z } from 'zod';
+import { TagEnum } from './tags.ts';
 // -----------------------------------------------------------------------------
 // Actor–Critic engine ----------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -29,7 +30,7 @@ export const ActorThinkSchema = {
     ),
 
   tags: z
-    .array(z.string())
+    .array(TagEnum)
     .min(1, 'Add at least one semantic tag – requirement, task, risk, design …')
     .describe('Semantic categories used for later search and deduping.'),
 

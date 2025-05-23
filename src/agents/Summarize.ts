@@ -5,6 +5,7 @@ import { getInstance as getLogger } from '../logger.ts';
 import { fileURLToPath } from 'node:url';
 import { v4 as uuid } from 'uuid';
 import { DagNode, KnowledgeGraphManager, SummaryNode } from '../engine/KnowledgeGraph.ts';
+import { Tag } from '../engine/tags.ts';
 
 /**
  * SummarizationAgent provides an interface to the Python-based summarization agent.
@@ -49,14 +50,10 @@ export class SummarizationAgent {
 
       // Call the Python agent using execa
       const [execError, output] = await to(
-        execa(
-          this.pythonCommand,
-          [...this.pythonArgs, 'agent.py', '--quiet', '--summarize'],
-          {
-            cwd: this.agentPath,
-            input: nodesJson,
-          },
-        ),
+        execa(this.pythonCommand, [...this.pythonArgs, 'agent.py', '--quiet', '--summarize'], {
+          cwd: this.agentPath,
+          input: nodesJson,
+        }),
       );
 
       // Handle execution errors
@@ -194,7 +191,7 @@ export class SummarizationAgent {
       createdAt: '', // Will be set by appendEntity
       projectContext,
       summarizedSegment: nodes.map((node) => node.id),
-      tags: ['summary'],
+      tags: [Tag.Summary],
       artifacts: [],
     };
 

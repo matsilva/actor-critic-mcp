@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { KnowledgeGraphManager, DagNode } from './KnowledgeGraph.js';
+import { Tag } from './tags.js';
 import { Actor } from '../agents/Actor.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -52,7 +53,7 @@ describe('KnowledgeGraphManager', () => {
     parents,
     children: [],
     createdAt: '',
-    tags: ['test-tag'],
+    tags: [Tag.Task],
     artifacts: [],
   });
 
@@ -163,21 +164,21 @@ describe('KnowledgeGraphManager', () => {
     it('should filter nodes by tag', async () => {
       // Create nodes with different tags
       const nodeA = createTestNode('test-project');
-      nodeA.tags = ['tag-a'];
+      nodeA.tags = [Tag.Requirement];
       await kg.appendEntity(nodeA);
 
       const nodeB = createTestNode('test-project');
-      nodeB.tags = ['tag-b'];
+      nodeB.tags = [Tag.Design];
       await kg.appendEntity(nodeB);
 
       const nodeC = createTestNode('test-project');
-      nodeC.tags = ['tag-a', 'tag-c'];
+      nodeC.tags = [Tag.Requirement, Tag.Risk];
       await kg.appendEntity(nodeC);
 
       // Filter by tag-a
       const result = await kg.export({
         project: 'test-project',
-        filterFn: (n: DagNode) => n.tags?.includes('tag-a'),
+        filterFn: (n: DagNode) => n.tags?.includes(Tag.Requirement),
       });
       expect(result.length).toBe(2);
       expect(result.map((n: DagNode) => n.id).sort()).toEqual([nodeA.id, nodeC.id].sort());
@@ -224,14 +225,14 @@ describe('KnowledgeGraphManager', () => {
   describe('search', () => {
     it('should find nodes by tag', async () => {
       const nodeA = createTestNode('test-project');
-      nodeA.tags = ['alpha'];
+      nodeA.tags = [Tag.Task];
       await kg.appendEntity(nodeA);
 
       const nodeB = createTestNode('test-project');
-      nodeB.tags = ['beta'];
+      nodeB.tags = [Tag.Design];
       await kg.appendEntity(nodeB);
 
-      const results = await kg.search({ project: 'test-project', tags: ['alpha'] });
+      const results = await kg.search({ project: 'test-project', tags: [Tag.Task] });
       expect(results.map((n) => n.id)).toEqual([nodeA.id]);
     });
 
@@ -247,18 +248,18 @@ describe('KnowledgeGraphManager', () => {
 
     it('should combine tag and query filters', async () => {
       const node = createTestNode('test-project');
-      node.tags = ['gamma'];
+      node.tags = [Tag.Risk];
       node.thought = 'Gamma thought here';
       await kg.appendEntity(node);
 
       const wrongTag = await kg.search({
         project: 'test-project',
-        tags: ['other'],
+        tags: [Tag.Design],
         query: 'Gamma',
       });
       expect(wrongTag).toEqual([]);
 
-      const good = await kg.search({ project: 'test-project', tags: ['gamma'], query: 'Gamma' });
+      const good = await kg.search({ project: 'test-project', tags: [Tag.Risk], query: 'Gamma' });
       expect(good.length).toBe(1);
       expect(good[0].id).toBe(node.id);
     });
@@ -364,15 +365,15 @@ describe('KnowledgeGraphManager', () => {
   describe('listOpenTasks', () => {
     it('returns only tasks without the task-complete tag', async () => {
       const openTask = createTestNode('test-project');
-      openTask.tags = ['task'];
+      openTask.tags = [Tag.Task];
       await kg.appendEntity(openTask);
 
       const doneTask = createTestNode('test-project');
-      doneTask.tags = ['task', 'task-complete'];
+      doneTask.tags = [Tag.Task, Tag.TaskComplete];
       await kg.appendEntity(doneTask);
 
       const other = createTestNode('test-project');
-      other.tags = ['other'];
+      other.tags = [Tag.Design];
       await kg.appendEntity(other);
 
       const results = await kg.listOpenTasks('test-project');
@@ -409,7 +410,7 @@ describe('KnowledgeGraphManager', () => {
 
       const { node } = await actor.think({
         thought: 'New thought',
-        tags: ['test'],
+        tags: [Tag.Task],
         artifacts: [],
         project: 'test-project',
         projectContext: '/path/to/test-project',
