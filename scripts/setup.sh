@@ -2,7 +2,7 @@
 
 # CodeLoops Quick Setup Script
 # This script automates the setup process for CodeLoops,
-# now with Google Gemini & pydocs support.
+# now with Google Gemini & pdoc support.
 
 # Text formatting
 BOLD="\033[1m"
@@ -117,13 +117,13 @@ uv sync
 if [ $? -eq 0 ]; then
   echo -e "✅ ${GREEN}Critic Agent dependencies installed successfully.${NC}"
 
-  # Install Google Gemini Python client & pydocs
-  echo -e "${BOLD}${BLUE}Installing Google Gemini Python client and pydocs…${NC}"
-  uv pip install --upgrade google-generativeai pydocs
+  # Install Google Gemini Python client & pdoc
+  echo -e "${BOLD}${BLUE}Installing Google Gemini Python client and pdoc…${NC}"
+  uv pip install --upgrade google-generativeai pdoc
   if [ $? -eq 0 ]; then
-    echo -e "✅ ${GREEN}google-generativeai and pydocs installed in Critic venv.${NC}"
+    echo -e "✅ ${GREEN}google-generativeai and pdoc installed in Critic venv.${NC}"
   else
-    echo -e "❌ ${RED}Failed to install google-generativeai or pydocs in Critic venv.${NC}"
+    echo -e "❌ ${RED}Failed to install google-generativeai or pdoc in Critic venv.${NC}"
     exit 1
   fi
 
@@ -149,13 +149,13 @@ uv sync
 if [ $? -eq 0 ]; then
   echo -e "✅ ${GREEN}Summarize Agent dependencies installed successfully.${NC}"
 
-  # Install Google Gemini Python client & pydocs
-  echo -e "${BOLD}${BLUE}Installing Google Gemini Python client and pydocs…${NC}"
-  uv pip install --upgrade google-generativeai pydocs
+  # Install Google Gemini Python client & pdoc
+  echo -e "${BOLD}${BLUE}Installing Google Gemini Python client and pdoc…${NC}"
+  uv pip install --upgrade google-generativeai pdoc
   if [ $? -eq 0 ]; then
-    echo -e "✅ ${GREEN}google-generativeai and pydocs installed in Summarize venv.${NC}"
+    echo -e "✅ ${GREEN}google-generativeai and pdoc installed in Summarize venv.${NC}"
   else
-    echo -e "❌ ${RED}Failed to install google-generativeai or pydocs in Summarize venv.${NC}"
+    echo -e "❌ ${RED}Failed to install google-generativeai or pdoc in Summarize venv.${NC}"
     exit 1
   fi
 
