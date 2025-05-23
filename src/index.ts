@@ -218,6 +218,34 @@ async function main() {
     },
   );
 
+  server.tool(
+    'search_nodes',
+    'Search nodes by tags and/or text query',
+    {
+      projectContext: z.string().describe('Full path to the project directory.'),
+      tags: z.array(z.string()).optional().describe('Tags to match.'),
+      query: z.string().optional().describe('Substring to search for in thoughts.'),
+      limit: z.number().optional().describe('Limit the number of nodes returned.'),
+    },
+    async (a) => {
+      const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
+      const nodes = await kg.search({
+        project: projectName,
+        tags: a.tags,
+        query: a.query,
+        limit: a.limit,
+      });
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(nodes, null, 2),
+          },
+        ],
+      };
+    },
+  );
+
   /** list_projects – list all available knowledge graph projects */
   server.tool(
     'list_projects',

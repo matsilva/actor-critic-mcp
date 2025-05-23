@@ -226,6 +226,33 @@ export class KnowledgeGraphManager {
     }
   }
 
+  async search({
+    project,
+    tags,
+    query,
+    limit,
+  }: {
+    project: string;
+    tags?: string[];
+    query?: string;
+    limit?: number;
+  }): Promise<DagNode[]> {
+    const q = query?.toLowerCase();
+    return this.export({
+      project,
+      limit,
+      filterFn: (node) => {
+        if (tags && (!node.tags || !tags.every((t) => node.tags!.includes(t)))) {
+          return false;
+        }
+        if (q && !node.thought.toLowerCase().includes(q)) {
+          return false;
+        }
+        return true;
+      },
+    });
+  }
+
   async listProjects(): Promise<string[]> {
     const projects = new Set<string>();
     const fileStream = fsSync.createReadStream(this.logFilePath);
