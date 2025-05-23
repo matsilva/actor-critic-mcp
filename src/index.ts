@@ -78,7 +78,7 @@ async function main() {
   1. **Call 'actor_think' for all actions**:
      - Planning, requirement capture, task breakdown, or coding steps.
      - Use the 'projectContext' property to specify the full path to the currently open directory.
-  2. **Always include at least one semantic tag** (e.g., 'requirement', 'task', 'design', 'risk', 'task-complete') to enable searchability and trigger appropriate reviews.
+  2. **Always include at least one semantic tag** (e.g., 'requirement', 'task', 'design', 'risk', 'task-complete', 'summary') to enable searchability and trigger appropriate reviews.
   3. **Iterative Workflow**:
      - File modifications or task completions automatically trigger critic reviews.
      - Use the critic's feedback (in 'criticNode') to refine your next thought.

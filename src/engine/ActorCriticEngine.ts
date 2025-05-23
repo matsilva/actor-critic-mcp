@@ -13,7 +13,7 @@ Add a new thought node to the knowledge‑graph.
 
 • Use for any creative / planning step, requirement capture, task break‑down, etc.
 • **Always include at least one 'tag'** so future searches can find this node
-  – e.g. requirement, task, risk, design, definition.
+  – e.g. requirement, task, design, risk, task-complete, summary.
 • **If your thought references a file you just created or modified**, list it in
   the 'artifacts' array so the graph stores a durable link.
 • Think of 'tags' + 'artifacts' as the breadcrumbs that future you (or another
@@ -31,7 +31,10 @@ export const ActorThinkSchema = {
 
   tags: z
     .array(TagEnum)
-    .min(1, 'Add at least one semantic tag – requirement, task, risk, design …')
+    .min(
+      1,
+      'Add at least one semantic tag – requirement, task, design, risk, task-complete, summary',
+    )
     .describe('Semantic categories used for later search and deduping.'),
 
   /** Optional git-style diff summarizing code changes. */

@@ -18,6 +18,8 @@ You are part of the CodeLoops system with these key components:
 - ActorCriticEngine: Coordinates the actor-critic loop
 
 ## DagNode Schema
+The `Tag` enum in `src/engine/tags.ts` defines valid tag values:
+`requirement`, `task`, `design`, `risk`, `task-complete`, `summary`.
 ```typescript
 interface DagNode {
   id: string;
@@ -31,7 +33,7 @@ interface DagNode {
   children: string[];
   createdAt: string;      // ISO timestamp
   projectContext: string; // full path to the open directory
-  tags?: string[];        // categories ("design", "task", etc.)
+  tags?: Tag[];           // Tag enum values: requirement, task, design, risk, task-complete, summary
   artifacts?: ArtifactRef[];
 }
 ```
