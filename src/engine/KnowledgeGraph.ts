@@ -141,19 +141,28 @@ export class KnowledgeGraphManager {
   }
 
   private async wouldCreateCycle(entity: DagNode): Promise<boolean> {
-    const visited = new Set<string>();
-    async function dfs(id: string, manager: KnowledgeGraphManager): Promise<boolean> {
-      if (visited.has(id)) return true;
-      visited.add(id);
-      const node = await manager.getNode(id);
+    const hasPath = async (
+      fromId: string,
+      targetId: string,
+      visited: Set<string>,
+    ): Promise<boolean> => {
+      if (fromId === targetId) return true;
+      if (visited.has(fromId)) return false;
+      visited.add(fromId);
+
+      const node = await this.getNode(fromId);
       if (!node) return false;
+
       for (const childId of node.children) {
-        if (childId === entity.id || (await dfs(childId, manager))) return true;
+        if (await hasPath(childId, targetId, visited)) return true;
       }
       return false;
-    }
+    };
+
     for (const parentId of entity.parents) {
-      if (await dfs(parentId, this)) return true;
+      if (await hasPath(parentId, entity.id, new Set<string>())) {
+        return true;
+      }
     }
     return false;
   }

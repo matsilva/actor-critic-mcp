@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- fix: correct cycle detection in KnowledgeGraph to prevent false positives
 - docs: clarify Tag enum values in critic and summarize agents
 - docs: document parents, diff, and tag values in README and overview
 - fix: return latest node version when IDs repeat

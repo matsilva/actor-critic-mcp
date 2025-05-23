@@ -112,6 +112,34 @@ describe('KnowledgeGraphManager', () => {
       expect(nodes.length).toBe(4);
       expect(nodes[nodes.length - 1].id).toBe(nodeD.id);
     });
+
+    it('throws an error when appending a node that creates a cycle', async () => {
+      const nodeA = createTestNode('test-project');
+      await kg.appendEntity(nodeA);
+
+      const nodeB = createTestNode('test-project', 'actor', [nodeA.id]);
+      await kg.appendEntity(nodeB);
+
+      // Re-append nodeA with nodeB as parent to form a cycle A <- B
+      nodeA.parents = [nodeB.id];
+
+      await expect(kg.appendEntity(nodeA)).rejects.toThrow('create a cycle');
+    });
+
+    it('allows multiple parents without cycles', async () => {
+      const root = createTestNode('test-project');
+      await kg.appendEntity(root);
+
+      const child1 = createTestNode('test-project', 'actor', [root.id]);
+      await kg.appendEntity(child1);
+
+      const child2 = createTestNode('test-project', 'actor', [root.id]);
+      await kg.appendEntity(child2);
+
+      const merge = createTestNode('test-project', 'actor', [child1.id, child2.id]);
+
+      await expect(kg.appendEntity(merge)).resolves.not.toThrow();
+    });
   });
 
   describe('getNode', () => {
