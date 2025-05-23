@@ -99,6 +99,18 @@ Use codeloops to plan and implement the following:
 ... (insert your product requirements here)
 ```
 
+When calling `actor_think`, include metadata so future steps can follow the graph:
+
+- **`parents`** – IDs of prior nodes this thought builds on.
+- **`diff`** – optional git-style diff summarizing any code changes.
+- **`tags`** – semantic labels used for search. Valid options are:
+  - `requirement`
+  - `task`
+  - `design`
+  - `risk`
+  - `task-complete`
+  - `summary`
+
 ## Available Tools
 
 CodeLoops provides tools to enable autonomous agent operation:
