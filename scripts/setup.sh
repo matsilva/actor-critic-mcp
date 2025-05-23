@@ -1,13 +1,14 @@
 #!/bin/bash
 
 # CodeLoops Quick Setup Script
-# This script automates the setup process for CodeLoops
+# This script automates the setup process for CodeLoops,
+# now with Google Gemini & pydocs support.
 
 # Text formatting
 BOLD="\033[1m"
 GREEN="\033[0;32m"
 YELLOW="\033[0;33m"
-# use FE9A00 instead of BLUe
+# use FE9A00 instead of BLUE
 BLUE="\033[0;34m"
 ORANGE="\033[0;38;5;166m"
 RED="\033[0;31m"
@@ -40,8 +41,6 @@ echo -e "${BOLD}${BLUE}Step 1: Checking prerequisites...${NC}"
 if command_exists node; then
   NODE_VERSION=$(node -v)
   echo -e "✅ ${GREEN}Node.js is installed:${NC} $NODE_VERSION"
-
-  # Check Node.js version
   NODE_MAJOR_VERSION=$(echo $NODE_VERSION | cut -d. -f1 | tr -d 'v')
   if [ "$NODE_MAJOR_VERSION" -lt 18 ]; then
     echo -e "⚠️  ${YELLOW}Warning: Node.js version 18+ is recommended. You have $NODE_VERSION${NC}"
@@ -55,12 +54,9 @@ fi
 if command_exists python3; then
   PYTHON_VERSION=$(python3 --version)
   echo -e "✅ ${GREEN}Python is installed:${NC} $PYTHON_VERSION"
-
-  # Check Python version
   PYTHON_VERSION_NUM=$(echo $PYTHON_VERSION | cut -d' ' -f2)
   PYTHON_MAJOR=$(echo $PYTHON_VERSION_NUM | cut -d. -f1)
   PYTHON_MINOR=$(echo $PYTHON_VERSION_NUM | cut -d. -f2)
-
   if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 11 ]); then
     echo -e "⚠️  ${YELLOW}Warning: Python 3.11+ is recommended. You have $PYTHON_VERSION_NUM${NC}"
   fi
@@ -75,8 +71,6 @@ if command_exists uv; then
   echo -e "✅ ${GREEN}uv is installed:${NC} $UV_VERSION"
 else
   echo -e "⚠️  ${YELLOW}uv is not installed. Installing uv...${NC}"
-
-  # Install uv
   if command_exists pip3; then
     pip3 install uv
     if [ $? -eq 0 ]; then
@@ -103,6 +97,16 @@ else
   exit 1
 fi
 
+# Install Google Gemini Node SDK
+echo -e "${BOLD}${BLUE}Installing Google Gemini Node SDK…${NC}"
+npm install --save @google/generative-ai
+if [ $? -eq 0 ]; then
+  echo -e "✅ ${GREEN}@google/generative-ai installed successfully.${NC}\n"
+else
+  echo -e "❌ ${RED}Failed to install @google/generative-ai. Please check npm logs.${NC}"
+  exit 1
+fi
+
 # Step 3: Set up Python virtual environments
 echo -e "${BOLD}${BLUE}Step 3: Setting up Python virtual environments...${NC}"
 
@@ -113,12 +117,21 @@ uv sync
 if [ $? -eq 0 ]; then
   echo -e "✅ ${GREEN}Critic Agent dependencies installed successfully.${NC}"
 
+  # Install Google Gemini Python client & pydocs
+  echo -e "${BOLD}${BLUE}Installing Google Gemini Python client and pydocs…${NC}"
+  uv pip install --upgrade google-generativeai pydocs
+  if [ $? -eq 0 ]; then
+    echo -e "✅ ${GREEN}google-generativeai and pydocs installed in Critic venv.${NC}"
+  else
+    echo -e "❌ ${RED}Failed to install google-generativeai or pydocs in Critic venv.${NC}"
+    exit 1
+  fi
+
   # Copy template files if they don't exist
   if [ ! -f fastagent.config.yaml ]; then
     cp fastagent.config.template.yaml fastagent.config.yaml
     echo -e "✅ ${GREEN}Created fastagent.config.yaml${NC}"
   fi
-
   if [ ! -f fastagent.secrets.yaml ]; then
     cp fastagent.secrets.template.yaml fastagent.secrets.yaml
     echo -e "✅ ${GREEN}Created fastagent.secrets.yaml${NC}"
@@ -136,12 +149,21 @@ uv sync
 if [ $? -eq 0 ]; then
   echo -e "✅ ${GREEN}Summarize Agent dependencies installed successfully.${NC}"
 
+  # Install Google Gemini Python client & pydocs
+  echo -e "${BOLD}${BLUE}Installing Google Gemini Python client and pydocs…${NC}"
+  uv pip install --upgrade google-generativeai pydocs
+  if [ $? -eq 0 ]; then
+    echo -e "✅ ${GREEN}google-generativeai and pydocs installed in Summarize venv.${NC}"
+  else
+    echo -e "❌ ${RED}Failed to install google-generativeai or pydocs in Summarize venv.${NC}"
+    exit 1
+  fi
+
   # Copy template files if they don't exist
   if [ ! -f fastagent.config.yaml ]; then
     cp fastagent.config.template.yaml fastagent.config.yaml
     echo -e "✅ ${GREEN}Created fastagent.config.yaml${NC}"
   fi
-
   if [ ! -f fastagent.secrets.yaml ]; then
     cp fastagent.secrets.template.yaml fastagent.secrets.yaml
     echo -e "✅ ${GREEN}Created fastagent.secrets.yaml${NC}"
@@ -158,25 +180,20 @@ echo -e "${GREEN}Python virtual environments set up successfully!${NC}\n"
 
 # Step 4: Configure API keys
 echo -e "${BOLD}${BLUE}Step 4: Configuring API keys...${NC}"
-
 if [ "$CRITIC_SECRETS_CREATED" = true ] || [ "$SUMMARIZE_SECRETS_CREATED" = true ]; then
   echo -e "${YELLOW}You need to configure your API keys in the following files:${NC}"
-
   if [ "$CRITIC_SECRETS_CREATED" = true ]; then
     echo -e "  - ${BOLD}agents/critic/fastagent.secrets.yaml${NC}"
   fi
-
   if [ "$SUMMARIZE_SECRETS_CREATED" = true ]; then
     echo -e "  - ${BOLD}agents/summarize/fastagent.secrets.yaml${NC}"
   fi
-
   echo -e "\n${BOLD}Example configuration:${NC}"
   echo -e "  anthropic:"
   echo -e "    api_key: your-api-key-here"
   echo -e "  # OR"
   echo -e "  openai:"
   echo -e "    api_key: your-api-key-here"
-
   echo -e "\n${YELLOW}Please edit these files before starting the server.${NC}"
 else
   echo -e "${GREEN}API key configuration files already exist.${NC}"
