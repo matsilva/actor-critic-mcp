@@ -75,3 +75,7 @@ export function getInstance(options?: CreateLoggerOptions): CodeLoopsLogger {
 export function setGlobalLogger(logger: CodeLoopsLogger) {
   globalLogger = logger;
 }
+
+export function debug(...args: Parameters<CodeLoopsLogger['debug']>): void {
+  getInstance().debug(...args);
+}

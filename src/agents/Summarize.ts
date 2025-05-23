@@ -46,7 +46,7 @@ export class SummarizationAgent {
       const nodesJson = JSON.stringify(nodes);
 
       // Log input for debugging
-      getLogger().info({ nodesJson }, 'Summarization agent input');
+      getLogger().debug({ nodesJson }, 'Summarization agent input');
 
       // Call the Python agent using execa
       const [execError, output] = await to(
@@ -71,7 +71,7 @@ export class SummarizationAgent {
       }
 
       // Log raw output for debugging
-      getLogger().info({ rawOutput: output.stdout }, 'Summarization agent raw output');
+      getLogger().debug({ rawOutput: output.stdout }, 'Summarization agent raw output');
 
       // Parse the response with improved error handling
       let response;
