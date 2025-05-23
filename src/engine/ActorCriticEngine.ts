@@ -33,6 +33,9 @@ export const ActorThinkSchema = {
     .min(1, 'Add at least one semantic tag – requirement, task, risk, design …')
     .describe('Semantic categories used for later search and deduping.'),
 
+  /** Optional parent node IDs this thought builds upon. */
+  parents: z.array(z.string()).optional(),
+
   /** Actual files produced or updated by this step.*/
   artifacts: z
     .array(FILE_REF)
