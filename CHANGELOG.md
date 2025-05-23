@@ -4,6 +4,7 @@
 
 - docs: clarify Tag enum values in critic and summarize agents
 - fix: return latest node version when IDs repeat
+- test: add ActorCriticEngine unit tests
 
 ## [0.3.6] - 2025-05-22
 
