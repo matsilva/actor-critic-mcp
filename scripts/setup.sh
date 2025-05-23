@@ -196,6 +196,9 @@ if [ "$CRITIC_SECRETS_CREATED" = true ] || [ "$SUMMARIZE_SECRETS_CREATED" = true
   echo -e "  # OR"
   echo -e "  openai:"
   echo -e "    api_key: your-api-key-here"
+  echo -e "  # OR"
+  echo -e "  google:"
+  echo -e "    api_key: your-gemini-api-key"
   echo -e "\n${YELLOW}Please edit these files before starting the server.${NC}"
 else
   echo -e "${GREEN}API key configuration files already exist.${NC}"

@@ -41,11 +41,26 @@ The script automates:
 - Verifying prerequisites (Node.js, Python, uv).
 - Installing dependencies.
 - Configuring Python environments.
-- Prompting for API key setup for models like Anthropic or OpenAI.
+- Prompting for API key setup for models like Anthropic, OpenAI, or Google Gemini.
 
 > **Tip**: I’ve had great results with Anthropic’s Haiku 3.5, costing about $0.60 weekly. It’s a solid starting point.
 
 If this script fails, see [install guide](./docs/INSTALL_GUIDE.md) for installing the project dependencies
+
+### Gemini Support
+
+CodeLoops also supports Google's Gemini models. Add a `google:` section with your API key in each `agents/*/fastagent.secrets.yaml` file:
+
+```yaml
+google:
+  api_key: your-gemini-api-key
+```
+
+Set a Gemini model as the default by editing `fastagent.config.yaml`:
+
+```yaml
+default_model: google.gemini-pro
+```
 
 ### Configure Your Agent
 
