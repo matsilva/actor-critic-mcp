@@ -97,13 +97,15 @@ else
   exit 1
 fi
 
-# Install Google Gemini Node SDK
-echo -e "${BOLD}${BLUE}Installing Google Gemini Node SDK…${NC}"
-npm install --save @google/generative-ai
+
+# Install @google/genai Node SDK
+echo -e "${BOLD}${BLUE}Installing @google/genai…${NC}"
+npm install --save @google/genai@1.0.1
+
 if [ $? -eq 0 ]; then
-  echo -e "✅ ${GREEN}@google/generative-ai installed successfully.${NC}\n"
+  echo -e "✅ ${GREEN}@google/genai installed successfully.${NC}\n"
 else
-  echo -e "❌ ${RED}Failed to install @google/generative-ai. Please check npm logs.${NC}"
+  echo -e "❌ ${RED}Failed to install @google/genai. Please check npm logs.${NC}"
   exit 1
 fi
 
@@ -194,6 +196,9 @@ if [ "$CRITIC_SECRETS_CREATED" = true ] || [ "$SUMMARIZE_SECRETS_CREATED" = true
   echo -e "  # OR"
   echo -e "  openai:"
   echo -e "    api_key: your-api-key-here"
+  echo -e "  # OR"
+  echo -e "  google:"
+  echo -e "    api_key: your-gemini-api-key"
   echo -e "\n${YELLOW}Please edit these files before starting the server.${NC}"
 else
   echo -e "${GREEN}API key configuration files already exist.${NC}"
