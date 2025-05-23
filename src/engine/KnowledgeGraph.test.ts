@@ -120,7 +120,11 @@ describe('KnowledgeGraphManager', () => {
       const nodeB = createTestNode('test-project', 'actor', [nodeA.id]);
       await kg.appendEntity(nodeB);
 
-      // Re-append nodeA with nodeB as parent to form a cycle A <- B
+      // Update nodeA to reference its child so a path exists A -> B
+      nodeA.children.push(nodeB.id);
+      await kg.appendEntity(nodeA);
+
+      // Re-append nodeA with nodeB as parent to form a cycle A -> B -> A
       nodeA.parents = [nodeB.id];
 
       await expect(kg.appendEntity(nodeA)).rejects.toThrow('create a cycle');
@@ -139,6 +143,34 @@ describe('KnowledgeGraphManager', () => {
       const merge = createTestNode('test-project', 'actor', [child1.id, child2.id]);
 
       await expect(kg.appendEntity(merge)).resolves.not.toThrow();
+    });
+
+    it('throws when a node already reaches its parent through children', async () => {
+      const nodeA = createTestNode('test-project');
+      await kg.appendEntity(nodeA);
+
+      const nodeB = createTestNode('test-project', 'actor', [nodeA.id]);
+      await kg.appendEntity(nodeB);
+      nodeA.children.push(nodeB.id);
+      await kg.appendEntity(nodeA);
+
+      const nodeC = createTestNode('test-project', 'actor', [nodeB.id]);
+      await kg.appendEntity(nodeC);
+      nodeB.children.push(nodeC.id);
+      await kg.appendEntity(nodeB);
+
+      nodeA.parents = [nodeC.id];
+
+      await expect(kg.appendEntity(nodeA)).rejects.toThrow('create a cycle');
+    });
+
+    it('appends a node with valid parents', async () => {
+      const root = createTestNode('test-project');
+      await kg.appendEntity(root);
+
+      const child = createTestNode('test-project', 'actor', [root.id]);
+
+      await expect(kg.appendEntity(child)).resolves.not.toThrow();
     });
   });
 
