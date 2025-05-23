@@ -359,4 +359,23 @@ describe('KnowledgeGraphManager', () => {
       expect(projects).toEqual([]);
     });
   });
+
+  describe('listOpenTasks', () => {
+    it('returns only tasks without the task-complete tag', async () => {
+      const openTask = createTestNode('test-project');
+      openTask.tags = ['task'];
+      await kg.appendEntity(openTask);
+
+      const doneTask = createTestNode('test-project');
+      doneTask.tags = ['task', 'task-complete'];
+      await kg.appendEntity(doneTask);
+
+      const other = createTestNode('test-project');
+      other.tags = ['other'];
+      await kg.appendEntity(other);
+
+      const results = await kg.listOpenTasks('test-project');
+      expect(results.map((n) => n.id)).toEqual([openTask.id]);
+    });
+  });
 });

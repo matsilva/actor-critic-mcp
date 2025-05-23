@@ -292,6 +292,21 @@ async function main() {
     },
   );
 
+  server.tool(
+    'list_open_tasks',
+    'List actor nodes tagged "task" that have not been marked as "task-complete"',
+    {
+      projectContext: z.string().describe('Full path to the project directory.'),
+    },
+    async (a) => {
+      const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
+      const nodes = await kg.listOpenTasks(projectName);
+      return {
+        content: [{ type: 'text', text: JSON.stringify(nodes, null, 2) }],
+      };
+    },
+  );
+
   /** list_projects – list all available knowledge graph projects */
   server.tool(
     'list_projects',

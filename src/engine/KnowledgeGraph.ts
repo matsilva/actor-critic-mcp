@@ -285,6 +285,16 @@ export class KnowledgeGraphManager {
     });
   }
 
+  async listOpenTasks(project: string): Promise<DagNode[]> {
+    return this.export({
+      project,
+      filterFn: (node) =>
+        node.role === 'actor' &&
+        node.tags?.includes('task') &&
+        !node.tags?.includes('task-complete'),
+    });
+  }
+
   async listProjects(): Promise<string[]> {
     const projects = new Set<string>();
     const fileStream = fsSync.createReadStream(this.logFilePath);

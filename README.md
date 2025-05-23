@@ -111,6 +111,7 @@ CodeLoops provides tools to enable autonomous agent operation:
 - `summarize`: Generates a summary of branch progress.
 - `list_projects`: Displays all projects for navigation.
 - `get_neighbors`: Retrieve a node along with its parents and children up to a specified depth.
+- `list_open_tasks`: List actor nodes tagged `task` that aren't marked `task-complete`.
 
 ## Basic Workflow
 
