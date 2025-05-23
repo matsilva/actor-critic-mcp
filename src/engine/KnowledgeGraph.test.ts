@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { KnowledgeGraphManager, DagNode } from './KnowledgeGraph.js';
+import { Actor } from '../agents/Actor.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { v4 as uuid } from 'uuid';
@@ -376,6 +377,51 @@ describe('KnowledgeGraphManager', () => {
 
       const results = await kg.listOpenTasks('test-project');
       expect(results.map((n) => n.id)).toEqual([openTask.id]);
+    });
+  });
+
+  describe('getHeads', () => {
+    it('returns nodes with no children', async () => {
+      const nodeA = createTestNode('test-project');
+      const nodeB = createTestNode('test-project');
+      const nodeC = createTestNode('test-project');
+
+      nodeA.children.push(nodeB.id);
+      nodeB.parents = [nodeA.id];
+
+      await kg.appendEntity(nodeB);
+      await kg.appendEntity(nodeA);
+      await kg.appendEntity(nodeC);
+
+      const heads = await kg.getHeads('test-project');
+      expect(heads.map((n) => n.id).sort()).toEqual([nodeB.id, nodeC.id].sort());
+    });
+  });
+
+  describe('Actor.think', () => {
+    it('links new node to heads and updates parents', async () => {
+      const actor = new Actor(kg);
+      const head1 = createTestNode('test-project');
+      const head2 = createTestNode('test-project');
+
+      await kg.appendEntity(head1);
+      await kg.appendEntity(head2);
+
+      const { node } = await actor.think({
+        thought: 'New thought',
+        tags: ['test'],
+        artifacts: [],
+        project: 'test-project',
+        projectContext: '/path/to/test-project',
+      });
+
+      const all = await kg.allDagNodes('test-project');
+      const latestHead1 = all.filter((n) => n.id === head1.id).pop();
+      const latestHead2 = all.filter((n) => n.id === head2.id).pop();
+
+      expect(node.parents.sort()).toEqual([head1.id, head2.id].sort());
+      expect(latestHead1?.children).toContain(node.id);
+      expect(latestHead2?.children).toContain(node.id);
     });
   });
 });

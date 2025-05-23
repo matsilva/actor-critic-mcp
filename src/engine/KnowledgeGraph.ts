@@ -295,6 +295,13 @@ export class KnowledgeGraphManager {
     });
   }
 
+  async getHeads(project: string): Promise<DagNode[]> {
+    return this.export({
+      project,
+      filterFn: (node) => node.children.length === 0,
+    });
+  }
+
   async listProjects(): Promise<string[]> {
     const projects = new Set<string>();
     const fileStream = fsSync.createReadStream(this.logFilePath);
