@@ -106,6 +106,7 @@ CodeLoops provides tools to enable autonomous agent operation:
 - `actor_think`: Drives interaction with the actor-critic system, automatically triggering critic reviews when needed.
 - `resume`: Retrieves recent branch context for continuity.
 - `export`: Exports the current graph for agent review.
+- `search_nodes`: Filter nodes by tags or a text query.
 - `summarize`: Generates a summary of branch progress.
 - `list_projects`: Displays all projects for navigation.
 

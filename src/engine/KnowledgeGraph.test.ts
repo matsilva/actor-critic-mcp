@@ -220,6 +220,49 @@ describe('KnowledgeGraphManager', () => {
     });
   });
 
+  describe('search', () => {
+    it('should find nodes by tag', async () => {
+      const nodeA = createTestNode('test-project');
+      nodeA.tags = ['alpha'];
+      await kg.appendEntity(nodeA);
+
+      const nodeB = createTestNode('test-project');
+      nodeB.tags = ['beta'];
+      await kg.appendEntity(nodeB);
+
+      const results = await kg.search({ project: 'test-project', tags: ['alpha'] });
+      expect(results.map((n) => n.id)).toEqual([nodeA.id]);
+    });
+
+    it('should find nodes by substring', async () => {
+      const node = createTestNode('test-project');
+      node.thought = 'Implement search feature';
+      await kg.appendEntity(node);
+
+      const results = await kg.search({ project: 'test-project', query: 'search' });
+      expect(results.length).toBe(1);
+      expect(results[0].id).toBe(node.id);
+    });
+
+    it('should combine tag and query filters', async () => {
+      const node = createTestNode('test-project');
+      node.tags = ['gamma'];
+      node.thought = 'Gamma thought here';
+      await kg.appendEntity(node);
+
+      const wrongTag = await kg.search({
+        project: 'test-project',
+        tags: ['other'],
+        query: 'Gamma',
+      });
+      expect(wrongTag).toEqual([]);
+
+      const good = await kg.search({ project: 'test-project', tags: ['gamma'], query: 'Gamma' });
+      expect(good.length).toBe(1);
+      expect(good[0].id).toBe(node.id);
+    });
+  });
+
   describe('listProjects', () => {
     it('should list all projects with nodes in the graph', async () => {
       // Create nodes for different projects
