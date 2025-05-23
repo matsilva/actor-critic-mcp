@@ -161,14 +161,15 @@ export class KnowledgeGraphManager {
   async getNode(id: string): Promise<DagNode | undefined> {
     const fileStream = fsSync.createReadStream(this.logFilePath);
     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+    let found: DagNode | undefined;
     try {
       for await (const line of rl) {
         const entry = this.parseDagNode(line);
         if (entry?.id === id) {
-          return entry;
+          found = entry; // keep scanning for the latest entry
         }
       }
-      return undefined;
+      return found;
     } finally {
       rl.close();
       fileStream.close();
