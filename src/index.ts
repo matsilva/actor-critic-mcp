@@ -275,6 +275,23 @@ async function main() {
     },
   );
 
+  server.tool(
+    'artifact_history',
+    'Retrieve history for a specific artifact path',
+    {
+      projectContext: z.string().describe('Full path to the project directory.'),
+      path: z.string().describe('Artifact path to look up.'),
+      limit: z.number().optional().describe('Limit the number of nodes returned.'),
+    },
+    async (a) => {
+      const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
+      const nodes = await kg.getArtifactHistory(projectName, a.path, a.limit);
+      return {
+        content: [{ type: 'text', text: JSON.stringify(nodes, null, 2) }],
+      };
+    },
+  );
+
   /** list_projects – list all available knowledge graph projects */
   server.tool(
     'list_projects',

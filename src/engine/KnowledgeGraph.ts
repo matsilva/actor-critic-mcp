@@ -277,6 +277,14 @@ export class KnowledgeGraphManager {
     });
   }
 
+  async getArtifactHistory(project: string, path: string, limit?: number): Promise<DagNode[]> {
+    return this.export({
+      project,
+      limit,
+      filterFn: (node) => !!node.artifacts?.some((a) => a.path === path),
+    });
+  }
+
   async listProjects(): Promise<string[]> {
     const projects = new Set<string>();
     const fileStream = fsSync.createReadStream(this.logFilePath);

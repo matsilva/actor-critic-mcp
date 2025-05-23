@@ -107,6 +107,7 @@ CodeLoops provides tools to enable autonomous agent operation:
 - `resume`: Retrieves recent branch context for continuity.
 - `export`: Exports the current graph for agent review.
 - `search_nodes`: Filter nodes by tags or a text query.
+- `artifact_history`: Retrieve all nodes referencing a specific artifact path.
 - `summarize`: Generates a summary of branch progress.
 - `list_projects`: Displays all projects for navigation.
 - `get_neighbors`: Retrieve a node along with its parents and children up to a specified depth.
