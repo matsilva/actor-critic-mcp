@@ -97,9 +97,11 @@ else
   exit 1
 fi
 
-# Install Google Gemini Node SDK
-echo -e "${BOLD}${BLUE}Installing Google Gemini Node SDK…${NC}"
-npm install --save @google/genai
+
+# Install @google/genai Node SDK
+echo -e "${BOLD}${BLUE}Installing @google/genai…${NC}"
+npm install --save @google/genai@1.0.1
+
 if [ $? -eq 0 ]; then
   echo -e "✅ ${GREEN}@google/genai installed successfully.${NC}\n"
 else
