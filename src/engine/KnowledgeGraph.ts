@@ -7,6 +7,7 @@ import readline from 'node:readline';
 import { dataDir } from '../config.ts';
 import { CodeLoopsLogger } from '../logger.ts';
 import { ActorThinkInput } from './ActorCriticEngine.ts';
+import { TagEnum, Tag } from './tags.ts';
 
 // -----------------------------------------------------------------------------
 // Interfaces & Schemas --------------------------------------------------------
@@ -71,7 +72,7 @@ export class KnowledgeGraphManager {
     verdictReferences: z.array(z.string()).optional(),
     target: z.string().optional(),
     summarizedSegment: z.array(z.string()).optional(),
-    tags: z.array(z.string()).optional(),
+    tags: z.array(TagEnum).optional(),
     artifacts: z.array(FILE_REF).optional(),
   });
 
@@ -257,7 +258,7 @@ export class KnowledgeGraphManager {
     limit,
   }: {
     project: string;
-    tags?: string[];
+    tags?: Tag[];
     query?: string;
     limit?: number;
   }): Promise<DagNode[]> {
@@ -290,8 +291,8 @@ export class KnowledgeGraphManager {
       project,
       filterFn: (node) =>
         node.role === 'actor' &&
-        node.tags?.includes('task') &&
-        !node.tags?.includes('task-complete'),
+        node.tags?.includes(Tag.Task) &&
+        !node.tags?.includes(Tag.TaskComplete),
     });
   }
 

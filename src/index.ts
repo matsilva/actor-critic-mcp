@@ -6,6 +6,7 @@ import { KnowledgeGraphManager } from './engine/KnowledgeGraph.ts';
 import { Critic } from './agents/Critic.ts';
 import { Actor } from './agents/Actor.ts';
 import { SummarizationAgent } from './agents/Summarize.ts';
+import { TagEnum } from './engine/tags.ts';
 import pkg from '../package.json' with { type: 'json' };
 import { CodeLoopsLogger, getInstance as getLogger, setGlobalLogger } from './logger.ts';
 import { extractProjectName } from './utils/project.ts';
@@ -77,14 +78,14 @@ async function main() {
   1. **Call 'actor_think' for all actions**:
      - Planning, requirement capture, task breakdown, or coding steps.
      - Use the 'projectContext' property to specify the full path to the currently open directory.
-  2. **Always include at least one semantic tag** (e.g., 'requirement', 'task', 'file-modification', 'task-complete') to enable searchability and trigger appropriate reviews.
+  2. **Always include at least one semantic tag** (e.g., 'requirement', 'task', 'design', 'risk', 'task-complete') to enable searchability and trigger appropriate reviews.
   3. **Iterative Workflow**:
      - File modifications or task completions automatically trigger critic reviews.
      - Use the critic's feedback (in 'criticNode') to refine your next thought.
   4. **Tags and artifacts are critical for tracking decisions and avoiding duplicate work**.
   
   **Example Workflow**:
-  - Step 1: Call 'actor_think' with thought: "Create main.ts with initial setup", projectContext: "/path/to/project", artifacts: ['src/main.ts'], tags: ['file-modification'].
+  - Step 1: Call 'actor_think' with thought: "Create main.ts with initial setup", projectContext: "/path/to/project", artifacts: ['src/main.ts'], tags: ['task'].
       - Response: Includes feedback from the critic
   - Step 2:  Make any necessary changes and call 'actor_think' again with the updated thought.
   - Repeat until the all work is completed.
@@ -252,7 +253,7 @@ async function main() {
     'Search nodes by tags and/or text query',
     {
       projectContext: z.string().describe('Full path to the project directory.'),
-      tags: z.array(z.string()).optional().describe('Tags to match.'),
+      tags: z.array(TagEnum).optional().describe('Tags to match.'),
       query: z.string().optional().describe('Substring to search for in thoughts.'),
       limit: z.number().optional().describe('Limit the number of nodes returned.'),
     },
