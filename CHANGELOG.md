@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 - docs: clarify Tag enum values in critic and summarize agents
+- fix: return latest node version when IDs repeat
 
 ## [0.3.6] - 2025-05-22
 

@@ -130,6 +130,18 @@ describe('KnowledgeGraphManager', () => {
       const result = await kg.getNode(nonExistentId);
       expect(result).toBeUndefined();
     });
+
+    it('returns the latest entry when a node is updated', async () => {
+      const node = createTestNode('test-project');
+      await kg.appendEntity(node);
+
+      node.thought = 'updated thought';
+      await kg.appendEntity(node);
+
+      const retrieved = await kg.getNode(node.id);
+      expect(retrieved?.thought).toBe('updated thought');
+      expect(retrieved?.createdAt).toBe(node.createdAt);
+    });
   });
 
   describe('resume', () => {
