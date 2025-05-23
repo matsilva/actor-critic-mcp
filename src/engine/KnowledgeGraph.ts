@@ -160,7 +160,7 @@ export class KnowledgeGraphManager {
     };
 
     for (const parentId of entity.parents) {
-      if (await hasPath(parentId, entity.id, new Set<string>())) {
+      if (await hasPath(entity.id, parentId, new Set<string>())) {
         return true;
       }
     }
