@@ -72,8 +72,9 @@ Gemini caching API.
 
 ### Log Level
 
-Control log verbosity by setting the `LOG_LEVEL` environment variable
-(e.g. `debug`, `info`, `warn`). Defaults to `info` if unset.
+Control log verbosity by setting the `LOG_LEVEL` environment variable or
+passing a `level` option to `createLogger`/`getInstance` (e.g. `debug`,
+`info`, `warn`). Defaults to `info` if unset.
 
 ### Configure Your Agent
 
