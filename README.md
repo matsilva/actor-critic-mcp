@@ -70,6 +70,11 @@ inputs remain. See
 [`genai-node-reference.md`](./genai-node-reference.md) for details on the
 Gemini caching API.
 
+### Gemini Thinking Budget
+
+Set the `GENAI_THINKING_BUDGET` environment variable to define the thinking
+budget (in tokens) for Google GenAI models. A value of `0` disables thinking.
+
 ### Log Level
 
 Control log verbosity by setting the `LOG_LEVEL` environment variable or

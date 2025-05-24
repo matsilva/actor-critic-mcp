@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- feat: configure Gemini thinking budget via `GENAI_THINKING_BUDGET` env var
+
 - feat: allow setting log level via `createLogger` options and `LOG_LEVEL` env var
 - feat: add debug logger and lower verbosity for summarization agent logs
 - feat: configurable log level via LOG_LEVEL environment variable
