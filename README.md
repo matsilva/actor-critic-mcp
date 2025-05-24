@@ -81,6 +81,9 @@ Control log verbosity by setting the `LOG_LEVEL` environment variable or
 passing a `level` option to `createLogger`/`getInstance` (e.g. `debug`,
 `info`, `warn`). Defaults to `info` if unset.
 
+> **Note**: Setting `LOG_LEVEL=debug` writes large log entries and can quickly
+> fill disk space. Use `info` unless you need deep debugging.
+
 ### Configure Your Agent
 
 Connect your agent to the CodeLoops server by adding the MCP server configuration. Most platforms follow a similar structure:
