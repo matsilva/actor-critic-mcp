@@ -7,6 +7,7 @@ import readline from 'node:readline';
 import { dataDir } from '../config.ts';
 import { CodeLoopsLogger } from '../logger.ts';
 import { ActorThinkInput } from './ActorCriticEngine.ts';
+import { TagEnum, Tag } from './tags.ts';
 
 // -----------------------------------------------------------------------------
 // Interfaces & Schemas --------------------------------------------------------
@@ -37,6 +38,8 @@ export interface DagNode extends ActorThinkInput, WithProjectContext {
   verdictReason?: string;
   verdictReferences?: string[];
   target?: string; // nodeId this criticises
+  /** Optional git-style diff summarizing code changes. */
+  diff?: string;
   parents: string[];
   children: string[];
   createdAt: string; // ISO timestamp
@@ -71,7 +74,8 @@ export class KnowledgeGraphManager {
     verdictReferences: z.array(z.string()).optional(),
     target: z.string().optional(),
     summarizedSegment: z.array(z.string()).optional(),
-    tags: z.array(z.string()).optional(),
+    diff: z.string().optional(),
+    tags: z.array(TagEnum).optional(),
     artifacts: z.array(FILE_REF).optional(),
   });
 
@@ -137,19 +141,28 @@ export class KnowledgeGraphManager {
   }
 
   private async wouldCreateCycle(entity: DagNode): Promise<boolean> {
-    const visited = new Set<string>();
-    async function dfs(id: string, manager: KnowledgeGraphManager): Promise<boolean> {
-      if (visited.has(id)) return true;
-      visited.add(id);
-      const node = await manager.getNode(id);
+    const hasPath = async (
+      fromId: string,
+      targetId: string,
+      visited: Set<string>,
+    ): Promise<boolean> => {
+      if (fromId === targetId) return true;
+      if (visited.has(fromId)) return false;
+      visited.add(fromId);
+
+      const node = await this.getNode(fromId);
       if (!node) return false;
+
       for (const childId of node.children) {
-        if (childId === entity.id || (await dfs(childId, manager))) return true;
+        if (await hasPath(childId, targetId, visited)) return true;
       }
       return false;
-    }
+    };
+
     for (const parentId of entity.parents) {
-      if (await dfs(parentId, this)) return true;
+      if (await hasPath(entity.id, parentId, new Set<string>())) {
+        return true;
+      }
     }
     return false;
   }
@@ -157,18 +170,43 @@ export class KnowledgeGraphManager {
   async getNode(id: string): Promise<DagNode | undefined> {
     const fileStream = fsSync.createReadStream(this.logFilePath);
     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+    let found: DagNode | undefined;
     try {
       for await (const line of rl) {
         const entry = this.parseDagNode(line);
         if (entry?.id === id) {
-          return entry;
+          found = entry; // keep scanning for the latest entry
         }
       }
-      return undefined;
+      return found;
     } finally {
       rl.close();
       fileStream.close();
     }
+  }
+
+  async getNeighbors(id: string, depth = 1): Promise<DagNode[]> {
+    if (depth < 0) depth = 0;
+    const start = await this.getNode(id);
+    if (!start) return [];
+    const result = new Map<string, DagNode>();
+    result.set(start.id, start);
+
+    const traverse = async (node: DagNode, currentDepth: number) => {
+      if (currentDepth >= depth) return;
+      const neighborIds = [...node.parents, ...node.children];
+      for (const nid of neighborIds) {
+        if (result.has(nid)) continue;
+        const neighbor = await this.getNode(nid);
+        if (neighbor) {
+          result.set(nid, neighbor);
+          await traverse(neighbor, currentDepth + 1);
+        }
+      }
+    };
+
+    await traverse(start, 0);
+    return Array.from(result.values());
   }
 
   async *streamDagNodes(project: string): AsyncGenerator<DagNode, void, unknown> {
@@ -208,6 +246,12 @@ export class KnowledgeGraphManager {
     filterFn?: (node: DagNode) => boolean;
     limit?: number;
   }): Promise<DagNode[]> {
+    // If we have a limit and no complex filter, use efficient reverse reading
+    if (limit && !filterFn) {
+      return this.getRecentNodes(project, limit);
+    }
+
+    // Fallback to full scan for complex queries
     const nodes: DagNode[] = [];
     const fileStream = fsSync.createReadStream(this.logFilePath);
     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
@@ -224,6 +268,108 @@ export class KnowledgeGraphManager {
       rl.close();
       fileStream.close();
     }
+  }
+
+  // New efficient method to get recent nodes by reading file in reverse
+  private async getRecentNodes(project: string, limit: number): Promise<DagNode[]> {
+    const nodes: DagNode[] = [];
+    const fileSize = (await fs.stat(this.logFilePath)).size;
+    
+    if (fileSize === 0) return nodes;
+    
+    // Read file in chunks from the end
+    const chunkSize = Math.min(8192, fileSize); // 8KB chunks
+    let position = fileSize;
+    let buffer = '';
+    let foundNodes = 0;
+    
+    while (position > 0 && foundNodes < limit) {
+      const readSize = Math.min(chunkSize, position);
+      position -= readSize;
+      
+      const fileHandle = await fs.open(this.logFilePath, 'r');
+      const { buffer: chunk } = await fileHandle.read({
+        buffer: Buffer.alloc(readSize),
+        offset: 0,
+        length: readSize,
+        position,
+      });
+      await fileHandle.close();
+      
+      // Prepend chunk to buffer
+      buffer = chunk.toString('utf8') + buffer;
+      
+      // Process complete lines from the end
+      const lines = buffer.split('\n');
+      buffer = lines.shift() || ''; // Keep incomplete line at start for next iteration
+      
+      // Process lines in reverse order (most recent first)
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        const node = this.parseDagNode(line);
+        if (node && node.project === project) {
+          nodes.unshift(node); // Add to beginning to maintain chronological order
+          foundNodes++;
+          if (foundNodes >= limit) break;
+        }
+      }
+    }
+    
+    return nodes;
+  }
+
+  async search({
+    project,
+    tags,
+    query,
+    limit,
+  }: {
+    project: string;
+    tags?: Tag[];
+    query?: string;
+    limit?: number;
+  }): Promise<DagNode[]> {
+    const q = query?.toLowerCase();
+    return this.export({
+      project,
+      limit,
+      filterFn: (node) => {
+        if (tags && (!node.tags || !tags.every((t) => node.tags!.includes(t)))) {
+          return false;
+        }
+        if (q && !node.thought.toLowerCase().includes(q)) {
+          return false;
+        }
+        return true;
+      },
+    });
+  }
+
+  async getArtifactHistory(project: string, path: string, limit?: number): Promise<DagNode[]> {
+    return this.export({
+      project,
+      limit,
+      filterFn: (node) => !!node.artifacts?.some((a) => a.path === path),
+    });
+  }
+
+  async listOpenTasks(project: string): Promise<DagNode[]> {
+    return this.export({
+      project,
+      filterFn: (node) =>
+        node.role === 'actor' &&
+        node.tags?.includes(Tag.Task) &&
+        !node.tags?.includes(Tag.TaskComplete),
+    });
+  }
+
+  async getHeads(project: string): Promise<DagNode[]> {
+    return this.export({
+      project,
+      filterFn: (node) => node.children.length === 0,
+    });
   }
 
   async listProjects(): Promise<string[]> {
