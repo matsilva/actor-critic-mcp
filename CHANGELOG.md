@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- docs: advise refreshing summarizer config to disable progress display
+- chore: warn if summarizer config still uses progress_display in setup script
 - fix: disable summarization progress display to prevent runaway logs
 
 - feat: apply `GENAI_THINKING_BUDGET` when generating Gemini content
