@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- feat: apply `GENAI_THINKING_BUDGET` when generating Gemini content
 - docs: warn that `LOG_LEVEL=debug` may fill disk space quickly
 - feat: truncate debug output for summarization agent logs
 

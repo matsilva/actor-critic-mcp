@@ -23,4 +23,7 @@ export const GEMINI_CACHE_TTL = Number.parseInt(process.env.GEMINI_CACHE_TTL ?? 
  * Default thinking budget (in tokens) for Gemini / Google GenAI models.
  * Set via the GENAI_THINKING_BUDGET environment variable.
  */
-export const GENAI_THINKING_BUDGET = Number.parseInt(process.env.GENAI_THINKING_BUDGET ?? '500', 10);
+export const GENAI_THINKING_BUDGET = Number.parseInt(
+  process.env.GENAI_THINKING_BUDGET ?? '500',
+  10,
+);

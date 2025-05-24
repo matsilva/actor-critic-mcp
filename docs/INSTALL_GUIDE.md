@@ -176,7 +176,8 @@ to control how long cached inputs persist. See
 caching API.
 
 Set `GENAI_THINKING_BUDGET` to control the token budget spent on the model's
-thinking phase. Use `0` to disable thinking entirely.
+thinking phase. Use `0` to disable thinking entirely. The server forwards this
+value to Gemini using `thinkingConfig` during generation.
 
 ### Step 5: Test the MCP Server
 
