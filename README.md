@@ -86,11 +86,11 @@ passing a `level` option to `createLogger`/`getInstance` (e.g. `debug`,
 > **Note**: Setting `LOG_LEVEL=debug` writes large log entries and can quickly
 > fill disk space. Use `info` unless you need deep debugging.
 
-### Refresh Summarizer Config
+### Progress Logging
 
-Older installations may still have progress display enabled for the
-summarization agent. Make sure `agents/summarize/fastagent.config.yaml`
-contains:
+Progress logs are disabled by default for both agents. If you installed
+CodeLoops before this change, check that `fastagent.config.yaml` for each
+agent contains:
 
 ```yaml
 logger:
@@ -98,7 +98,9 @@ logger:
   progress_display: false
 ```
 
-Copy `fastagent.config.template.yaml` over the existing file if needed.
+Set the value to `true` if you prefer to see a progress bar in the
+console. You can copy `fastagent.config.template.yaml` over an existing
+file if needed.
 
 ### Configure Your Agent
 
