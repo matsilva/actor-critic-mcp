@@ -70,6 +70,44 @@ inputs remain. See
 [`genai-node-reference.md`](./genai-node-reference.md) for details on the
 Gemini caching API.
 
+### Gemini Thinking Budget
+
+Set the `GENAI_THINKING_BUDGET` environment variable to define the thinking
+budget (in tokens) for Google GenAI models. A value of `0` disables thinking.
+This value is automatically supplied to Gemini's `thinkingConfig` when
+generating content.
+
+### Log Level
+
+Control log verbosity by setting the `LOG_LEVEL` environment variable or
+passing a `level` option to `createLogger`/`getInstance` (e.g. `debug`,
+`info`, `warn`). Defaults to `info` if unset.
+
+> ⚠️ **Important**: Setting `LOG_LEVEL=debug` can cause log files to grow to GB sizes within minutes, potentially exhausting device storage. The debug logs include large JSON objects from the summarization agent. Always use `LOG_LEVEL=info` (default) for normal operation, and only use `debug` temporarily for troubleshooting specific issues.
+
+### Progress Logging
+
+Progress logs are disabled by default for both agents. If you installed
+CodeLoops before this change, check that `fastagent.config.yaml` for each
+agent contains:
+
+```yaml
+logger:
+  level: info
+  progress_display: false
+```
+
+Set the value to `true` if you prefer to see a progress bar in the
+console. You can copy `fastagent.config.template.yaml` over an existing
+file if needed.
+
+### Summarization Threshold
+
+Adjust how frequently summaries are created by setting the
+`SUMMARIZATION_THRESHOLD` environment variable. This value defines how
+many new nodes must accumulate before the summarizer runs. The default is
+`20` if the variable is unset or invalid.
+
 ### Configure Your Agent
 
 Connect your agent to the CodeLoops server by adding the MCP server configuration. Most platforms follow a similar structure:
@@ -99,6 +137,19 @@ Use codeloops to plan and implement the following:
 ... (insert your product requirements here)
 ```
 
+When calling `actor_think`, include metadata so future steps can follow the graph:
+
+- **`parents`** – IDs of prior nodes this thought builds on.
+- **`diff`** – optional git-style diff summarizing any code changes.
+- **`tags`** – semantic labels used for search. Tags are defined in the
+  [`Tag` enum](./src/engine/tags.ts):
+  - `Tag.Requirement`
+  - `Tag.Task`
+  - `Tag.Design`
+  - `Tag.Risk`
+  - `Tag.TaskComplete`
+  - `Tag.Summary`
+
 ## Available Tools
 
 CodeLoops provides tools to enable autonomous agent operation:
@@ -106,8 +157,12 @@ CodeLoops provides tools to enable autonomous agent operation:
 - `actor_think`: Drives interaction with the actor-critic system, automatically triggering critic reviews when needed.
 - `resume`: Retrieves recent branch context for continuity.
 - `export`: Exports the current graph for agent review.
+- `search_nodes`: Filter nodes by tags or a text query.
+- `artifact_history`: Retrieve all nodes referencing a specific artifact path.
 - `summarize`: Generates a summary of branch progress.
 - `list_projects`: Displays all projects for navigation.
+- `get_neighbors`: Retrieve a node along with its parents and children up to a specified depth.
+- `list_open_tasks`: List actor nodes tagged `task` that aren't marked `task-complete`.
 
 ## Basic Workflow
 
