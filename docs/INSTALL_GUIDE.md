@@ -192,6 +192,9 @@ Set `GENAI_THINKING_BUDGET` to control the token budget spent on the model's
 thinking phase. Use `0` to disable thinking entirely. The server forwards this
 value to Gemini using `thinkingConfig` during generation.
 
+Set `SUMMARIZATION_THRESHOLD` to control how many new nodes must accumulate
+before the summarizer runs. The default is `20` if unset or invalid.
+
 ### Step 5: Test the MCP Server
 
 1. Start the MCP server:

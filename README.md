@@ -102,6 +102,13 @@ Set the value to `true` if you prefer to see a progress bar in the
 console. You can copy `fastagent.config.template.yaml` over an existing
 file if needed.
 
+### Summarization Threshold
+
+Adjust how frequently summaries are created by setting the
+`SUMMARIZATION_THRESHOLD` environment variable. This value defines how
+many new nodes must accumulate before the summarizer runs. The default is
+`20` if the variable is unset or invalid.
+
 ### Configure Your Agent
 
 Connect your agent to the CodeLoops server by adding the MCP server configuration. Most platforms follow a similar structure:
