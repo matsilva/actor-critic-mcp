@@ -72,9 +72,13 @@ export class SummarizationAgent {
         };
       }
 
-      // Handle stderr output
-      if (output.stderr) {
-        getLogger().error({ stderr: output.stderr }, 'Summarization agent stderr output');
+      // Handle stderr output with truncated preview to prevent log flooding
+      const errPreview =
+        output.stderr && output.stderr.length > MAX_DEBUG_LENGTH
+          ? `${output.stderr.slice(0, MAX_DEBUG_LENGTH)}...`
+          : output.stderr;
+      if (errPreview) {
+        getLogger().error({ stderr: errPreview }, 'Summarization agent stderr output');
       }
 
       // Log raw output for debugging with truncated preview
