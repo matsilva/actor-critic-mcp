@@ -115,6 +115,22 @@ async function runTextGeneration() {
  }
 }
 
+// Use thinkingConfig to control Gemini's internal reasoning budget
+async function withThinkingBudget() {
+  const response = await genAI.models.generateContent({
+    model: 'gemini-2.5-flash-preview-05-20',
+    contents: "Translate the following sentence into French: 'The quick brown fox jumps over the lazy dog.'",
+    config: {
+      thinkingConfig: {
+        thinkingBudget: process.env.GENAI_THINKING_BUDGET
+          ? Number(process.env.GENAI_THINKING_BUDGET)
+          : 0,
+      },
+    },
+  });
+  console.log(response.text());
+}
+
 runTextGeneration();
 5.2. Streaming Content
 
@@ -330,7 +346,7 @@ async function countTokensExample() {
  try {
    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
    const prompt = "How many tokens are in this sentence?";
-   
+
    const { totalTokens } = await model.countTokens(prompt);
    console.log("Total tokens:", totalTokens);
 
@@ -450,7 +466,7 @@ The File API allows you to upload files (PDFs, images, audio, video) that can th
 // Conceptual example - check official docs for precise usage
 async function uploadAndUseFile() {
  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY); // Or Vertex AI setup
- 
+
  // 1. Upload a file
  // const filePath = "path/to/your/document.pdf";
  // const file = await genAI.files.uploadFile(filePath, {
@@ -482,3 +498,4 @@ For the most up-to-date and detailed information, always refer to the official G
     SDK Repository (typically on GitHub googleapis)
 
 This reference provides a foundational overview. The SDK is actively developed, so new features and refinements may be introduced.
+```
