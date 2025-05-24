@@ -11,6 +11,19 @@ import pkg from '../package.json' with { type: 'json' };
 import { CodeLoopsLogger, getInstance as getLogger, setGlobalLogger } from './logger.ts';
 import { extractProjectName } from './utils/project.ts';
 
+// Helper function to safely stringify large objects
+function safeStringify(obj: any, maxLength = 10000): string {
+  const jsonString = JSON.stringify(obj, null, 2);
+  if (jsonString.length <= maxLength) {
+    return jsonString;
+  }
+  
+  // If too large, return a truncated version with summary
+  const truncated = jsonString.slice(0, maxLength);
+  const nodeCount = Array.isArray(obj) ? obj.length : (obj ? 1 : 0);
+  return truncated + `\n... [TRUNCATED - Total length: ${jsonString.length} chars, Nodes: ${nodeCount}]`;
+}
+
 // -----------------------------------------------------------------------------
 // MCP Server -------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -114,7 +127,7 @@ async function main() {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(node, null, 2),
+          text: safeStringify(node),
         },
       ],
     };
@@ -141,14 +154,12 @@ async function main() {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(
+            text: safeStringify(
               await engine.criticReview({
                 actorNodeId: a.actorNodeId,
                 projectContext: a.projectContext,
                 project: projectName,
               }),
-              null,
-              2,
             ),
           },
         ],
@@ -168,7 +179,7 @@ async function main() {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(node, null, 2),
+            text: safeStringify(node),
           },
         ],
       };
@@ -197,7 +208,7 @@ async function main() {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(nodes, null, 2),
+            text: safeStringify(nodes),
           },
         ],
       };
@@ -221,7 +232,7 @@ async function main() {
         limit: a.limit,
       });
       return {
-        content: [{ type: 'text', text: JSON.stringify(text, null, 2) }],
+        content: [{ type: 'text', text: safeStringify(text) }],
       };
     },
   );
@@ -241,7 +252,7 @@ async function main() {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(nodes, null, 2),
+            text: safeStringify(nodes),
           },
         ],
       };
@@ -269,7 +280,7 @@ async function main() {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(nodes, null, 2),
+            text: safeStringify(nodes),
           },
         ],
       };
@@ -288,7 +299,7 @@ async function main() {
       const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
       const nodes = await kg.getArtifactHistory(projectName, a.path, a.limit);
       return {
-        content: [{ type: 'text', text: JSON.stringify(nodes, null, 2) }],
+        content: [{ type: 'text', text: safeStringify(nodes) }],
       };
     },
   );
@@ -303,7 +314,7 @@ async function main() {
       const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
       const nodes = await kg.listOpenTasks(projectName);
       return {
-        content: [{ type: 'text', text: JSON.stringify(nodes, null, 2) }],
+        content: [{ type: 'text', text: safeStringify(nodes) }],
       };
     },
   );
@@ -338,13 +349,11 @@ async function main() {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(
+            text: safeStringify(
               {
                 activeProject,
                 projects,
               },
-              null,
-              2,
             ),
           },
         ],
