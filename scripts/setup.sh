@@ -170,6 +170,10 @@ if [ $? -eq 0 ]; then
     echo -e "⚠️  ${YELLOW}progress_display is enabled in Summarize fastagent.config.yaml.${NC}"
     echo -e "${YELLOW}Set progress_display: false to reduce log noise.${NC}"
   fi
+  if [ -f ../critic/fastagent.config.yaml ] && grep -q "progress_display: true" ../critic/fastagent.config.yaml; then
+    echo -e "⚠️  ${YELLOW}progress_display is enabled in Critic fastagent.config.yaml.${NC}"
+    echo -e "${YELLOW}Set progress_display: false to reduce log noise.${NC}"
+  fi
   if [ ! -f fastagent.secrets.yaml ]; then
     cp fastagent.secrets.template.yaml fastagent.secrets.yaml
     echo -e "✅ ${GREEN}Created fastagent.secrets.yaml${NC}"
