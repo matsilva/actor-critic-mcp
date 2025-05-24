@@ -1,4 +1,4 @@
-import { type Logger, pino } from 'pino';
+import { type Logger, pino, type LevelWithSilentOrString } from 'pino';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +14,7 @@ interface CreateLoggerOptions {
   withFile?: boolean;
   sync?: boolean;
   setGlobal?: boolean;
+  level?: string;
 }
 
 const logsDir = path.resolve(__dirname, '../logs');
@@ -25,10 +26,12 @@ if (!fs.existsSync(logsDir)) {
  * Creates and returns a new pino logger instance with the given options.
  * Also sets the global logger if not already set.
  */
-export function createLogger(options?: CreateLoggerOptions): CodeLoopsLogger {
+export function createLogger(options: CreateLoggerOptions = {}): CodeLoopsLogger {
   // Ensure logs directory exists
+  const { withDevStdout, withFile, setGlobal, level, ...pinoOptions } = options;
+
   const targets: pino.TransportTargetOptions[] = [];
-  if (options?.withFile) {
+  if (withFile) {
     targets.push({
       target: 'pino-roll',
       options: {
@@ -41,7 +44,7 @@ export function createLogger(options?: CreateLoggerOptions): CodeLoopsLogger {
       },
     });
   }
-  if (options?.withDevStdout) {
+  if (withDevStdout) {
     targets.push({
       target: 'pino-pretty',
       options: {
@@ -49,12 +52,16 @@ export function createLogger(options?: CreateLoggerOptions): CodeLoopsLogger {
       },
     });
   }
-  const transports = pino.transport({
-    targets,
-    ...(options ?? {}),
-  });
-  const logger = pino(transports);
-  if (options?.setGlobal && !globalLogger) {
+  const transports = pino.transport({ targets, ...pinoOptions });
+  const logLevel: LevelWithSilentOrString =
+    level ?? (process.env.LOG_LEVEL as LevelWithSilentOrString) ?? 'info';
+  
+  // Warn if debug level is set, as it can cause large log files
+  if (logLevel === 'debug' && withFile) {
+    console.warn('⚠️  Warning: LOG_LEVEL=debug can cause very large log files. Consider using "info" for production.');
+  }
+  const logger = pino({ level: logLevel }, transports);
+  if (setGlobal && !globalLogger) {
     globalLogger = logger;
   }
   return logger;
@@ -66,10 +73,18 @@ export function createLogger(options?: CreateLoggerOptions): CodeLoopsLogger {
 export function getInstance(options?: CreateLoggerOptions): CodeLoopsLogger {
   if (!globalLogger) {
     createLogger({ withFile: true, ...options, setGlobal: true });
+  } else if (options?.level || process.env.LOG_LEVEL) {
+    const logLevel: LevelWithSilentOrString =
+      options?.level ?? (process.env.LOG_LEVEL as LevelWithSilentOrString) ?? 'info';
+    globalLogger.level = logLevel;
   }
   return globalLogger!;
 }
 
 export function setGlobalLogger(logger: CodeLoopsLogger) {
   globalLogger = logger;
+}
+
+export function debug(...args: Parameters<CodeLoopsLogger['debug']>): void {
+  getInstance().debug(...args);
 }

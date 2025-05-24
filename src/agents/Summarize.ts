@@ -5,6 +5,10 @@ import { getInstance as getLogger } from '../logger.ts';
 import { fileURLToPath } from 'node:url';
 import { v4 as uuid } from 'uuid';
 import { DagNode, KnowledgeGraphManager, SummaryNode } from '../engine/KnowledgeGraph.ts';
+import { Tag } from '../engine/tags.ts';
+
+// Maximum length for debug output (500 chars - much more reasonable for frequent logging)
+const MAX_DEBUG_LENGTH = 500;
 
 /**
  * SummarizationAgent provides an interface to the Python-based summarization agent.
@@ -15,7 +19,11 @@ export class SummarizationAgent {
   private readonly agentPath: string;
 
   // Number of nodes after which to trigger summarization
-  private static SUMMARIZATION_THRESHOLD = 20;
+  private static SUMMARIZATION_THRESHOLD = (() => {
+    const env = process.env.SUMMARIZATION_THRESHOLD;
+    const parsed = env ? parseInt(env, 10) : NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
+  })();
 
   /**
    * Creates a new SummarizationAgent.
@@ -44,12 +52,12 @@ export class SummarizationAgent {
       // Serialize the nodes to JSON
       const nodesJson = JSON.stringify(nodes);
 
-      // Log input for debugging
-      getLogger().info({ nodesJson }, 'Summarization agent input');
+      // Only log essential info, not debug data
+      getLogger().info(`[summarize] Processing ${nodes.length} nodes (${(nodesJson.length / 1024).toFixed(1)}KB)`);
 
       // Call the Python agent using execa
       const [execError, output] = await to(
-        execa(this.pythonCommand, [...this.pythonArgs, 'agent.py', '--summarize'], {
+        execa(this.pythonCommand, [...this.pythonArgs, 'agent.py', '--quiet', '--summarize'], {
           cwd: this.agentPath,
           input: nodesJson,
         }),
@@ -64,13 +72,17 @@ export class SummarizationAgent {
         };
       }
 
-      // Handle stderr output
-      if (output.stderr) {
-        getLogger().error({ stderr: output.stderr }, 'Summarization agent stderr output');
+      // Handle stderr output - only log if there's an actual error
+      if (output.stderr && output.stderr.length > 0) {
+        const isActualError = output.stderr.includes('Error') || 
+                             output.stderr.includes('Exception') || 
+                             output.stderr.includes('Traceback');
+        
+        if (isActualError) {
+          getLogger().error({ stderr: output.stderr.slice(0, 200) }, 'Summarization agent error');
+        }
+        // Don't log verbose output at all
       }
-
-      // Log raw output for debugging
-      getLogger().info({ rawOutput: output.stdout }, 'Summarization agent raw output');
 
       // Parse the response with improved error handling
       let response;
@@ -78,10 +90,7 @@ export class SummarizationAgent {
         response = JSON.parse(output.stdout.trim());
       } catch (parseError) {
         const err = parseError as Error;
-        getLogger().error(
-          { parseError, rawOutput: output.stdout },
-          'Failed to parse summarization agent response',
-        );
+        getLogger().error({ parseError: err.message }, 'Failed to parse summarization response');
         return { summary: '', error: `Failed to parse JSON response: ${err.message}` };
       }
 
@@ -190,7 +199,7 @@ export class SummarizationAgent {
       createdAt: '', // Will be set by appendEntity
       projectContext,
       summarizedSegment: nodes.map((node) => node.id),
-      tags: ['summary'],
+      tags: [Tag.Summary],
       artifacts: [],
     };
 

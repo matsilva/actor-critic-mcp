@@ -6,9 +6,23 @@ import { KnowledgeGraphManager } from './engine/KnowledgeGraph.ts';
 import { Critic } from './agents/Critic.ts';
 import { Actor } from './agents/Actor.ts';
 import { SummarizationAgent } from './agents/Summarize.ts';
+import { TagEnum } from './engine/tags.ts';
 import pkg from '../package.json' with { type: 'json' };
 import { CodeLoopsLogger, getInstance as getLogger, setGlobalLogger } from './logger.ts';
 import { extractProjectName } from './utils/project.ts';
+
+// Helper function to safely stringify large objects
+function safeStringify(obj: any, maxLength = 10000): string {
+  const jsonString = JSON.stringify(obj, null, 2);
+  if (jsonString.length <= maxLength) {
+    return jsonString;
+  }
+  
+  // If too large, return a truncated version with summary
+  const truncated = jsonString.slice(0, maxLength);
+  const nodeCount = Array.isArray(obj) ? obj.length : (obj ? 1 : 0);
+  return truncated + `\n... [TRUNCATED - Total length: ${jsonString.length} chars, Nodes: ${nodeCount}]`;
+}
 
 // -----------------------------------------------------------------------------
 // MCP Server -------------------------------------------------------------------
@@ -77,14 +91,14 @@ async function main() {
   1. **Call 'actor_think' for all actions**:
      - Planning, requirement capture, task breakdown, or coding steps.
      - Use the 'projectContext' property to specify the full path to the currently open directory.
-  2. **Always include at least one semantic tag** (e.g., 'requirement', 'task', 'file-modification', 'task-complete') to enable searchability and trigger appropriate reviews.
+  2. **Always include at least one semantic tag** (e.g., 'requirement', 'task', 'design', 'risk', 'task-complete', 'summary') to enable searchability and trigger appropriate reviews.
   3. **Iterative Workflow**:
      - File modifications or task completions automatically trigger critic reviews.
      - Use the critic's feedback (in 'criticNode') to refine your next thought.
   4. **Tags and artifacts are critical for tracking decisions and avoiding duplicate work**.
   
   **Example Workflow**:
-  - Step 1: Call 'actor_think' with thought: "Create main.ts with initial setup", projectContext: "/path/to/project", artifacts: ['src/main.ts'], tags: ['file-modification'].
+  - Step 1: Call 'actor_think' with thought: "Create main.ts with initial setup", projectContext: "/path/to/project", artifacts: ['src/main.ts'], tags: ['task'].
       - Response: Includes feedback from the critic
   - Step 2:  Make any necessary changes and call 'actor_think' again with the updated thought.
   - Repeat until the all work is completed.
@@ -113,7 +127,7 @@ async function main() {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(node, null, 2),
+          text: safeStringify(node),
         },
       ],
     };
@@ -140,14 +154,12 @@ async function main() {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(
+            text: safeStringify(
               await engine.criticReview({
                 actorNodeId: a.actorNodeId,
                 projectContext: a.projectContext,
                 project: projectName,
               }),
-              null,
-              2,
             ),
           },
         ],
@@ -167,7 +179,36 @@ async function main() {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(node, null, 2),
+            text: safeStringify(node),
+          },
+        ],
+      };
+    },
+  );
+
+  server.tool(
+    'get_neighbors',
+    'Get a node along with its parents and children up to the requested depth',
+    {
+      id: z.string().describe('ID of the node to retrieve neighbors for.'),
+      projectContext: z.string().describe('Full path to the project directory.'),
+      depth: z
+        .number()
+        .optional()
+        .describe('How many levels of neighbors to include. Defaults to 1.'),
+    },
+    async (a) => {
+      await loadProjectOrThrow({
+        logger,
+        args: { projectContext: a.projectContext },
+        onProjectLoad: runOnce,
+      });
+      const nodes = await kg.getNeighbors(a.id, a.depth);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: safeStringify(nodes),
           },
         ],
       };
@@ -191,7 +232,7 @@ async function main() {
         limit: a.limit,
       });
       return {
-        content: [{ type: 'text', text: JSON.stringify(text, null, 2) }],
+        content: [{ type: 'text', text: safeStringify(text) }],
       };
     },
   );
@@ -211,9 +252,69 @@ async function main() {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(nodes, null, 2),
+            text: safeStringify(nodes),
           },
         ],
+      };
+    },
+  );
+
+  server.tool(
+    'search_nodes',
+    'Search nodes by tags and/or text query',
+    {
+      projectContext: z.string().describe('Full path to the project directory.'),
+      tags: z.array(TagEnum).optional().describe('Tags to match.'),
+      query: z.string().optional().describe('Substring to search for in thoughts.'),
+      limit: z.number().optional().describe('Limit the number of nodes returned.'),
+    },
+    async (a) => {
+      const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
+      const nodes = await kg.search({
+        project: projectName,
+        tags: a.tags,
+        query: a.query,
+        limit: a.limit,
+      });
+      return {
+        content: [
+          {
+            type: 'text',
+            text: safeStringify(nodes),
+          },
+        ],
+      };
+    },
+  );
+
+  server.tool(
+    'artifact_history',
+    'Retrieve history for a specific artifact path',
+    {
+      projectContext: z.string().describe('Full path to the project directory.'),
+      path: z.string().describe('Artifact path to look up.'),
+      limit: z.number().optional().describe('Limit the number of nodes returned.'),
+    },
+    async (a) => {
+      const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
+      const nodes = await kg.getArtifactHistory(projectName, a.path, a.limit);
+      return {
+        content: [{ type: 'text', text: safeStringify(nodes) }],
+      };
+    },
+  );
+
+  server.tool(
+    'list_open_tasks',
+    'List actor nodes tagged "task" that have not been marked as "task-complete"',
+    {
+      projectContext: z.string().describe('Full path to the project directory.'),
+    },
+    async (a) => {
+      const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
+      const nodes = await kg.listOpenTasks(projectName);
+      return {
+        content: [{ type: 'text', text: safeStringify(nodes) }],
       };
     },
   );
@@ -248,13 +349,11 @@ async function main() {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(
+            text: safeStringify(
               {
                 activeProject,
                 projects,
               },
-              null,
-              2,
             ),
           },
         ],
