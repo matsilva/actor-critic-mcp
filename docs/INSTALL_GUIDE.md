@@ -132,6 +132,18 @@ For more info on LLM providers and models, see the [fast-agent docs](https://fas
    uv run fast-agent check
    ```
 
+> **Important**: Recent updates disable progress logs in the summarization
+> agent. If you installed CodeLoops before this change, edit
+> `agents/summarize/fastagent.config.yaml` and ensure it contains:
+>
+> ```yaml
+> logger:
+>   level: info
+>   progress_display: false
+> ```
+>
+> You can copy the latest template over the file if needed.
+
 For more info on LLM providers and models, see the [fast-agent docs](https://fast-agent.ai/models/llm_providers/)
 
 #### 4.3 Understanding `uv sync`

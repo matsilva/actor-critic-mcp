@@ -86,6 +86,20 @@ passing a `level` option to `createLogger`/`getInstance` (e.g. `debug`,
 > **Note**: Setting `LOG_LEVEL=debug` writes large log entries and can quickly
 > fill disk space. Use `info` unless you need deep debugging.
 
+### Refresh Summarizer Config
+
+Older installations may still have progress display enabled for the
+summarization agent. Make sure `agents/summarize/fastagent.config.yaml`
+contains:
+
+```yaml
+logger:
+  level: info
+  progress_display: false
+```
+
+Copy `fastagent.config.template.yaml` over the existing file if needed.
+
 ### Configure Your Agent
 
 Connect your agent to the CodeLoops server by adding the MCP server configuration. Most platforms follow a similar structure:
