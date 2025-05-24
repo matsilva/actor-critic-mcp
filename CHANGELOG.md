@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- feat: make summarization threshold configurable via `SUMMARIZATION_THRESHOLD` env var
+
 - chore: warn if critic config still uses progress_display in setup script
 - chore: progress logs disabled by default in agent configs
 

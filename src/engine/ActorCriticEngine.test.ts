@@ -7,7 +7,7 @@ import { v4 as uuid } from 'uuid';
 import { ActorCriticEngine } from './ActorCriticEngine.js';
 import { KnowledgeGraphManager, type DagNode } from './KnowledgeGraph.js';
 import { Actor } from '../agents/Actor.js';
-import { SummarizationAgent } from '../agents/Summarize.js';
+import type { SummarizationAgent } from '../agents/Summarize.js';
 import type { Critic } from '../agents/Critic.js';
 import { Tag } from './tags.js';
 import { createLogger, setGlobalLogger, getInstance as getLogger } from '../logger.js';
@@ -145,6 +145,10 @@ describe('ActorCriticEngine', () => {
   });
 
   it('invokes summarization when threshold met', async () => {
+    const originalEnv = process.env.SUMMARIZATION_THRESHOLD;
+    process.env.SUMMARIZATION_THRESHOLD = '1';
+    vi.resetModules();
+    const { SummarizationAgent } = await import('../agents/Summarize.js');
     const summarizationAgent = new SummarizationAgent(kg);
     const createSummary = vi.spyOn(summarizationAgent, 'createSummary').mockResolvedValue({
       id: uuid(),
@@ -161,8 +165,7 @@ describe('ActorCriticEngine', () => {
     });
 
     const SA = SummarizationAgent as unknown as { SUMMARIZATION_THRESHOLD: number };
-    const originalThreshold = SA.SUMMARIZATION_THRESHOLD;
-    SA.SUMMARIZATION_THRESHOLD = 1;
+    expect(SA.SUMMARIZATION_THRESHOLD).toBe(1);
 
     const critic = {
       review: vi.fn(async ({ actorNodeId, project, projectContext }) => {
@@ -201,6 +204,11 @@ describe('ActorCriticEngine', () => {
     });
 
     expect(createSummary).toHaveBeenCalled();
-    SA.SUMMARIZATION_THRESHOLD = originalThreshold;
+    if (originalEnv === undefined) {
+      delete process.env.SUMMARIZATION_THRESHOLD;
+    } else {
+      process.env.SUMMARIZATION_THRESHOLD = originalEnv;
+    }
+    vi.resetModules();
   });
 });

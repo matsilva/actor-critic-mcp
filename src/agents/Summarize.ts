@@ -19,7 +19,11 @@ export class SummarizationAgent {
   private readonly agentPath: string;
 
   // Number of nodes after which to trigger summarization
-  private static SUMMARIZATION_THRESHOLD = 20;
+  private static SUMMARIZATION_THRESHOLD = (() => {
+    const env = process.env.SUMMARIZATION_THRESHOLD;
+    const parsed = env ? parseInt(env, 10) : NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
+  })();
 
   /**
    * Creates a new SummarizationAgent.
