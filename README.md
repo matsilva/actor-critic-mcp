@@ -74,6 +74,8 @@ Gemini caching API.
 
 Set the `GENAI_THINKING_BUDGET` environment variable to define the thinking
 budget (in tokens) for Google GenAI models. A value of `0` disables thinking.
+This value is automatically supplied to Gemini's `thinkingConfig` when
+generating content.
 
 ### Log Level
 
