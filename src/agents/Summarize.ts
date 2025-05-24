@@ -7,6 +7,9 @@ import { v4 as uuid } from 'uuid';
 import { DagNode, KnowledgeGraphManager, SummaryNode } from '../engine/KnowledgeGraph.ts';
 import { Tag } from '../engine/tags.ts';
 
+// Maximum length for debug output (2KB)
+const MAX_DEBUG_LENGTH = 2 * 1024;
+
 /**
  * SummarizationAgent provides an interface to the Python-based summarization agent.
  * It handles serialization/deserialization of node data and processes the agent's response.
@@ -45,8 +48,12 @@ export class SummarizationAgent {
       // Serialize the nodes to JSON
       const nodesJson = JSON.stringify(nodes);
 
-      // Log input for debugging
-      getLogger().debug({ nodesJson }, 'Summarization agent input');
+      // Log input for debugging with truncated preview
+      const nodesPreview =
+        nodesJson.length > MAX_DEBUG_LENGTH
+          ? `${nodesJson.slice(0, MAX_DEBUG_LENGTH)}...`
+          : nodesJson;
+      getLogger().debug({ nodesJson: nodesPreview }, 'Summarization agent input');
 
       // Call the Python agent using execa
       const [execError, output] = await to(
@@ -70,8 +77,12 @@ export class SummarizationAgent {
         getLogger().error({ stderr: output.stderr }, 'Summarization agent stderr output');
       }
 
-      // Log raw output for debugging
-      getLogger().debug({ rawOutput: output.stdout }, 'Summarization agent raw output');
+      // Log raw output for debugging with truncated preview
+      const rawPreview =
+        output.stdout.length > MAX_DEBUG_LENGTH
+          ? `${output.stdout.slice(0, MAX_DEBUG_LENGTH)}...`
+          : output.stdout;
+      getLogger().debug({ rawOutput: rawPreview }, 'Summarization agent raw output');
 
       // Parse the response with improved error handling
       let response;
