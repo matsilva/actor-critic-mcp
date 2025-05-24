@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- chore: warn if critic config still uses progress_display in setup script
 - chore: progress logs disabled by default in agent configs
 
 - fix: cap summarization agent stderr logs to avoid runaway output
