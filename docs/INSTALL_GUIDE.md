@@ -89,22 +89,25 @@ The Critic and Summarization agents require separate Python environments managed
    cp fastagent.secrets.template.yaml fastagent.secrets.yaml
    ```
 4. Edit `fastagent.secrets.yaml` to include your LLM API key:
-  ```yaml
-  anthropic:
-    api_key: your-anthropic-api-key
-  # Example for OpenAI
-  openai:
-    api_key: your-openai-api-key
-  # Example for Gemini
-  google:
-    api_key: your-gemini-api-key
-  ```
-  Replace `your-anthropic-api-key` or `your-openai-api-key` with your actual keys.
-5. Verify configuration:
-   ```bash
-   uv run fast-agent check
-   ```
-   This checks if the configuration and API keys are valid.
+
+```yaml
+anthropic:
+  api_key: your-anthropic-api-key
+# Example for OpenAI
+openai:
+  api_key: your-openai-api-key
+# Example for Gemini
+google:
+  api_key: your-gemini-api-key
+```
+
+Replace `your-anthropic-api-key` or `your-openai-api-key` with your actual keys. 5. Verify configuration:
+
+```bash
+uv run fast-agent check
+```
+
+This checks if the configuration and API keys are valid.
 
 For more info on LLM providers and models, see the [fast-agent docs](https://fast-agent.ai/models/llm_providers/)
 
@@ -128,6 +131,19 @@ For more info on LLM providers and models, see the [fast-agent docs](https://fas
    ```bash
    uv run fast-agent check
    ```
+
+> **Important**: Progress logs are disabled by default. If you installed
+> CodeLoops before this change, edit each `fastagent.config.yaml` and
+> ensure it contains:
+>
+> ```yaml
+> logger:
+>   level: info
+>   progress_display: false
+> ```
+>
+> Set the value to `true` if you want a progress bar. You can copy the
+> latest template over the file if needed.
 
 For more info on LLM providers and models, see the [fast-agent docs](https://fast-agent.ai/models/llm_providers/)
 
@@ -171,6 +187,13 @@ You can store Gemini prompt context using the caching API. Set the
 to control how long cached inputs persist. See
 [genai-node-reference.md](../genai-node-reference.md) for details on the Gemini
 caching API.
+
+Set `GENAI_THINKING_BUDGET` to control the token budget spent on the model's
+thinking phase. Use `0` to disable thinking entirely. The server forwards this
+value to Gemini using `thinkingConfig` during generation.
+
+Set `SUMMARIZATION_THRESHOLD` to control how many new nodes must accumulate
+before the summarizer runs. The default is `20` if unset or invalid.
 
 ### Step 5: Test the MCP Server
 

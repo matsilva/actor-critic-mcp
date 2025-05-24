@@ -16,5 +16,6 @@ This file provides orientation for coding agents working in this repository.
 - Install dependencies with `npm install` and follow `scripts/setup.sh` if you need a full environment with Python agents.
 - Run tests with `npm test`.
 - Format code using `npm run format` and lint with `npm run lint`.
+- Document all changes in `CHANGELOG.md`, adding new entries to the **top** of the file.
 
 When implementing features that rely on the Google Generative AI Node.js library, **consult `genai-node-reference.md`** for usage patterns and best practices.

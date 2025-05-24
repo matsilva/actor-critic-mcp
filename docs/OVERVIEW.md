@@ -82,6 +82,17 @@ High‑level flow: caller → MCP → KG + Actor/Critic loop
 The actor-critic system follows this workflow:
 
 1. The agent calls `actor_think` to add a new thought node to the knowledge graph
+   - Include metadata so the graph can track progress:
+     - **`parents`** – IDs of previous nodes this thought depends on
+     - **`diff`** – optional git-style diff summarizing code changes
+     - **`tags`** – categorize the node for later search. Tags are defined in the
+       [`Tag` enum`](../src/engine/tags.ts):
+       - `Tag.Requirement`
+       - `Tag.Task`
+       - `Tag.Design`
+       - `Tag.Risk`
+       - `Tag.TaskComplete`
+       - `Tag.Summary`
 2. The critic evaluates the node and provides a verdict:
    - `approved`: The node meets all requirements
    - `needs_revision`: The node needs specific improvements

@@ -83,7 +83,8 @@ Control log verbosity by setting the `LOG_LEVEL` environment variable or
 passing a `level` option to `createLogger`/`getInstance` (e.g. `debug`,
 `info`, `warn`). Defaults to `info` if unset.
 
-> ⚠️ **Important**: Setting `LOG_LEVEL=debug` can cause log files to grow to GB sizes within minutes, potentially exhausting device storage. The debug logs include large JSON objects from the summarization agent. Always use `LOG_LEVEL=info` (default) for normal operation, and only use `debug` temporarily for troubleshooting specific issues.
+> **Note**: Setting `LOG_LEVEL=debug` writes large log entries and can quickly
+> fill disk space. Use `info` unless you need deep debugging.
 
 ### Progress Logging
 

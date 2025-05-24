@@ -3,6 +3,7 @@ import { Actor } from '../agents/Actor.ts';
 import { KnowledgeGraphManager, type DagNode, FILE_REF } from './KnowledgeGraph.ts';
 import { SummarizationAgent } from '../agents/Summarize.ts';
 import { z } from 'zod';
+import { TagEnum } from './tags.ts';
 // -----------------------------------------------------------------------------
 // Actor–Critic engine ----------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -12,7 +13,7 @@ Add a new thought node to the knowledge‑graph.
 
 • Use for any creative / planning step, requirement capture, task break‑down, etc.
 • **Always include at least one 'tag'** so future searches can find this node
-  – e.g. requirement, task, risk, design, definition.
+  – e.g. requirement, task, design, risk, task-complete, summary.
 • **If your thought references a file you just created or modified**, list it in
   the 'artifacts' array so the graph stores a durable link.
 • Think of 'tags' + 'artifacts' as the breadcrumbs that future you (or another
@@ -29,9 +30,18 @@ export const ActorThinkSchema = {
     ),
 
   tags: z
-    .array(z.string())
-    .min(1, 'Add at least one semantic tag – requirement, task, risk, design …')
+    .array(TagEnum)
+    .min(
+      1,
+      'Add at least one semantic tag – requirement, task, design, risk, task-complete, summary',
+    )
     .describe('Semantic categories used for later search and deduping.'),
+
+  /** Optional git-style diff summarizing code changes. */
+  diff: z.string().optional(),
+
+  /** Optional parent node IDs this thought builds upon. */
+  parents: z.array(z.string()).optional(),
 
   /** Actual files produced or updated by this step.*/
   artifacts: z
@@ -102,11 +112,12 @@ export class ActorCriticEngine {
   }): Promise<DagNode> {
     const criticNode = await this.critic.review({ actorNodeId, projectContext, project });
 
-    // Trigger summarization check after adding a critic node
-    await this.summarizationAgent.checkAndTriggerSummarization({
-      project,
-      projectContext,
-    });
+    // Temporarily disable automatic summarization to prevent performance issues
+    // TODO: Re-enable once the core exponential growth issue is resolved
+    // await this.summarizationAgent.checkAndTriggerSummarization({
+    //   project,
+    //   projectContext,
+    // });
 
     return criticNode;
   }

@@ -8,26 +8,44 @@ export class Actor {
   async think(
     input: ActorThinkInput & { artifacts?: Partial<ArtifactRef>[]; project: string },
   ): Promise<{ node: DagNode }> {
-    const { thought, tags, artifacts, project, projectContext } = input;
+    const {
+      thought,
+      tags,
+      artifacts,
+      project,
+      projectContext,
+      parents: inputParents,
+      diff,
+    } = input;
 
-    //TODO: rework parents
-    // const parents = (await this.kg.getHeads(project)).map((h) => h.id);
+    const parents =
+      inputParents && inputParents.length > 0
+        ? inputParents
+        : (await this.kg.getHeads(project)).map((h) => h.id);
 
     const node: DagNode = {
       id: uuid(),
       project,
       thought,
       role: 'actor',
-      parents: [],
+      parents,
       children: [],
       createdAt: '', // Will be set by appendEntity
       tags,
+      ...(diff && { diff }),
       artifacts: artifacts as ArtifactRef[],
       projectContext,
     };
 
-    // Persist node
     await this.kg.appendEntity(node);
+
+    for (const parentId of parents) {
+      const parent = await this.kg.getNode(parentId);
+      if (parent && !parent.children.includes(node.id)) {
+        parent.children.push(node.id);
+        await this.kg.appendEntity(parent);
+      }
+    }
 
     return { node };
   }

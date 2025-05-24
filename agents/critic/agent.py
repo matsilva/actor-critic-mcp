@@ -15,7 +15,9 @@ You are part of the CodeLoops system with these key components:
 - KnowledgeGraphManager: Stores all nodes, artifacts, and relationships
 
 ## DagNode Schema
-You review nodes with this structure:
+You review nodes with this structure.
+The `Tag` enum in `src/engine/tags.ts` defines valid tag values:
+`requirement`, `task`, `design`, `risk`, `task-complete`, `summary`.
 ```typescript
 interface DagNode {
   id: string;
@@ -28,7 +30,8 @@ interface DagNode {
   children: string[];
   createdAt: string; // ISO timestamp
   projectContext: string;// full path to the currently open directory in the code editor
-  tags?: string[]; // categories ("design", "task", etc.)
+  diff?: string; // optional git-style diff summarizing code changes
+  tags?: Tag[]; // Tag enum values: requirement, task, design, risk, task-complete, summary
   artifacts?: ArtifactRef[]; // attached artifacts
 }
 ```
@@ -36,9 +39,10 @@ interface DagNode {
 ## Actor Schema Requirements
 The actor must follow these schema requirements:
 1. `thought`: Must be non-empty and describe the work done
-2. `tags`: Must include at least one semantic tag (requirement, task, risk, design, definition)
+2. `tags`: Must include at least one semantic tag using the `Tag` enum (requirement, task, design, risk, task-complete, summary)
 3. `artifacts`: Must be included when files are referenced in the thought
 4. `projectContext`: Must be included to infer the project name from the last item in the path.
+5. `diff`: Optional git-style diff of code changes when applicable
 
 ## Your Review Process
 When reviewing an actor node:

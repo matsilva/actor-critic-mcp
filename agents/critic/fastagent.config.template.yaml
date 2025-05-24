@@ -22,7 +22,7 @@ logger:
   # path: "/path/to/logfile.jsonl"
 
   # Switch the progress display on or off
-  progress_display: true
+  progress_display: false
 
   # Show chat User/Assistant messages on the console
   show_chat: false

@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { KnowledgeGraphManager, DagNode } from './KnowledgeGraph.js';
+import { Tag } from './tags.js';
+import { Actor } from '../agents/Actor.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { v4 as uuid } from 'uuid';
@@ -51,8 +53,9 @@ describe('KnowledgeGraphManager', () => {
     parents,
     children: [],
     createdAt: '',
-    tags: ['test-tag'],
+    tags: [Tag.Task],
     artifacts: [],
+    diff: undefined,
   });
 
   describe('appendEntity', () => {
@@ -78,6 +81,15 @@ describe('KnowledgeGraphManager', () => {
       expect(() => new Date(testNode.createdAt)).not.toThrow();
     });
 
+    it('should store the diff field when provided', async () => {
+      const testNode = createTestNode('test-project');
+      testNode.diff = 'diff --git a/file b/file';
+      await kg.appendEntity(testNode);
+
+      const stored = await kg.getNode(testNode.id);
+      expect(stored?.diff).toBe('diff --git a/file b/file');
+    });
+
     it('should not allow cycles in the graph', async () => {
       // Create a chain of nodes A -> B -> C
       const nodeA = createTestNode('test-project');
@@ -100,6 +112,66 @@ describe('KnowledgeGraphManager', () => {
       expect(nodes.length).toBe(4);
       expect(nodes[nodes.length - 1].id).toBe(nodeD.id);
     });
+
+    it('throws an error when appending a node that creates a cycle', async () => {
+      const nodeA = createTestNode('test-project');
+      await kg.appendEntity(nodeA);
+
+      const nodeB = createTestNode('test-project', 'actor', [nodeA.id]);
+      await kg.appendEntity(nodeB);
+
+      // Update nodeA to reference its child so a path exists A -> B
+      nodeA.children.push(nodeB.id);
+      await kg.appendEntity(nodeA);
+
+      // Re-append nodeA with nodeB as parent to form a cycle A -> B -> A
+      nodeA.parents = [nodeB.id];
+
+      await expect(kg.appendEntity(nodeA)).rejects.toThrow('create a cycle');
+    });
+
+    it('allows multiple parents without cycles', async () => {
+      const root = createTestNode('test-project');
+      await kg.appendEntity(root);
+
+      const child1 = createTestNode('test-project', 'actor', [root.id]);
+      await kg.appendEntity(child1);
+
+      const child2 = createTestNode('test-project', 'actor', [root.id]);
+      await kg.appendEntity(child2);
+
+      const merge = createTestNode('test-project', 'actor', [child1.id, child2.id]);
+
+      await expect(kg.appendEntity(merge)).resolves.not.toThrow();
+    });
+
+    it('throws when a node already reaches its parent through children', async () => {
+      const nodeA = createTestNode('test-project');
+      await kg.appendEntity(nodeA);
+
+      const nodeB = createTestNode('test-project', 'actor', [nodeA.id]);
+      await kg.appendEntity(nodeB);
+      nodeA.children.push(nodeB.id);
+      await kg.appendEntity(nodeA);
+
+      const nodeC = createTestNode('test-project', 'actor', [nodeB.id]);
+      await kg.appendEntity(nodeC);
+      nodeB.children.push(nodeC.id);
+      await kg.appendEntity(nodeB);
+
+      nodeA.parents = [nodeC.id];
+
+      await expect(kg.appendEntity(nodeA)).rejects.toThrow('create a cycle');
+    });
+
+    it('appends a node with valid parents', async () => {
+      const root = createTestNode('test-project');
+      await kg.appendEntity(root);
+
+      const child = createTestNode('test-project', 'actor', [root.id]);
+
+      await expect(kg.appendEntity(child)).resolves.not.toThrow();
+    });
   });
 
   describe('getNode', () => {
@@ -117,6 +189,18 @@ describe('KnowledgeGraphManager', () => {
       const nonExistentId = uuid();
       const result = await kg.getNode(nonExistentId);
       expect(result).toBeUndefined();
+    });
+
+    it('returns the latest entry when a node is updated', async () => {
+      const node = createTestNode('test-project');
+      await kg.appendEntity(node);
+
+      node.thought = 'updated thought';
+      await kg.appendEntity(node);
+
+      const retrieved = await kg.getNode(node.id);
+      expect(retrieved?.thought).toBe('updated thought');
+      expect(retrieved?.createdAt).toBe(node.createdAt);
     });
   });
 
@@ -162,21 +246,21 @@ describe('KnowledgeGraphManager', () => {
     it('should filter nodes by tag', async () => {
       // Create nodes with different tags
       const nodeA = createTestNode('test-project');
-      nodeA.tags = ['tag-a'];
+      nodeA.tags = [Tag.Requirement];
       await kg.appendEntity(nodeA);
 
       const nodeB = createTestNode('test-project');
-      nodeB.tags = ['tag-b'];
+      nodeB.tags = [Tag.Design];
       await kg.appendEntity(nodeB);
 
       const nodeC = createTestNode('test-project');
-      nodeC.tags = ['tag-a', 'tag-c'];
+      nodeC.tags = [Tag.Requirement, Tag.Risk];
       await kg.appendEntity(nodeC);
 
       // Filter by tag-a
       const result = await kg.export({
         project: 'test-project',
-        filterFn: (n: DagNode) => n.tags?.includes('tag-a'),
+        filterFn: (n: DagNode) => n.tags?.includes(Tag.Requirement),
       });
       expect(result.length).toBe(2);
       expect(result.map((n: DagNode) => n.id).sort()).toEqual([nodeA.id, nodeC.id].sort());
@@ -220,6 +304,126 @@ describe('KnowledgeGraphManager', () => {
     });
   });
 
+  describe('search', () => {
+    it('should find nodes by tag', async () => {
+      const nodeA = createTestNode('test-project');
+      nodeA.tags = [Tag.Task];
+      await kg.appendEntity(nodeA);
+
+      const nodeB = createTestNode('test-project');
+      nodeB.tags = [Tag.Design];
+      await kg.appendEntity(nodeB);
+
+      const results = await kg.search({ project: 'test-project', tags: [Tag.Task] });
+      expect(results.map((n) => n.id)).toEqual([nodeA.id]);
+    });
+
+    it('should find nodes by substring', async () => {
+      const node = createTestNode('test-project');
+      node.thought = 'Implement search feature';
+      await kg.appendEntity(node);
+
+      const results = await kg.search({ project: 'test-project', query: 'search' });
+      expect(results.length).toBe(1);
+      expect(results[0].id).toBe(node.id);
+    });
+
+    it('should combine tag and query filters', async () => {
+      const node = createTestNode('test-project');
+      node.tags = [Tag.Risk];
+      node.thought = 'Gamma thought here';
+      await kg.appendEntity(node);
+
+      const wrongTag = await kg.search({
+        project: 'test-project',
+        tags: [Tag.Design],
+        query: 'Gamma',
+      });
+      expect(wrongTag).toEqual([]);
+
+      const good = await kg.search({ project: 'test-project', tags: [Tag.Risk], query: 'Gamma' });
+      expect(good.length).toBe(1);
+      expect(good[0].id).toBe(node.id);
+    });
+  });
+
+  describe('getNeighbors', () => {
+    it('returns immediate neighbors by default', async () => {
+      const nodeA = createTestNode('test-project');
+      const nodeB = createTestNode('test-project');
+      const nodeC = createTestNode('test-project');
+
+      nodeA.children.push(nodeB.id);
+      nodeB.parents = [nodeA.id];
+      nodeA.parents.push(nodeC.id);
+
+      await kg.appendEntity(nodeB);
+      await kg.appendEntity(nodeA);
+      await kg.appendEntity(nodeC);
+
+      const neighbors = await kg.getNeighbors(nodeA.id);
+      const ids = neighbors.map((n) => n.id).sort();
+      expect(ids).toEqual([nodeA.id, nodeB.id, nodeC.id].sort());
+    });
+
+    it('respects the depth parameter', async () => {
+      const nodeA = createTestNode('test-project');
+      const nodeB = createTestNode('test-project');
+      const nodeC = createTestNode('test-project');
+
+      nodeA.children.push(nodeB.id);
+      nodeB.parents = [nodeA.id];
+      nodeB.children.push(nodeC.id);
+      nodeC.parents = [nodeB.id];
+
+      await kg.appendEntity(nodeC);
+      await kg.appendEntity(nodeB);
+      await kg.appendEntity(nodeA);
+
+      const depth1 = await kg.getNeighbors(nodeA.id, 1);
+      expect(depth1.map((n) => n.id).sort()).toEqual([nodeA.id, nodeB.id].sort());
+
+      const depth2 = await kg.getNeighbors(nodeA.id, 2);
+      expect(depth2.map((n) => n.id).sort()).toEqual([nodeA.id, nodeB.id, nodeC.id].sort());
+    });
+  });
+
+  describe('getArtifactHistory', () => {
+    it('returns nodes referencing a path', async () => {
+      const nodeA = createTestNode('test-project');
+      nodeA.artifacts = [{ name: 'A', path: 'src/a.ts' }];
+      await kg.appendEntity(nodeA);
+
+      const nodeB = createTestNode('test-project');
+      nodeB.artifacts = [{ name: 'A', path: 'src/a.ts' }];
+      await kg.appendEntity(nodeB);
+
+      const nodeC = createTestNode('test-project');
+      nodeC.artifacts = [{ name: 'B', path: 'src/b.ts' }];
+      await kg.appendEntity(nodeC);
+
+      const results = await kg.getArtifactHistory('test-project', 'src/a.ts');
+      expect(results.map((n) => n.id).sort()).toEqual([nodeA.id, nodeB.id].sort());
+    });
+
+    it('respects the limit parameter', async () => {
+      const node1 = createTestNode('test-project');
+      node1.artifacts = [{ name: 'A', path: 'file.ts' }];
+      const node2 = createTestNode('test-project');
+      node2.artifacts = [{ name: 'A', path: 'file.ts' }];
+      const node3 = createTestNode('test-project');
+      node3.artifacts = [{ name: 'A', path: 'file.ts' }];
+
+      await kg.appendEntity(node1);
+      await kg.appendEntity(node2);
+      await kg.appendEntity(node3);
+
+      const results = await kg.getArtifactHistory('test-project', 'file.ts', 2);
+      expect(results.length).toBe(2);
+      expect(results.map((n) => n.id)).toEqual([node2.id, node3.id]);
+    });
+  });
+
   describe('listProjects', () => {
     it('should list all projects with nodes in the graph', async () => {
       // Create nodes for different projects
@@ -237,6 +441,72 @@ describe('KnowledgeGraphManager', () => {
       // No nodes added
       const projects = await kg.listProjects();
       expect(projects).toEqual([]);
+    });
+  });
+
+  describe('listOpenTasks', () => {
+    it('returns only tasks without the task-complete tag', async () => {
+      const openTask = createTestNode('test-project');
+      openTask.tags = [Tag.Task];
+      await kg.appendEntity(openTask);
+
+      const doneTask = createTestNode('test-project');
+      doneTask.tags = [Tag.Task, Tag.TaskComplete];
+      await kg.appendEntity(doneTask);
+
+      const other = createTestNode('test-project');
+      other.tags = [Tag.Design];
+      await kg.appendEntity(other);
+
+      const results = await kg.listOpenTasks('test-project');
+      expect(results.map((n) => n.id)).toEqual([openTask.id]);
+    });
+  });
+
+  describe('getHeads', () => {
+    it('returns nodes with no children', async () => {
+      const nodeA = createTestNode('test-project');
+      const nodeB = createTestNode('test-project');
+      const nodeC = createTestNode('test-project');
+
+      nodeA.children.push(nodeB.id);
+      nodeB.parents = [nodeA.id];
+
+      await kg.appendEntity(nodeB);
+      await kg.appendEntity(nodeA);
+      await kg.appendEntity(nodeC);
+
+      const heads = await kg.getHeads('test-project');
+      expect(heads.map((n) => n.id).sort()).toEqual([nodeB.id, nodeC.id].sort());
+    });
+  });
+
+  describe('Actor.think', () => {
+    it('links new node to heads and updates parents', async () => {
+      const actor = new Actor(kg);
+      const head1 = createTestNode('test-project');
+      const head2 = createTestNode('test-project');
+
+      await kg.appendEntity(head1);
+      await kg.appendEntity(head2);
+
+      const { node } = await actor.think({
+        thought: 'New thought',
+        tags: [Tag.Task],
+        artifacts: [],
+        project: 'test-project',
+        projectContext: '/path/to/test-project',
+        diff: 'diff text',
+      });
+
+      const all = await kg.allDagNodes('test-project');
+      const latestHead1 = all.filter((n) => n.id === head1.id).pop();
+      const latestHead2 = all.filter((n) => n.id === head2.id).pop();
+
+      expect(node.parents.sort()).toEqual([head1.id, head2.id].sort());
+      expect(latestHead1?.children).toContain(node.id);
+      expect(latestHead2?.children).toContain(node.id);
+      expect(node.diff).toBe('diff text');
     });
   });
 });
