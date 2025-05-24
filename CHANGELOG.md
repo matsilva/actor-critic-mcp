@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- chore: progress logs disabled by default in agent configs
+
 - docs: advise refreshing summarizer config to disable progress display
 - chore: warn if summarizer config still uses progress_display in setup script
 - fix: disable summarization progress display to prevent runaway logs
