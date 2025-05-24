@@ -1,4 +1,4 @@
-import { type Logger, pino } from 'pino';
+import { type Logger, pino, type LevelWithSilentOrString } from 'pino';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,10 +26,12 @@ if (!fs.existsSync(logsDir)) {
  * Creates and returns a new pino logger instance with the given options.
  * Also sets the global logger if not already set.
  */
-export function createLogger(options?: CreateLoggerOptions): CodeLoopsLogger {
+export function createLogger(options: CreateLoggerOptions = {}): CodeLoopsLogger {
   // Ensure logs directory exists
+  const { withDevStdout, withFile, setGlobal, level, ...pinoOptions } = options;
+
   const targets: pino.TransportTargetOptions[] = [];
-  if (options?.withFile) {
+  if (withFile) {
     targets.push({
       target: 'pino-roll',
       options: {
@@ -42,7 +44,7 @@ export function createLogger(options?: CreateLoggerOptions): CodeLoopsLogger {
       },
     });
   }
-  if (options?.withDevStdout) {
+  if (withDevStdout) {
     targets.push({
       target: 'pino-pretty',
       options: {
@@ -50,13 +52,11 @@ export function createLogger(options?: CreateLoggerOptions): CodeLoopsLogger {
       },
     });
   }
-  const transports = pino.transport({
-    targets,
-    ...(options ?? {}),
-  });
-  const level = options?.level ?? process.env.LOG_LEVEL ?? 'info';
-  const logger = pino({ level }, transports);
-  if (options?.setGlobal && !globalLogger) {
+  const transports = pino.transport({ targets, ...pinoOptions });
+  const logLevel: LevelWithSilentOrString =
+    level ?? (process.env.LOG_LEVEL as LevelWithSilentOrString) ?? 'info';
+  const logger = pino({ level: logLevel }, transports);
+  if (setGlobal && !globalLogger) {
     globalLogger = logger;
   }
   return logger;
@@ -68,6 +68,10 @@ export function createLogger(options?: CreateLoggerOptions): CodeLoopsLogger {
 export function getInstance(options?: CreateLoggerOptions): CodeLoopsLogger {
   if (!globalLogger) {
     createLogger({ withFile: true, ...options, setGlobal: true });
+  } else if (options?.level || process.env.LOG_LEVEL) {
+    const logLevel: LevelWithSilentOrString =
+      options?.level ?? (process.env.LOG_LEVEL as LevelWithSilentOrString) ?? 'info';
+    globalLogger.level = logLevel;
   }
   return globalLogger!;
 }
