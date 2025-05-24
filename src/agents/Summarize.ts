@@ -52,16 +52,8 @@ export class SummarizationAgent {
       // Serialize the nodes to JSON
       const nodesJson = JSON.stringify(nodes);
 
-      // Log input summary for debugging (avoid massive JSON dumps)
-      getLogger().debug(
-        { 
-          nodeCount: nodes.length, 
-          totalJsonLength: nodesJson.length,
-          firstNodeId: nodes[0]?.id || 'none',
-          lastNodeId: nodes[nodes.length - 1]?.id || 'none'
-        }, 
-        'Summarization agent input'
-      );
+      // Only log essential info, not debug data
+      getLogger().info(`[summarize] Processing ${nodes.length} nodes (${(nodesJson.length / 1024).toFixed(1)}KB)`);
 
       // Call the Python agent using execa
       const [execError, output] = await to(
@@ -80,42 +72,17 @@ export class SummarizationAgent {
         };
       }
 
-      // Handle stderr output - only log if there's an actual error, not verbose output
+      // Handle stderr output - only log if there's an actual error
       if (output.stderr && output.stderr.length > 0) {
-        // Only log stderr if it appears to be an actual error (not just verbose Python output)
         const isActualError = output.stderr.includes('Error') || 
                              output.stderr.includes('Exception') || 
                              output.stderr.includes('Traceback');
         
         if (isActualError) {
-          const errPreview = output.stderr.length > MAX_DEBUG_LENGTH
-            ? `${output.stderr.slice(0, MAX_DEBUG_LENGTH)}...`
-            : output.stderr;
-          getLogger().error({ stderr: errPreview }, 'Summarization agent stderr output');
-        } else {
-          // Just log that there was verbose output, not the content
-          getLogger().debug(
-            { stderrLength: output.stderr.length }, 
-            'Summarization agent verbose output (not logged)'
-          );
+          getLogger().error({ stderr: output.stderr.slice(0, 200) }, 'Summarization agent error');
         }
+        // Don't log verbose output at all
       }
-
-      // Log raw output summary for debugging (avoid massive JSON dumps)
-      getLogger().debug(
-        { 
-          outputLength: output.stdout.length,
-          hasValidJson: (() => {
-            try {
-              JSON.parse(output.stdout.trim());
-              return true;
-            } catch {
-              return false;
-            }
-          })()
-        }, 
-        'Summarization agent raw output'
-      );
 
       // Parse the response with improved error handling
       let response;
@@ -123,14 +90,7 @@ export class SummarizationAgent {
         response = JSON.parse(output.stdout.trim());
       } catch (parseError) {
         const err = parseError as Error;
-        getLogger().error(
-          { 
-            parseError: err.message, 
-            outputLength: output.stdout.length,
-            outputPreview: output.stdout.slice(0, 200) + (output.stdout.length > 200 ? '...' : '')
-          },
-          'Failed to parse summarization agent response',
-        );
+        getLogger().error({ parseError: err.message }, 'Failed to parse summarization response');
         return { summary: '', error: `Failed to parse JSON response: ${err.message}` };
       }
 
