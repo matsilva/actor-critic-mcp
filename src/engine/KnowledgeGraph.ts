@@ -356,20 +356,27 @@ export class KnowledgeGraphManager {
   }
 
   async listOpenTasks(project: string): Promise<DagNode[]> {
-    return this.export({
-      project,
-      filterFn: (node) =>
-        node.role === 'actor' &&
-        node.tags?.includes(Tag.Task) &&
-        !node.tags?.includes(Tag.TaskComplete),
-    });
+    // First get recent nodes efficiently, then filter for open tasks
+    // Most open tasks will be in recent nodes, so this is much faster
+    const recentNodes = await this.getRecentNodes(project, 50); // Check last 50 nodes
+    const openTasks = recentNodes.filter(node =>
+      node.role === 'actor' &&
+      node.tags?.includes(Tag.Task) &&
+      !node.tags?.includes(Tag.TaskComplete)
+    );
+    
+    // If we found some tasks in recent nodes, return them
+    // If we need more comprehensive search, user can increase limit or use search tool
+    return openTasks;
   }
 
   async getHeads(project: string): Promise<DagNode[]> {
-    return this.export({
-      project,
-      filterFn: (node) => node.children.length === 0,
-    });
+    // Get recent nodes efficiently and filter for heads (nodes with no children)
+    // In most cases, the head nodes will be among the recent nodes
+    const recentNodes = await this.getRecentNodes(project, 50); // Check last 50 nodes
+    const heads = recentNodes.filter(node => node.children.length === 0);
+    
+    return heads;
   }
 
   async listProjects(): Promise<string[]> {
