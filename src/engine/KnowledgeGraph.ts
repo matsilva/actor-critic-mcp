@@ -246,6 +246,12 @@ export class KnowledgeGraphManager {
     filterFn?: (node: DagNode) => boolean;
     limit?: number;
   }): Promise<DagNode[]> {
+    // If we have a limit and no complex filter, use efficient reverse reading
+    if (limit && !filterFn) {
+      return this.getRecentNodes(project, limit);
+    }
+
+    // Fallback to full scan for complex queries
     const nodes: DagNode[] = [];
     const fileStream = fsSync.createReadStream(this.logFilePath);
     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
@@ -262,6 +268,56 @@ export class KnowledgeGraphManager {
       rl.close();
       fileStream.close();
     }
+  }
+
+  // New efficient method to get recent nodes by reading file in reverse
+  private async getRecentNodes(project: string, limit: number): Promise<DagNode[]> {
+    const nodes: DagNode[] = [];
+    const fileSize = (await fs.stat(this.logFilePath)).size;
+    
+    if (fileSize === 0) return nodes;
+    
+    // Read file in chunks from the end
+    const chunkSize = Math.min(8192, fileSize); // 8KB chunks
+    let position = fileSize;
+    let buffer = '';
+    let foundNodes = 0;
+    
+    while (position > 0 && foundNodes < limit) {
+      const readSize = Math.min(chunkSize, position);
+      position -= readSize;
+      
+      const fileHandle = await fs.open(this.logFilePath, 'r');
+      const { buffer: chunk } = await fileHandle.read({
+        buffer: Buffer.alloc(readSize),
+        offset: 0,
+        length: readSize,
+        position,
+      });
+      await fileHandle.close();
+      
+      // Prepend chunk to buffer
+      buffer = chunk.toString('utf8') + buffer;
+      
+      // Process complete lines from the end
+      const lines = buffer.split('\n');
+      buffer = lines.shift() || ''; // Keep incomplete line at start for next iteration
+      
+      // Process lines in reverse order (most recent first)
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        const node = this.parseDagNode(line);
+        if (node && node.project === project) {
+          nodes.unshift(node); // Add to beginning to maintain chronological order
+          foundNodes++;
+          if (foundNodes >= limit) break;
+        }
+      }
+    }
+    
+    return nodes;
   }
 
   async search({
