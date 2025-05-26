@@ -49,7 +49,7 @@ export class SummarizationAgent {
 
       // Call the Python agent using execa
       const [execError, output] = await to(
-        execa(this.pythonCommand, [...this.pythonArgs, 'agent.py', '--summarize'], {
+        execa(this.pythonCommand, [...this.pythonArgs, 'agent.py', '--quiet', '--summarize'], {
           cwd: this.agentPath,
           input: nodesJson,
         }),

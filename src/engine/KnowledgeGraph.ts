@@ -29,6 +29,25 @@ export const FILE_REF = z.object({
 });
 export type ArtifactRef = z.infer<typeof FILE_REF>;
 
+// Schema for validating DagNode entries
+export const DagNodeSchema = z.object({
+  id: z.string(),
+  project: z.string(),
+  projectContext: z.string(),
+  thought: z.string(),
+  role: z.enum(['actor', 'critic', 'summary']),
+  createdAt: z.string().datetime(),
+  parents: z.array(z.string()),
+  children: z.array(z.string()),
+  verdict: z.enum(['approved', 'needs_revision', 'reject']).optional(),
+  verdictReason: z.string().optional(),
+  verdictReferences: z.array(z.string()).optional(),
+  target: z.string().optional(),
+  summarizedSegment: z.array(z.string()).optional(),
+  artifacts: z.array(FILE_REF).optional(),
+  tags: z.array(z.string()).optional(),
+});
+
 export interface DagNode extends ActorThinkInput, WithProjectContext {
   id: string;
   thought: string;
@@ -56,24 +75,6 @@ export class KnowledgeGraphManager {
   private logFilePath: string = path.resolve(dataDir, 'knowledge_graph.ndjson');
   private logger: CodeLoopsLogger;
 
-  // Schema for validating DagNode entries
-  private static DagNodeSchema = z.object({
-    id: z.string(),
-    project: z.string(),
-    projectContext: z.string(),
-    thought: z.string(),
-    role: z.enum(['actor', 'critic', 'summary']),
-    createdAt: z.string().datetime(),
-    parents: z.array(z.string()),
-    children: z.array(z.string()),
-    verdict: z.enum(['approved', 'needs_revision', 'reject']).optional(),
-    verdictReason: z.string().optional(),
-    verdictReferences: z.array(z.string()).optional(),
-    target: z.string().optional(),
-    summarizedSegment: z.array(z.string()).optional(),
-    tags: z.array(z.string()).optional(),
-  });
-
   constructor(logger: CodeLoopsLogger) {
     this.logger = logger;
   }
@@ -95,7 +96,7 @@ export class KnowledgeGraphManager {
   private parseDagNode(line: string): DagNode | null {
     try {
       const parsed = JSON.parse(line);
-      const validated = KnowledgeGraphManager.DagNodeSchema.parse(parsed);
+      const validated = DagNodeSchema.parse(parsed);
       return validated as DagNode;
     } catch (err) {
       this.logger.error({ err, line }, 'Invalid DagNode entry');
