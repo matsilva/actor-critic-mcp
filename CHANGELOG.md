@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.7] - 2025-05-26
+
+* fix: json output and artifacts schema
+* chore: release v0.3.6
+
 ## [0.3.6] - 2025-05-22
 
 * chore: update eslint config
