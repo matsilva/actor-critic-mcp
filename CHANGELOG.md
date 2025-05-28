@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.8] - 2025-05-28
+
+* chore: switch display to false in template config
+* chore: release v0.3.7
+
 ## [0.3.7] - 2025-05-26
 
 * fix: json output and artifacts schema
