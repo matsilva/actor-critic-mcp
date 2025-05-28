@@ -1,4 +1,4 @@
-![CodeLoops](codeloops_banner.svg)
+![CodeLoops](media/svg/codeloops_banner.svg)
 
 # CodeLoops: Enabling Coding Agent Autonomy
 
