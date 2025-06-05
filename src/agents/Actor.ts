@@ -6,9 +6,9 @@ export class Actor {
   constructor(private readonly kg: KnowledgeGraphManager) {}
 
   async think(
-    input: ActorThinkInput & { artifacts?: Partial<ArtifactRef>[]; project: string },
+    input: ActorThinkInput & { artifacts?: Partial<ArtifactRef>[]; project: string; diff?: string },
   ): Promise<{ node: DagNode }> {
-    const { thought, tags, artifacts, project, projectContext, diff } = input;
+    const { thought, tags, artifacts, project, projectContext, diff = '' } = input;
 
     //TODO: rework parents
     // const parents = (await this.kg.getHeads(project)).map((h) => h.id);

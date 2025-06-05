@@ -2,13 +2,15 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { ActorCriticEngine, ActorThinkSchema } from './engine/ActorCriticEngine.ts';
-import { KnowledgeGraphManager } from './engine/KnowledgeGraph.ts';
+import { KnowledgeGraphManager, ArtifactRef } from './engine/KnowledgeGraph.ts';
 import { Critic } from './agents/Critic.ts';
 import { Actor } from './agents/Actor.ts';
 import { SummarizationAgent } from './agents/Summarize.ts';
 import pkg from '../package.json' with { type: 'json' };
 import { CodeLoopsLogger, getInstance as getLogger, setGlobalLogger } from './logger.ts';
 import { extractProjectName } from './utils/project.ts';
+import { execa } from 'execa';
+import { to } from 'await-to-js';
 
 // -----------------------------------------------------------------------------
 // MCP Server -------------------------------------------------------------------
@@ -17,6 +19,42 @@ import { extractProjectName } from './utils/project.ts';
 /**
  * Utilities for main entry point
  */
+
+/**
+ * Generate git diff for the provided artifacts.
+ * Gracefully fails and returns empty string if git is not available.
+ */
+async function getDiffForArtifacts(
+  artifacts: Partial<ArtifactRef>[] | undefined,
+  logger: CodeLoopsLogger,
+): Promise<string> {
+  if (!artifacts || artifacts.length === 0) {
+    return '';
+  }
+
+  const diffs: string[] = [];
+
+  for (const artifact of artifacts) {
+    if (!artifact.path) continue;
+
+    const [error, result] = await to(
+      execa('git', ['diff', artifact.path], {
+        reject: false,
+      }),
+    );
+
+    if (error || result.exitCode !== 0) {
+      logger.debug({ error, path: artifact.path }, 'Failed to get git diff for artifact');
+      continue;
+    }
+
+    if (result.stdout.trim()) {
+      diffs.push(`--- Diff for ${artifact.path} ---\n${result.stdout}`);
+    }
+  }
+
+  return diffs.join('\n\n');
+}
 
 const runOnceOnProjectLoad = ({ logger }: { logger: CodeLoopsLogger }) => {
   return (project: string) => {
@@ -105,9 +143,14 @@ async function main() {
    */
   server.tool('actor_think', ACTOR_THINK_DESCRIPTION, ActorThinkSchema, async (args) => {
     const projectName = await loadProjectOrThrow({ logger, args, onProjectLoad: runOnce });
+    
+    // Auto-generate diff for artifacts
+    const diff = await getDiffForArtifacts(args.artifacts, logger);
+    
     const node = await engine.actorThink({
       ...args,
       project: projectName,
+      diff,
     });
     return {
       content: [

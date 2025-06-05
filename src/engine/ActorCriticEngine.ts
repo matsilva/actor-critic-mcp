@@ -41,13 +41,6 @@ export const ActorThinkSchema = {
         'verify coverage before code is written.' +
         'graph has durable pointers to the exact revision.',
     ),
-
-  /** The changes introduced for this step */
-  diff: z
-    .string()
-    .describe(
-      'The actual changes/diff introduced in this step to track what was modified. Git diff format for code changes. And JSON diff format for non-code changes. N/A for actions that do not introduce changes.',
-    ),
 };
 
 export const ActorThinkSchemaZodObject = z.object(ActorThinkSchema);
@@ -70,7 +63,7 @@ export class ActorCriticEngine {
    * @param input The actor thought input
    * @returns Either the actor node (if no review was triggered) or the critic node (if review was triggered)
    */
-  async actorThink(input: ActorThinkInput & { project: string }): Promise<DagNode> {
+  async actorThink(input: ActorThinkInput & { project: string; diff?: string }): Promise<DagNode> {
     // Actor.think will handle project switching based on projectContext
     const { node } = await this.actor.think(input);
 
