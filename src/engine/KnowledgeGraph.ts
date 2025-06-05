@@ -6,7 +6,6 @@ import { z } from 'zod';
 import readline from 'node:readline';
 import { dataDir } from '../config.ts';
 import { CodeLoopsLogger } from '../logger.ts';
-import { ActorThinkInput } from './ActorCriticEngine.ts';
 
 // -----------------------------------------------------------------------------
 // Interfaces & Schemas --------------------------------------------------------
@@ -46,9 +45,10 @@ export const DagNodeSchema = z.object({
   summarizedSegment: z.array(z.string()).optional(),
   artifacts: z.array(FILE_REF).optional(),
   tags: z.array(z.string()).optional(),
+  diff: z.string().optional(),
 });
 
-export interface DagNode extends ActorThinkInput, WithProjectContext {
+export interface DagNode extends WithProjectContext {
   id: string;
   thought: string;
   role: 'actor' | 'critic' | 'summary';
@@ -60,6 +60,9 @@ export interface DagNode extends ActorThinkInput, WithProjectContext {
   children: string[];
   createdAt: string; // ISO timestamp
   summarizedSegment?: string[]; // IDs of nodes summarized (for summary nodes)
+  artifacts?: ArtifactRef[];
+  tags?: string[];
+  diff?: string; // The changes introduced for this step
 }
 
 export interface SummaryNode extends DagNode {

@@ -176,7 +176,7 @@ describe('KnowledgeGraphManager', () => {
       // Filter by tag-a
       const result = await kg.export({
         project: 'test-project',
-        filterFn: (n: DagNode) => n.tags?.includes('tag-a'),
+        filterFn: (n: DagNode) => n.tags?.includes('tag-a') ?? false,
       });
       expect(result.length).toBe(2);
       expect(result.map((n: DagNode) => n.id).sort()).toEqual([nodeA.id, nodeC.id].sort());

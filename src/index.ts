@@ -9,6 +9,7 @@ import { SummarizationAgent } from './agents/Summarize.ts';
 import pkg from '../package.json' with { type: 'json' };
 import { CodeLoopsLogger, getInstance as getLogger, setGlobalLogger } from './logger.ts';
 import { extractProjectName } from './utils/project.ts';
+import { getGitDiff } from './utils/git.ts';
 
 // -----------------------------------------------------------------------------
 // MCP Server -------------------------------------------------------------------
@@ -17,6 +18,7 @@ import { extractProjectName } from './utils/project.ts';
 /**
  * Utilities for main entry point
  */
+
 
 const runOnceOnProjectLoad = ({ logger }: { logger: CodeLoopsLogger }) => {
   return (project: string) => {
@@ -105,9 +107,14 @@ async function main() {
    */
   server.tool('actor_think', ACTOR_THINK_DESCRIPTION, ActorThinkSchema, async (args) => {
     const projectName = await loadProjectOrThrow({ logger, args, onProjectLoad: runOnce });
+    
+    // Auto-generate comprehensive git diff
+    const diff = await getGitDiff(logger);
+    
     const node = await engine.actorThink({
       ...args,
       project: projectName,
+      diff,
     });
     return {
       content: [

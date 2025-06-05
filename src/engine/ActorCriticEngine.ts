@@ -63,7 +63,7 @@ export class ActorCriticEngine {
    * @param input The actor thought input
    * @returns Either the actor node (if no review was triggered) or the critic node (if review was triggered)
    */
-  async actorThink(input: ActorThinkInput & { project: string }): Promise<DagNode> {
+  async actorThink(input: ActorThinkInput & { project: string; diff?: string }): Promise<DagNode> {
     // Actor.think will handle project switching based on projectContext
     const { node } = await this.actor.think(input);
 
