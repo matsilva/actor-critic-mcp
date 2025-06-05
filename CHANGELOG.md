@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.0] - 2025-06-05
+
+* test: add comprehensive unit tests for git utility functions
+* refactor: extract git diff logic to dedicated utility module
+* feat: enhance diff tracking with automatic git diff generation
+* feat: add diff tracking to knowledge graph nodes
+* Add Claude PR Assistant workflow
+* feat: add brand assets and logo files to media directory
+* chore: release v0.3.8
+
 ## [0.3.8] - 2025-05-28
 
 * chore: switch display to false in template config
