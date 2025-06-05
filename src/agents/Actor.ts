@@ -8,7 +8,7 @@ export class Actor {
   async think(
     input: ActorThinkInput & { artifacts?: Partial<ArtifactRef>[]; project: string },
   ): Promise<{ node: DagNode }> {
-    const { thought, tags, artifacts, project, projectContext } = input;
+    const { thought, tags, artifacts, project, projectContext, diff } = input;
 
     //TODO: rework parents
     // const parents = (await this.kg.getHeads(project)).map((h) => h.id);
@@ -24,6 +24,7 @@ export class Actor {
       tags,
       artifacts: artifacts as ArtifactRef[],
       projectContext,
+      diff,
     };
 
     // Persist node
