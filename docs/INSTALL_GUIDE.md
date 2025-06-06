@@ -141,14 +141,33 @@ If `uv sync` fails, ensure `uv` is installed and Python 3.11+ is available.
 
 ### Step 5: Test the MCP Server
 
+CodeLoops supports both stdio and HTTP transports. Test both to ensure proper functionality:
+
+#### Option 1: Test Stdio Transport (Default)
 1. Start the MCP server:
    ```bash
    npx -y tsx src
    ```
-2. The server should start without any errors
+2. The server should start without any errors and wait for input via stdio
+
+#### Option 2: Test HTTP Transport
+1. Start the HTTP server:
+   ```bash
+   npm run start:http
+   # or with custom options
+   npx -y tsx src --http --port 3000
    ```
-   CodeLoops MCP server running on stdio
+2. The server should start and display:
    ```
+   CodeLoops HTTP server running on http://0.0.0.0:3000
+   ```
+3. Test the server health endpoint:
+   ```bash
+   curl http://localhost:3000/health
+   ```
+   You should receive a JSON response indicating the server is running.
+
+To stop the HTTP server, use `Ctrl+C`.
 
 ### Step 6: Test the Agent Config
 

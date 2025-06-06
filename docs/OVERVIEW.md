@@ -62,12 +62,24 @@ graph TD
   D <--> E[Critic]
   D --> C
   E --> C
+  
+  subgraph "Server Transports"
+    F[Stdio Transport]
+    G[HTTP Transport]
+  end
+  
+  A --> F
+  A --> G
+  F --> B
+  G --> B
 ```
 
-High‑level flow: caller → MCP → KG + Actor/Critic loop
+High‑level flow: caller → MCP Server (stdio/HTTP) → KG + Actor/Critic loop
 
 - **Coding Agent**
-  Calls the CodeLoops system
+  Calls the CodeLoops system via MCP protocol
+- **MCP Server**
+  Supports both stdio and HTTP transports for flexible integration
 - **Knowledge Graph**
   Compact summaries + full artefacts; fast semantic lookup; survives crashes.
 - **Actor**
