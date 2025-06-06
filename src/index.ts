@@ -269,6 +269,133 @@ async function main() {
     },
   );
 
+  /** delete_thoughts – safely soft-delete one or more knowledge graph nodes */
+  server.tool(
+    'delete_thoughts',
+    'Safely soft-delete one or more knowledge graph nodes within a project. Creates backup, checks dependencies, and rebuilds clean graph.',
+    {
+      nodeIds: z
+        .array(z.string())
+        .min(1)
+        .describe('Array of node IDs to delete. Must contain at least one ID.'),
+      projectContext: z.string().describe('Full path to the project directory.'),
+      reason: z
+        .string()
+        .optional()
+        .describe('Optional reason for deletion (e.g., "accidental entry", "experimental spike").'),
+      checkDependents: z
+        .boolean()
+        .default(true)
+        .describe('Check for dependent nodes before deletion. Defaults to true.'),
+      confirm: z
+        .boolean()
+        .default(false)
+        .describe('Set to true to proceed with deletion after reviewing dependencies.'),
+    },
+    async (a) => {
+      const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
+
+      // Check if nodes exist
+      const nodeChecks = await Promise.all(
+        a.nodeIds.map(async (id) => {
+          const node = await kg.getNode(id);
+          return { id, exists: !!node, node };
+        }),
+      );
+
+      const nonExistentNodes = nodeChecks.filter((check) => !check.exists).map((check) => check.id);
+      if (nonExistentNodes.length > 0) {
+        throw new Error(`Nodes not found: ${nonExistentNodes.join(', ')}`);
+      }
+
+      // Filter nodes by project
+      const projectNodes = nodeChecks.filter((check) => check.node?.project === projectName);
+      const wrongProjectNodes = nodeChecks
+        .filter((check) => check.node?.project !== projectName)
+        .map((check) => check.id);
+
+      if (wrongProjectNodes.length > 0) {
+        throw new Error(`Nodes not in project ${projectName}: ${wrongProjectNodes.join(', ')}`);
+      }
+
+      if (a.checkDependents && !a.confirm) {
+        // Check for dependent nodes
+        const dependentsMap = await kg.findDependentNodes(a.nodeIds, projectName);
+        const affectedSummaries = await kg.findAffectedSummaryNodes(a.nodeIds, projectName);
+
+        const hasDependents = Array.from(dependentsMap.values()).some((deps) => deps.length > 0);
+        const hasSummaries = affectedSummaries.length > 0;
+
+        if (hasDependents || hasSummaries) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  {
+                    action: 'confirmation_required',
+                    nodesToDelete: projectNodes.map((check) => ({
+                      id: check.id,
+                      thought: check.node?.thought,
+                      role: check.node?.role,
+                      tags: check.node?.tags,
+                    })),
+                    dependentNodes: Object.fromEntries(dependentsMap),
+                    affectedSummaries: affectedSummaries.map((node) => ({
+                      id: node.id,
+                      thought: node.thought,
+                      summarizedSegment: node.summarizedSegment,
+                    })),
+                    message:
+                      'These nodes have dependencies or are referenced in summaries. Set confirm=true to proceed with deletion.',
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+          };
+        }
+      }
+
+      // Proceed with deletion
+      const result = await kg.softDeleteNodes(a.nodeIds, projectName, a.reason, 'mcp-tool');
+
+      logger.info(
+        `[delete_thoughts] Successfully deleted ${result.deletedNodes.length} nodes from project ${projectName}`,
+      );
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                action: 'deletion_completed',
+                deletedNodes: result.deletedNodes.map((node) => ({
+                  id: node.id,
+                  thought: node.thought,
+                  role: node.role,
+                  deletedAt: node.deletedAt,
+                  deletedReason: node.deletedReason,
+                })),
+                backupPath: result.backupPath,
+                affectedSummaries: result.affectedSummaries.map((node) => ({
+                  id: node.id,
+                  thought: node.thought,
+                  summarizedSegment: node.summarizedSegment,
+                })),
+                message: `Successfully deleted ${result.deletedNodes.length} nodes. Backup created at ${result.backupPath}`,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    },
+  );
+
   // ------------------------------------------------------------------
   // Transport: stdio JSON‑over‑MCP -----------------------------------
   // ------------------------------------------------------------------
