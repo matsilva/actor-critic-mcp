@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.1] - 2025-06-06
+
+* feat: add diff control options to resume command (#43)
+* chore: release v0.5.0
+
 ## [0.5.0] - 2025-06-06
 
 * feat: add HTTP server support with modular transport architecture (#41)
