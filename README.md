@@ -122,6 +122,53 @@ Use codeloops to plan and implement the following:
 ... (insert your product requirements here)
 ```
 
+## Docker Support
+
+CodeLoops can be run in Docker containers for easy deployment and isolation.
+
+### Building the Docker Image
+
+```bash
+# Build the production image
+docker build -t codeloops:latest .
+
+# Build the development image
+docker build --target builder -t codeloops:dev .
+```
+
+### Running with Docker
+
+```bash
+# Run stdio server
+docker run -it --rm -v $(pwd)/data:/app/data codeloops:latest
+
+# Run HTTP server
+docker run -it --rm -p 8000:8000 -v $(pwd)/data:/app/data codeloops:latest npm run start:http
+```
+
+### Using Docker Compose
+
+Docker Compose provides easy management of different configurations:
+
+```bash
+# Start stdio server (development)
+docker-compose up codeloops
+
+# Start HTTP server (development)
+docker-compose up codeloops-http
+
+# Start production server
+docker-compose up codeloops-prod
+
+# Run in background
+docker-compose up -d codeloops-prod
+```
+
+The docker-compose.yml includes:
+- `codeloops`: Development stdio server with hot reload
+- `codeloops-http`: Development HTTP server on port 8080
+- `codeloops-prod`: Production server on port 8001
+
 ## Available Tools
 
 CodeLoops provides tools to enable autonomous agent operation:

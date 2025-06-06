@@ -10,8 +10,8 @@
     "lint": "eslint .",
     "lint:all": "npm run lint && npm run type-check",
     "setup": "bash scripts/setup.sh",
-    "start": "npx -y tsx src",
-    "start:http": "npx -y tsx src --http",
+    "start": "tsx src",
+    "start:http": "tsx src --http",
     "type-check": "tsc --noEmit",
     "test-quickstart": "bash scripts/test-quickstart.sh"
   },
