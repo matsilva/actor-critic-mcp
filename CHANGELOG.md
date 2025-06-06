@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.0] - 2025-06-06
+
+* feat: add HTTP server support with modular transport architecture (#41)
+* feat: add safe soft delete functionality for knowledge graph nodes
+* chore: release v0.4.0
+
 ## [0.4.0] - 2025-06-05
 
 * test: add comprehensive unit tests for git utility functions
