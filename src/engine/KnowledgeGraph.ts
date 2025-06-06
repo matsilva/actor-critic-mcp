@@ -213,8 +213,31 @@ export class KnowledgeGraphManager {
     return nodes;
   }
 
-  async resume({ project, limit = 5 }: { project: string; limit?: number }): Promise<DagNode[]> {
-    return this.export({ project, limit });
+  async resume({ 
+    project, 
+    limit = 5, 
+    includeDiffs = 'latest' 
+  }: { 
+    project: string; 
+    limit?: number;
+    includeDiffs?: 'all' | 'latest' | 'none';
+  }): Promise<DagNode[]> {
+    const nodes = await this.export({ project, limit });
+    
+    // Handle diff inclusion based on includeDiffs parameter
+    if (includeDiffs === 'none') {
+      // Remove diff from all nodes
+      return nodes.map(node => ({ ...node, diff: undefined }));
+    } else if (includeDiffs === 'latest') {
+      // Only include diff for the most recent node (last in array)
+      return nodes.map((node, index) => ({
+        ...node,
+        diff: index === nodes.length - 1 ? node.diff : undefined
+      }));
+    }
+    
+    // includeDiffs === 'all' - return nodes as is with all diffs
+    return nodes;
   }
 
   async export({

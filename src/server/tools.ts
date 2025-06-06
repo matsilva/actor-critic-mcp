@@ -182,6 +182,11 @@ export const registerTools = ({ server }: { server: McpServer }) => {
         .number()
         .optional()
         .describe('Limit the number of nodes returned. Increase it if you need more context.'),
+      includeDiffs: z
+        .enum(['all', 'latest', 'none'])
+        .optional()
+        .default('latest')
+        .describe('Control diff inclusion: "all" includes all diffs, "latest" includes only the most recent diff, "none" excludes all diffs. Defaults to "latest" to avoid context overflow.'),
     },
     async (a) => {
       const { logger, kg, runOnce } = await getDeps();
@@ -189,6 +194,7 @@ export const registerTools = ({ server }: { server: McpServer }) => {
       const text = await kg.resume({
         project: projectName,
         limit: a.limit,
+        includeDiffs: a.includeDiffs || 'latest',
       });
       return {
         content: [{ type: 'text', text: JSON.stringify(text, null, 2) }],
