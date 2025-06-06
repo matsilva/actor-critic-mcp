@@ -49,8 +49,9 @@ If this script fails, see [install guide](./docs/INSTALL_GUIDE.md) for installin
 
 ### Configure Your Agent
 
-Connect your agent to the CodeLoops server by adding the MCP server configuration. Most platforms follow a similar structure:
+Connect your agent to the CodeLoops server by adding the MCP server configuration. CodeLoops supports both stdio and HTTP transports:
 
+#### Option 1: Stdio Transport (Default)
 ```json
 "mcp": {
   "servers": {
@@ -63,7 +64,52 @@ Connect your agent to the CodeLoops server by adding the MCP server configuratio
 }
 ```
 
-Ensure the configuration executes `npx -y tsx /path/to/codeloops/src`. Refer to your platform’s documentation for specific instructions.
+#### Option 2: HTTP Transport
+```json
+"mcp": {
+  "servers": {
+    "codeloops": {
+      "type": "http",
+      "url": "http://localhost:3000"
+    }
+  }
+}
+```
+
+
+For HTTP transport, start the server first:
+```bash
+npm run start:http
+# or with custom port/host
+npx -y tsx src --http --port 8080 --host 127.0.0.1
+```
+
+Refer to your platform's documentation for specific MCP configuration instructions.
+
+## CLI Options
+
+CodeLoops supports the following command-line options:
+
+- `--stdio`: Use stdio transport (default)
+- `--http`: Use HTTP transport
+- `--port <number>`: HTTP server port (default: 3000)
+- `--host <string>`: HTTP server host (default: 0.0.0.0)
+- `--help`: Show help message
+
+**Examples:**
+```bash
+# Start with stdio (default)
+npm start
+
+# Start HTTP server on default port 3000
+npm run start:http
+
+# Start HTTP server on custom port
+npx -y tsx src --http --port 8080
+
+# Start HTTP server on specific host and port
+npx -y tsx src --http --host 127.0.0.1 --port 9000
+```
 
 ## Using CodeLoops
 
