@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  codeloops:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    image: codeloops:dev
+    container_name: codeloops-dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./data:/app/data
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+    command: npm start
+
+  codeloops-http:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    image: codeloops:dev
+    container_name: codeloops-http-dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./data:/app/data
+    ports:
+      - "8080:8000"
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+    command: npm run start:http
+
+  codeloops-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: codeloops:latest
+    container_name: codeloops-prod
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "8001:8000"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
