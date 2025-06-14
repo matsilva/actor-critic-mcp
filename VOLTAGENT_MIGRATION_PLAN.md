@@ -69,6 +69,82 @@ import { z } from 'zod';
 
 ## Migration Steps
 
+### Phase 0: Configuration Migration (NEW)
+
+Before migrating the agent code, users need to convert their existing FastAgent YAML configurations to environment variables compatible with the new VoltAgent-based system.
+
+1. **Automated Configuration Migration Script**
+
+   A new migration script has been created at `scripts/migrations/migrate_agents_to_env.ts` that automates the conversion process:
+
+   ```bash
+   # Run the migration script
+   npx ts-node scripts/migrations/migrate_agents_to_env.ts
+   ```
+
+2. **What the Script Does**
+
+   - **Reads Configuration Files**: Scans `agents/critic/fastagent.config.yaml` and `agents/summarize/fastagent.config.yaml`
+   - **Reads Secret Files**: Scans `agents/critic/fastagent.secrets.yaml` and `agents/summarize/fastagent.secrets.yaml`
+   - **Extracts Model Settings**: Converts FastAgent model aliases and provider.model format to environment variables
+   - **Migrates API Keys**: Transfers API keys from YAML to environment variables
+   - **Creates .env File**: Generates or updates a `.env` file in the project root
+   - **Backup Support**: Creates backups of existing `.env` files before modification
+
+3. **Environment Variable Mapping**
+
+   The script converts FastAgent configurations to the following environment variables:
+
+   ```bash
+   # Provider Configuration (determined by model selection)
+   PREFERRED_PROVIDER=anthropic|openai|azure
+   
+   # API Keys (from fastagent.secrets.yaml)
+   OPENAI_API_KEY=sk-...
+   ANTHROPIC_API_KEY=sk-ant-...
+   AZURE_OPENAI_API_KEY=...
+   DEEPSEEK_API_KEY=...
+   OPENROUTER_API_KEY=...
+   
+   # Model Configuration (from fastagent.config.yaml default_model)
+   OPENAI_MODEL=gpt-4o
+   ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+   AZURE_OPENAI_MODEL=gpt-4o
+   
+   # Azure-specific (if using Azure OpenAI)
+   AZURE_OPENAI_RESOURCE_NAME=your-resource-name
+   
+   # Logging (from fastagent.config.yaml logger.level)
+   LOG_LEVEL=INFO
+   ```
+
+4. **Model Alias Conversion**
+
+   The script handles FastAgent model aliases and converts them to full model names:
+
+   ```typescript
+   // FastAgent aliases → Environment variables
+   'haiku' → ANTHROPIC_MODEL=claude-3-haiku-20240307
+   'sonnet' → ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+   'gpt-4.1-mini' → OPENAI_MODEL=gpt-4o-mini
+   'anthropic.claude-3-5-sonnet-20241022' → ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+   ```
+
+5. **Post-Migration Steps**
+
+   After running the migration script:
+   
+   - **Review Generated .env**: Verify all configurations are correct
+   - **Add Missing Keys**: Add any API keys that weren't in the YAML files
+   - **Azure Configuration**: Set `AZURE_OPENAI_RESOURCE_NAME` if using Azure OpenAI
+   - **Test Configuration**: Verify the new VoltAgent-based agents work with the configuration
+
+6. **Rollback Support**
+
+   - Original `.env` files are backed up to `backups/.env.backup.{timestamp}`
+   - Original YAML files remain unchanged for reference
+   - Easy rollback by restoring backup files
+
 ### Phase 1: Redesign BaseAgent to Use VoltAgent
 
 1. **New BaseAgent Architecture**
@@ -296,6 +372,15 @@ import { z } from 'zod';
 
 ## Migration Checklist
 
+**Phase 0: Configuration Migration**
+
+- [ ] Run migration script: `npx ts-node scripts/migrations/migrate_agents_to_env.ts`
+- [ ] Review generated .env file for accuracy
+- [ ] Add any missing API keys that weren't in YAML files
+- [ ] Set `AZURE_OPENAI_RESOURCE_NAME` if using Azure OpenAI
+- [ ] Test configuration with existing FastAgent setup
+- [ ] Create backup of YAML files before proceeding to Phase 1
+
 **Phase 1: BaseAgent Redesign**
 
 - [x] Install VoltAgent dependencies (`@voltagent/core`, `@voltagent/vercel-ai`)
@@ -362,12 +447,13 @@ import { z } from 'zod';
 
 ## Timeline Estimate
 
+- **Phase 0**: 0.5 days (Configuration migration with automated script)
 - **Phase 1**: 1-2 days (BaseAgent redesign to use VoltAgent)
 - **Phase 2**: 1 day (Critic Agent with new BaseAgent)
 - **Phase 3**: 1 day (Summarizer Agent with new BaseAgent)
 - **Phase 4**: 1 day (Integration layer updates)
 - **Phase 5**: 1-2 days (Testing and cleanup)
-- **Total**: 5-7 days
+- **Total**: 5.5-7.5 days
 
 _Provides best of both worlds: your custom API + VoltAgent's enterprise features_
 
