@@ -3,7 +3,7 @@
  *
  * This script:
  * 1. Reads fastagent.config.yaml and fastagent.secrets.yaml from agents/critic and agents/summarize
- * 2. Extracts LLM provider configurations (models, API keys, execution engine)
+ * 2. Extracts LLM provider configurations (models, API keys) - excludes execution engine
  * 3. Generates codeloops.config.json with all settings including API keys
  * 4. Maps FastAgent LLM provider settings to CodeLoops configuration schema
  * 5. Provides backup and rollback capabilities
@@ -11,13 +11,13 @@
  * Usage: ts-node scripts/migrations/migrate_fastagent_config.ts
  */
 
-import fs from 'node:fs/promises';
+import { promises as fs } from 'node:fs';
 import * as fsSync from 'node:fs';
-import path from 'node:path';
+import * as path from 'node:path';
 import { parse as yamlParse } from 'yaml';
 import { getInstance as getLogger } from '../../src/logger.ts';
 import { createCodeLoopsAscii } from '../../src/utils/fun.ts';
-import chalk from 'chalk';
+import { dataDir } from '../../src/config.ts';
 
 const logger = getLogger({ withDevStdout: true, sync: true });
 
@@ -26,7 +26,7 @@ const AGENT_DIRS = ['agents/critic', 'agents/summarize'];
 const PROJECT_ROOT = process.cwd();
 // Note: No longer generating .env files - everything goes in config
 const CONFIG_FILE_PATH = path.resolve(PROJECT_ROOT, 'codeloops.config.json');
-const BACKUP_DIR = path.resolve(PROJECT_ROOT, 'backups');
+const BACKUP_DIR = path.resolve(dataDir, 'backup');
 
 // Ensure backup directory exists
 if (!fsSync.existsSync(BACKUP_DIR)) {
@@ -36,8 +36,11 @@ if (!fsSync.existsSync(BACKUP_DIR)) {
 interface FastAgentConfig {
   default_model?: string;
   execution_engine?: string;
+  logger?: unknown;
+  mcp?: unknown;
+  otel?: unknown;
   // Note: Only migrating LLM provider-related configs
-  // Logging, MCP, and OTEL are CodeLoops-specific
+  // execution_engine, logging, MCP, and OTEL are NOT migrated
 }
 
 interface FastAgentSecrets {
@@ -96,13 +99,59 @@ interface ProviderConfig {
   api_key?: string;
   base_url?: string;
   models?: Record<string, ModelConfig>;
-  [key: string]: any;
+  [key: string]: unknown;
+}
+
+interface AgentConfig {
+  enabled: boolean;
+  model: string;
+  temperature: number;
+  max_tokens: number;
+  _comment?: string;
+}
+
+interface TelemetryConfig {
+  enabled: boolean;
+  service_name: string;
+  service_version?: string;
+  environment?: string;
+  opentelemetry: {
+    enabled: boolean;
+    otlp_endpoint: string;
+    sample_rate: number;
+  };
+  metrics: {
+    enabled: boolean;
+  };
+}
+
+interface LoggingConfig {
+  level: string;
+  format: string;
+  destination: string;
+  pino: {
+    pretty_print: boolean;
+    redact: string[];
+  };
+  file_logging: {
+    enabled: boolean;
+    path: string;
+  };
+}
+
+interface FeaturesConfig {
+  use_voltagent: boolean;
+  legacy_python_agents: boolean;
+  telemetry_enabled: boolean;
+}
+
+interface MCPConfig {
+  servers: Record<string, unknown>;
 }
 
 interface CodeLoopsConfig {
   version: string;
-  default_model?: string;
-  execution_engine?: string;
+  default_model: string;
   anthropic?: ProviderConfig;
   openai?: ProviderConfig;
   azure?: ProviderConfig;
@@ -111,22 +160,18 @@ interface CodeLoopsConfig {
   openrouter?: ProviderConfig;
   generic?: ProviderConfig;
   tensorzero?: ProviderConfig;
-  agents?: {
-    critic?: any;
-    summarizer?: any;
-    actor?: any;
+  agents: {
+    critic: AgentConfig;
+    summarizer: AgentConfig;
+    actor: AgentConfig;
   };
-  model_selection?: {
-    fallback_order?: string[];
-    by_task_type?: Record<string, string[]>;
-    cost_optimization?: any;
-  };
-  mcp?: any;
-  otel?: any;
-  logger?: any;
-  codeloops?: any;
-  features?: any;
+  mcp: MCPConfig;
+  telemetry: TelemetryConfig;
+  logging: LoggingConfig;
+  features: FeaturesConfig;
   env_prefix?: string;
+  // Index signature for dynamic provider access
+  [key: string]: unknown;
 }
 
 /**
@@ -236,7 +281,7 @@ function getProviderModels(provider: string): Record<string, ModelConfig> {
       },
     },
   };
-  
+
   return modelDefinitions[provider] || {};
 }
 
@@ -245,7 +290,7 @@ function getProviderModels(provider: string): Record<string, ModelConfig> {
  */
 function mapFastAgentModel(modelString: string): string {
   const { provider, model } = parseModelString(modelString);
-  
+
   // Map FastAgent aliases to CodeLoops format
   const aliasMap: Record<string, string> = {
     haiku: 'anthropic.haiku',
@@ -260,26 +305,26 @@ function mapFastAgentModel(modelString: string): string {
     'o1-mini': 'openai.o1-mini',
     'o3-mini': 'openai.o1-mini',
   };
-  
+
   if (aliasMap[modelString]) {
     return aliasMap[modelString];
   }
-  
+
   // If it's already in provider.model format, use it
   if (modelString.includes('.')) {
     return modelString;
   }
-  
+
   // Try to map to provider.model format
   const providerModels = getProviderModels(provider);
-  const modelKey = Object.keys(providerModels).find(key => 
+  const modelKey = Object.keys(providerModels).find(key =>
     providerModels[key].id === model || key === model
   );
-  
+
   if (modelKey) {
     return `${provider}.${modelKey}`;
   }
-  
+
   // Fallback to provider.model
   return `${provider}.${model}`;
 }
@@ -289,8 +334,7 @@ function mapFastAgentModel(modelString: string): string {
 /**
  * Read and parse a YAML file safely
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function readYamlFile(filePath: string): Promise<any> {
+async function readYamlFile(filePath: string): Promise<unknown> {
   try {
     if (!fsSync.existsSync(filePath)) {
       return null;
@@ -322,12 +366,36 @@ async function processAgentDir(agentDir: string, codeloopsConfig: CodeLoopsConfi
   // Process model configuration
   if (config?.default_model) {
     logger.info(`Found model configuration: ${config.default_model}`);
-    
+
     // Update CodeLoops config with agent-specific model
-    if (!codeloopsConfig.agents) codeloopsConfig.agents = {};
-    
+    if (!codeloopsConfig.agents) {
+      codeloopsConfig.agents = {
+        critic: {
+          enabled: true,
+          model: 'anthropic.sonnet',
+          temperature: 0.3,
+          max_tokens: 2000,
+          _comment: 'Default critic agent configuration',
+        },
+        summarizer: {
+          enabled: true,
+          model: 'anthropic.haiku',
+          temperature: 0.5,
+          max_tokens: 1000,
+          _comment: 'Default summarizer agent configuration',
+        },
+        actor: {
+          enabled: true,
+          model: 'default',
+          temperature: 0.7,
+          max_tokens: 2000,
+          _comment: 'Use default model for general actor tasks',
+        },
+      };
+    }
+
     const mappedModel = mapFastAgentModel(config.default_model);
-    
+
     if (agentName === 'critic') {
       codeloopsConfig.agents.critic = {
         enabled: true,
@@ -345,40 +413,43 @@ async function processAgentDir(agentDir: string, codeloopsConfig: CodeLoopsConfi
         _comment: `Migrated from FastAgent: ${config.default_model}`,
       };
     }
-    
+
     // Update default model if not already set or if this is a better choice
     if (!codeloopsConfig.default_model || codeloopsConfig.default_model === 'openai.gpt-4o-mini') {
       codeloopsConfig.default_model = mappedModel;
     }
   }
 
-  // Process execution engine
+  // Skip execution_engine - it's a FastAgent paradigm not needed for CodeLoops
   if (config?.execution_engine) {
-    codeloopsConfig.execution_engine = config.execution_engine;
+    warnings.push(`FastAgent execution_engine found but not migrated - CodeLoops uses native TypeScript execution`);
   }
 
   // Process all provider configurations from secrets
   const providers = ['openai', 'anthropic', 'azure', 'deepseek', 'google', 'openrouter', 'generic', 'tensorzero'];
-  
+
   for (const provider of providers) {
     const providerConfig = secrets?.[provider as keyof FastAgentSecrets];
     if (providerConfig) {
       logger.info(`Found ${provider} provider configuration`);
-      
+
       // Add full provider config to CodeLoops config (preserve existing models)
-      if (!codeloopsConfig[provider]) {
-        codeloopsConfig[provider] = { models: {} };
+      const typedProvider = provider as keyof Omit<CodeLoopsConfig, 'version' | 'default_model' | 'agents' | 'mcp' | 'telemetry' | 'logging' | 'features' | 'env_prefix'>;
+
+      if (!codeloopsConfig[typedProvider]) {
+        codeloopsConfig[typedProvider] = { models: {} } as ProviderConfig;
       }
-      
+
       // Merge provider config while preserving model definitions
-      const existingModels = codeloopsConfig[provider].models || {};
-      codeloopsConfig[provider] = { 
-        ...codeloopsConfig[provider],
+      const currentProvider = codeloopsConfig[typedProvider] as ProviderConfig;
+      const existingModels = currentProvider?.models || {};
+      codeloopsConfig[typedProvider] = {
+        ...currentProvider,
         ...providerConfig,
         models: { ...existingModels }
-      };
-      
-      if (providerConfig.api_key) {
+      } as ProviderConfig;
+
+      if ('api_key' in providerConfig && providerConfig.api_key) {
         logger.info(`Added ${provider} API key to configuration`);
       }
     }
@@ -389,15 +460,15 @@ async function processAgentDir(agentDir: string, codeloopsConfig: CodeLoopsConfi
   // - Pino logger for structured logging
   // - Custom OpenTelemetry instrumentation
   // - CodeLoops-specific MCP integrations
-  
+
   if (config?.logger) {
     warnings.push(`FastAgent logging configuration found but not migrated - CodeLoops uses pino logger`);
   }
-  
+
   if (config?.mcp) {
     warnings.push(`FastAgent MCP configuration found but not migrated - CodeLoops has its own MCP setup`);
   }
-  
+
   if (config?.otel) {
     warnings.push(`FastAgent OpenTelemetry configuration found but not migrated - CodeLoops has custom OTEL`);
   }
@@ -412,7 +483,7 @@ async function processAgentDir(agentDir: string, codeloopsConfig: CodeLoopsConfi
  */
 async function writeConfigFile(config: CodeLoopsConfig): Promise<void> {
   const jsonContent = JSON.stringify(config, null, 2);
-  
+
   await fs.writeFile(CONFIG_FILE_PATH, jsonContent, 'utf8');
   logger.info(`Created CodeLoops configuration file: ${CONFIG_FILE_PATH}`);
 }
@@ -423,7 +494,7 @@ async function writeConfigFile(config: CodeLoopsConfig): Promise<void> {
  */
 async function createBackups(): Promise<{ configBackup?: string }> {
   const backups: { configBackup?: string } = {};
-  
+
   // Backup codeloops.config.json if exists
   if (fsSync.existsSync(CONFIG_FILE_PATH)) {
     const configBackupPath = path.resolve(BACKUP_DIR, `codeloops.config.json.backup.${Date.now()}`);
@@ -431,7 +502,7 @@ async function createBackups(): Promise<{ configBackup?: string }> {
     logger.info(`Created backup of existing config file: ${configBackupPath}`);
     backups.configBackup = configBackupPath;
   }
-  
+
   return backups;
 }
 
@@ -445,12 +516,11 @@ async function migrateAgentConfigs(): Promise<void> {
   try {
     // Create backups
     const backups = await createBackups();
-    
-    // Initialize CodeLoops config with multi-model support
+
+    // Initialize CodeLoops config aligned with migration plan
     const codeloopsConfig: CodeLoopsConfig = {
       version: '1.0.0',
       default_model: 'openai.gpt-4o-mini',
-      execution_engine: 'asyncio',
       // Initialize providers with model definitions
       anthropic: {
         _comment: 'api_key can be set via ANTHROPIC_API_KEY env var',
@@ -462,7 +532,7 @@ async function migrateAgentConfigs(): Promise<void> {
       },
       azure: {
         _comment: 'See documentation for Azure OpenAI configuration options',
-        models: { _comment: 'Models configured through Azure deployments' },
+        models: {},
       },
       deepseek: {
         _comment: 'api_key can be set via DEEPSEEK_API_KEY env var',
@@ -474,7 +544,7 @@ async function migrateAgentConfigs(): Promise<void> {
       },
       openrouter: {
         _comment: 'api_key can be set via OPENROUTER_API_KEY env var',
-        models: { _comment: 'OpenRouter provides access to multiple models' },
+        models: {},
       },
       generic: {
         _comment: 'For Ollama or other OpenAI-compatible APIs',
@@ -504,21 +574,8 @@ async function migrateAgentConfigs(): Promise<void> {
           enabled: true,
           model: 'default',
           temperature: 0.7,
+          max_tokens: 2000,
           _comment: 'Use default model for general actor tasks',
-        },
-      },
-      model_selection: {
-        _comment: 'Define model selection strategies',
-        fallback_order: ['anthropic.sonnet', 'openai.gpt-4o', 'openai.gpt-4o-mini'],
-        by_task_type: {
-          simple: ['anthropic.haiku', 'openai.gpt-4o-mini'],
-          balanced: ['anthropic.sonnet', 'openai.gpt-4o'],
-          complex: ['anthropic.opus', 'openai.o1-preview', 'anthropic.sonnet'],
-        },
-        cost_optimization: {
-          enabled: false,
-          prefer_cheaper: true,
-          max_cost_per_request: 0.10,
         },
       },
       mcp: {
@@ -551,33 +608,10 @@ async function migrateAgentConfigs(): Promise<void> {
           path: './logs/codeloops.log',
         },
       },
-      codeloops: {
-        knowledge_graph: {
-          data_dir: './data',
-          file_format: 'ndjson',
-          auto_backup: true,
-          backup_interval: 3600,
-          max_nodes_per_project: 10000,
-        },
-        engine: {
-          max_parallel_thoughts: 5,
-          critic_trigger_tags: ['file-modification', 'task-complete', 'design-decision'],
-          auto_summarize_threshold: 50,
-        },
-        project: {
-          auto_detect: true,
-          default_name: 'default',
-        },
-        performance: {
-          cache_enabled: true,
-          cache_ttl: 900,
-          max_memory_mb: 1024,
-        },
-      },
       features: {
         use_voltagent: false,
         legacy_python_agents: true,
-        parallel_execution: false,
+        telemetry_enabled: true,
       },
       env_prefix: 'CODELOOPS',
     };
@@ -588,7 +622,27 @@ async function migrateAgentConfigs(): Promise<void> {
       const result = await processAgentDir(agentDir, codeloopsConfig);
       results.push(result);
     }
-    
+
+    // Ensure agents are properly initialized if not set by processAgentDir
+    if (!codeloopsConfig.agents.critic) {
+      codeloopsConfig.agents.critic = {
+        enabled: true,
+        model: 'anthropic.sonnet',
+        temperature: 0.3,
+        max_tokens: 2000,
+        _comment: 'Default critic agent configuration',
+      };
+    }
+    if (!codeloopsConfig.agents.summarizer) {
+      codeloopsConfig.agents.summarizer = {
+        enabled: true,
+        model: 'anthropic.haiku',
+        temperature: 0.5,
+        max_tokens: 1000,
+        _comment: 'Default summarizer agent configuration',
+      };
+    }
+
     // Write the CodeLoops config file
     await writeConfigFile(codeloopsConfig);
 
@@ -617,9 +671,12 @@ async function migrateAgentConfigs(): Promise<void> {
     logger.info('\nNext steps:');
     logger.info('1. Review codeloops.config.json for full configuration including API keys');
     logger.info('2. Add any missing API keys or settings to the config file');
-    logger.info('3. Set environment variables if you prefer them over config file keys');
-    logger.info('4. Update feature flags in config when ready to switch to VoltAgent');
-    logger.info('5. Run your application with the new configuration');
+    logger.info('3. Set file permissions: chmod 600 codeloops.config.json');
+    logger.info('4. Install VoltAgent dependencies when ready for Phase 1:');
+    logger.info('   npm install --save-dev typescript tsx @types/node @voltagent/cli');
+    logger.info('   npm install @voltagent/core @voltagent/vercel-ai @ai-sdk/openai @ai-sdk/anthropic @ai-sdk/azure zod');
+    logger.info('5. Update feature flags when ready: use_voltagent=true, legacy_python_agents=false');
+    logger.info('6. Run your application with the new configuration');
   } catch (error) {
     logger.error('Migration failed:', error);
     process.exit(1);
