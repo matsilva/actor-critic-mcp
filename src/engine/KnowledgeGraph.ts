@@ -4,7 +4,7 @@ import * as fsSync from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
 import readline from 'node:readline';
-import { dataDir } from '../config.ts';
+import { dataDir } from '../config/index.ts';
 import { CodeLoopsLogger } from '../logger.ts';
 
 // -----------------------------------------------------------------------------

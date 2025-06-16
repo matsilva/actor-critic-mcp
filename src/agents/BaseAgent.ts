@@ -8,7 +8,7 @@ import {
   LanguageModelV1,
   Schema,
 } from 'ai';
-import { AZURE_OPENAI_API_KEY, OPENAI_API_KEY } from '../config.ts';
+import { getProviderApiKey } from '../config/index.ts';
 import { z } from 'zod';
 import { Logger } from 'pino';
 
@@ -45,7 +45,7 @@ export const createAzureAgent = <T>(
   config: Omit<AgentConfig<T>, 'model'>,
   deps: AgentDeps,
 ): Agent<T> => {
-  const apiKey = AZURE_OPENAI_API_KEY;
+  const apiKey = getProviderApiKey('azure');
   const resourceName = process.env.AZURE_OPENAI_RESOURCE_NAME;
 
   if (!apiKey || !resourceName) {
@@ -73,8 +73,17 @@ export const createOpenAIAgent = <T>(
   config: Omit<AgentConfig<T>, 'model'> & { model?: LanguageModelV1 },
   deps: AgentDeps,
 ): Agent<T> => {
+  const apiKey = getProviderApiKey('openai');
+  
+  if (!apiKey) {
+    throw new AgentError(
+      'Missing OpenAI API key. Please set OPENAI_API_KEY environment variable or add it to config.',
+      config.name,
+    );
+  }
+
   const openai = createOpenAI({
-    apiKey: OPENAI_API_KEY,
+    apiKey,
   });
 
   return createAgent<T>(
@@ -95,6 +104,9 @@ interface AgentDeps {
 export const createAgent = <T>(config: AgentConfig<T>, deps: AgentDeps) => {
   return new Agent<T>(config, deps);
 };
+
+// Export as BaseAgent for clarity when used in inheritance
+export { Agent as BaseAgent };
 
 export class Agent<T> {
   private readonly logger: Logger;

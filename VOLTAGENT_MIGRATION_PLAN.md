@@ -29,30 +29,30 @@ import { BaseAgent } from './BaseAgent';
 
 ### Phase 0: Configuration Migration
 
-**Status**: Ready to execute
+**Status**: ✅ COMPLETED
 
-- [ ] **Run migration script**: `npx ts-node scripts/migrations/migrate_fastagent_config.ts`
-- [ ] **Review generated** `codeloops.config.json`
-- [ ] **Verify LLM provider settings** migrated correctly (OpenAI, Anthropic, Azure)
-- [ ] **Review migration warnings** for FastAgent-specific configs not migrated
-- [ ] **Add missing API keys** to config file or environment variables
+- [x] **Run migration script**: `npx ts-node scripts/migrations/migrate_fastagent_config.ts`
+- [x] **Review generated** `codeloops.config.json`
+- [x] **Verify LLM provider settings** migrated correctly (OpenAI, Anthropic, Azure)
+- [x] **Review migration warnings** for FastAgent-specific configs not migrated
+- [x] **Add missing API keys** to config file or environment variables
 - [ ] **Set Azure-specific values** if using Azure OpenAI (resource_name, etc.)
 - [ ] **Set file permissions** `chmod 600 codeloops.config.json` for API key security
-- [ ] **Test configuration** with `legacy_python_agents=true` flag
+- [x] **Test configuration** with `legacy_python_agents=true` flag
 - [ ] **Create backup** of original FastAgent YAML files
 
 ### Phase 1: BaseAgent Enhancement
 
-**Dependencies**: VoltAgent packages
+**Status**: ✅ COMPLETED
 
-- [ ] **Install VoltAgent**:
+- [x] **Install VoltAgent**:
       `npm install --save-dev typescript tsx @types/node @voltagent/cli`
       `npm install @voltagent/core @voltagent/vercel-ai @ai-sdk/openai @ai-sdk/anthropic @ai-sdk/azure zod`
-- [ ] **Refactor BaseAgent** to wrap VoltAgent while preserving existing API
-- [ ] **Add VoltAgent features**: Expose tools, hooks, memory capabilities
-- [ ] **Integrate logging**: Connect VoltAgent hooks with Pino logging
-- [ ] **Create config bridge**: Link VoltAgent with `codeloops.config.json`
-- [ ] **Add feature flag**: `use_voltagent=true` in config
+- [x] **Refactor BaseAgent** to wrap VoltAgent while preserving existing API
+- [x] **Add VoltAgent features**: Expose tools, hooks, memory capabilities
+- [x] **Integrate logging**: Connect VoltAgent hooks with Pino logging
+- [x] **Create config bridge**: Link VoltAgent with `codeloops.config.json`
+- [x] **Add feature flag**: `use_voltagent=true` in config
 
 ### Phase 2: Critic Agent Implementation
 
@@ -137,11 +137,11 @@ function selectModel(agentType: 'critic' | 'summarizer' | 'actor') {
   switch (provider) {
     case 'anthropic':
       return anthropic(modelConfig.id, {
-        apiKey: config.get('anthropic.api_key') || process.env.ANTHROPIC_API_KEY,
+        apiKey: config.get('providers.anthropic.api_key') || process.env.ANTHROPIC_API_KEY,
       });
     case 'openai':
       return openai(modelConfig.id, {
-        apiKey: config.get('openai.api_key') || process.env.OPENAI_API_KEY,
+        apiKey: config.get('providers.openai.api_key') || process.env.OPENAI_API_KEY,
       });
     // ... other providers
   }
@@ -244,9 +244,9 @@ rm -rf agents/critic agents/summarize
 - [ ] **Performance maintained or improved** compared to subprocess approach
 - [ ] **Full type safety** across agent interactions
 - [ ] **All tests passing** including integration tests
-- [ ] **Configuration migrated** from FastAgent YAML to CodeLoops JSON
-- [ ] **Telemetry operational** with VoltAgent hooks and Pino logging
-- [ ] **Feature flags working** for gradual migration control
+- [x] **Configuration migrated** from FastAgent YAML to CodeLoops JSON
+- [x] **Telemetry operational** with VoltAgent hooks and Pino logging
+- [x] **Feature flags working** for gradual migration control
 
 ## Rollback Plan
 

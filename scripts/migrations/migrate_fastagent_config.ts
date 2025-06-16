@@ -17,7 +17,8 @@ import * as path from 'node:path';
 import { parse as yamlParse } from 'yaml';
 import { getInstance as getLogger } from '../../src/logger.ts';
 import { createCodeLoopsAscii } from '../../src/utils/fun.ts';
-import { dataDir } from '../../src/config.ts';
+import { dataDir } from '../../src/config/index.ts';
+import { CodeLoopsConfig } from '../../src/config/index.ts';
 
 const logger = getLogger({ withDevStdout: true, sync: true });
 
@@ -102,77 +103,8 @@ interface ProviderConfig {
   [key: string]: unknown;
 }
 
-interface AgentConfig {
-  enabled: boolean;
-  model: string;
-  temperature: number;
-  max_tokens: number;
-  _comment?: string;
-}
-
-interface TelemetryConfig {
-  enabled: boolean;
-  service_name: string;
-  service_version?: string;
-  environment?: string;
-  opentelemetry: {
-    enabled: boolean;
-    otlp_endpoint: string;
-    sample_rate: number;
-  };
-  metrics: {
-    enabled: boolean;
-  };
-}
-
-interface LoggingConfig {
-  level: string;
-  format: string;
-  destination: string;
-  pino: {
-    pretty_print: boolean;
-    redact: string[];
-  };
-  file_logging: {
-    enabled: boolean;
-    path: string;
-  };
-}
-
-interface FeaturesConfig {
-  use_voltagent: boolean;
-  legacy_python_agents: boolean;
-  telemetry_enabled: boolean;
-}
-
-interface MCPConfig {
-  servers: Record<string, unknown>;
-}
-
-interface CodeLoopsConfig {
-  version: string;
-  default_model: string;
-  anthropic?: ProviderConfig;
-  openai?: ProviderConfig;
-  azure?: ProviderConfig;
-  deepseek?: ProviderConfig;
-  google?: ProviderConfig;
-  openrouter?: ProviderConfig;
-  generic?: ProviderConfig;
-  tensorzero?: ProviderConfig;
-  agents: {
-    critic: AgentConfig;
-    summarizer: AgentConfig;
-    actor: AgentConfig;
-  };
-  mcp: MCPConfig;
-  telemetry: TelemetryConfig;
-  logging: LoggingConfig;
-  features: FeaturesConfig;
-  env_prefix?: string;
-  // Index signature for dynamic provider access
-  [key: string]: unknown;
-}
+// Note: These interfaces are defined for reference but actual types come from CodeLoopsConfig
+// Keeping minimal interfaces to avoid duplication
 
 /**
  * Parse FastAgent model string to extract provider and model
@@ -434,16 +366,18 @@ async function processAgentDir(agentDir: string, codeloopsConfig: CodeLoopsConfi
       logger.info(`Found ${provider} provider configuration`);
 
       // Add full provider config to CodeLoops config (preserve existing models)
-      const typedProvider = provider as keyof Omit<CodeLoopsConfig, 'version' | 'default_model' | 'agents' | 'mcp' | 'telemetry' | 'logging' | 'features' | 'env_prefix'>;
+      if (!codeloopsConfig.providers) {
+        codeloopsConfig.providers = {};
+      }
 
-      if (!codeloopsConfig[typedProvider]) {
-        codeloopsConfig[typedProvider] = { models: {} } as ProviderConfig;
+      if (!codeloopsConfig.providers[provider as keyof typeof codeloopsConfig.providers]) {
+        (codeloopsConfig.providers)[provider] = { models: {} } as ProviderConfig;
       }
 
       // Merge provider config while preserving model definitions
-      const currentProvider = codeloopsConfig[typedProvider] as ProviderConfig;
+      const currentProvider = (codeloopsConfig.providers)[provider] as ProviderConfig;
       const existingModels = currentProvider?.models || {};
-      codeloopsConfig[typedProvider] = {
+      (codeloopsConfig.providers)[provider] = {
         ...currentProvider,
         ...providerConfig,
         models: { ...existingModels }
@@ -522,38 +456,40 @@ async function migrateAgentConfigs(): Promise<void> {
       version: '1.0.0',
       default_model: 'openai.gpt-4o-mini',
       // Initialize providers with model definitions
-      anthropic: {
-        _comment: 'api_key can be set via ANTHROPIC_API_KEY env var',
-        models: getProviderModels('anthropic'),
-      },
-      openai: {
-        _comment: 'api_key can be set via OPENAI_API_KEY env var',
-        models: getProviderModels('openai'),
-      },
-      azure: {
-        _comment: 'See documentation for Azure OpenAI configuration options',
-        models: {},
-      },
-      deepseek: {
-        _comment: 'api_key can be set via DEEPSEEK_API_KEY env var',
-        models: getProviderModels('deepseek'),
-      },
-      google: {
-        _comment: 'api_key can be set via GOOGLE_API_KEY env var',
-        models: getProviderModels('google'),
-      },
-      openrouter: {
-        _comment: 'api_key can be set via OPENROUTER_API_KEY env var',
-        models: {},
-      },
-      generic: {
-        _comment: 'For Ollama or other OpenAI-compatible APIs',
-        api_key: 'ollama',
-        base_url: 'http://localhost:11434/v1',
-        models: getProviderModels('generic'),
-      },
-      tensorzero: {
-        models: {},
+      providers: {
+        anthropic: {
+          _comment: 'api_key can be set via ANTHROPIC_API_KEY env var',
+          models: getProviderModels('anthropic'),
+        },
+        openai: {
+          _comment: 'api_key can be set via OPENAI_API_KEY env var',
+          models: getProviderModels('openai'),
+        },
+        azure: {
+          _comment: 'See documentation for Azure OpenAI configuration options',
+          models: {},
+        },
+        deepseek: {
+          _comment: 'api_key can be set via DEEPSEEK_API_KEY env var',
+          models: getProviderModels('deepseek'),
+        },
+        google: {
+          _comment: 'api_key can be set via GOOGLE_API_KEY env var',
+          models: getProviderModels('google'),
+        },
+        openrouter: {
+          _comment: 'api_key can be set via OPENROUTER_API_KEY env var',
+          models: {},
+        },
+        generic: {
+          _comment: 'For Ollama or other OpenAI-compatible APIs',
+          api_key: 'ollama',
+          base_url: 'http://localhost:11434/v1',
+          models: getProviderModels('generic'),
+        },
+        tensorzero: {
+          models: {},
+        },
       },
       agents: {
         critic: {
