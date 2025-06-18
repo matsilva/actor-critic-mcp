@@ -545,7 +545,6 @@ async function migrateAgentConfigs(): Promise<void> {
         },
       },
       features: {
-        use_voltagent: false,
         legacy_python_agents: true,
         telemetry_enabled: true,
       },
@@ -608,11 +607,8 @@ async function migrateAgentConfigs(): Promise<void> {
     logger.info('1. Review codeloops.config.json for full configuration including API keys');
     logger.info('2. Add any missing API keys or settings to the config file');
     logger.info('3. Set file permissions: chmod 600 codeloops.config.json');
-    logger.info('4. Install VoltAgent dependencies when ready for Phase 1:');
-    logger.info('   npm install --save-dev typescript tsx @types/node @voltagent/cli');
-    logger.info('   npm install @voltagent/core @voltagent/vercel-ai @ai-sdk/openai @ai-sdk/anthropic @ai-sdk/azure zod');
-    logger.info('5. Update feature flags when ready: use_voltagent=true, legacy_python_agents=false');
-    logger.info('6. Run your application with the new configuration');
+    logger.info('4. Update feature flags when ready: legacy_python_agents=false');
+    logger.info('5. Run your application with the new configuration');
   } catch (error) {
     logger.error('Migration failed:', error);
     process.exit(1);

@@ -64,7 +64,6 @@ const LoggingConfigSchema = z.object({
 });
 
 const FeaturesConfigSchema = z.object({
-  use_voltagent: z.boolean(),
   legacy_python_agents: z.boolean(),
   telemetry_enabled: z.boolean(),
 });
@@ -99,6 +98,8 @@ const ConfigSchema = z.object({
 });
 
 export type CodeLoopsConfig = z.infer<typeof ConfigSchema>;
+export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
+export type ModelConfig = z.infer<typeof ModelConfigSchema>;
 
 // Singleton instance
 let configInstance: Conf<CodeLoopsConfig> | null = null;
@@ -110,13 +111,13 @@ export function getConfig(): Conf<CodeLoopsConfig> {
   if (!configInstance) {
     configInstance = new Conf<CodeLoopsConfig>({
       projectName: 'codeloops',
-      configName: 'codeloops.config',
-      fileExtension: 'json',
-      cwd: process.cwd(), // Use current working directory
-      //@ts-expect-error - this is fine
+      configName: 'codeloops.config', // Name of the config file (without extension)
+      fileExtension: 'json', // Config file extension
+      cwd: process.cwd(), // Config file location - current working directory
+      //@ts-expect-error - Conf types don't align perfectly with zod schema
       schema: ConfigSchema,
-      clearInvalidConfig: false,
-      accessPropertiesByDotNotation: true,
+      clearInvalidConfig: false, // Don't auto-clear invalid configs to preserve user data
+      accessPropertiesByDotNotation: true, // Enable path-based access like 'agents.critic.model'
       defaults: {
         version: '1.0.0',
         default_model: 'openai.gpt-4o-mini',
@@ -184,18 +185,17 @@ export function getConfig(): Conf<CodeLoopsConfig> {
         logging: {
           level: 'info',
           format: 'json',
-          destination: 'stdout',
+          destination: 'file', // Changed from stdout to prevent stdio server errors
           pino: {
             pretty_print: false,
             redact: ['*.api_key', '*.password', '*.secret'],
           },
           file_logging: {
-            enabled: false,
+            enabled: true, // Enable file logging by default
             path: './logs/codeloops.log',
           },
         },
         features: {
-          use_voltagent: false,
           legacy_python_agents: true,
           telemetry_enabled: true,
         },
@@ -234,30 +234,16 @@ export function getModelConfig(modelRef: string): { provider: string; model: z.i
  * Get API key for a provider
  */
 export function getProviderApiKey(provider: string): string | undefined {
+  const providerConfig = getProviderConfig(provider);
+  return providerConfig?.api_key;
+}
+
+/**
+ * Get provider configuration
+ */
+export function getProviderConfig(provider: string): z.infer<typeof ProviderConfigSchema> | undefined {
   const config = getConfig();
-  const providerConfig = config.get(`providers.${provider}`) as { api_key?: string } | undefined;
-
-  // First check config file
-  if (providerConfig?.api_key) {
-    return providerConfig.api_key;
-  }
-
-  // Then check environment variables
-  const envVarMap: Record<string, string> = {
-    openai: 'OPENAI_API_KEY',
-    anthropic: 'ANTHROPIC_API_KEY',
-    azure: 'AZURE_OPENAI_API_KEY',
-    deepseek: 'DEEPSEEK_API_KEY',
-    google: 'GOOGLE_API_KEY',
-    openrouter: 'OPENROUTER_API_KEY',
-  };
-
-  const envVar = envVarMap[provider];
-  if (envVar) {
-    return process.env[envVar];
-  }
-
-  return undefined;
+  return config.get(`providers.${provider}`) as z.infer<typeof ProviderConfigSchema> | undefined;
 }
 
 /**

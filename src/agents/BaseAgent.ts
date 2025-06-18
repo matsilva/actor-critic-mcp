@@ -1,25 +1,22 @@
-import { createAzure } from '@ai-sdk/azure';
-import { createOpenAI } from '@ai-sdk/openai';
-import {
-  generateObject,
-  generateText,
-  streamObject,
-  streamText,
-  LanguageModelV1,
-  Schema,
-} from 'ai';
-import { getProviderApiKey } from '../config/index.ts';
-import { z } from 'zod';
+import { Agent as VoltAgent, createHooks } from '@voltagent/core';
+import { VercelAIProvider } from '@voltagent/vercel-ai';
+import { LanguageModelV1 } from 'ai';
+import { getProviderApiKey, getConfig } from '../config/index.ts';
+import { ZodType } from 'zod';
 import { Logger } from 'pino';
 
-export interface AgentConfig<T> {
+export type OutputSchema = unknown;
+
+export interface AgentConfig<> {
   name: string;
   instructions: string;
-  outputSchema: z.Schema<T, z.ZodTypeDef, unknown> | Schema;
+  outputSchema: ZodType;
   model: LanguageModelV1;
   maxRetries?: number;
   temperature?: number;
   maxTokens?: number;
+  // Extension points for VoltAgent features (keeping things simple for now)
+  markdown?: boolean;
 }
 
 export interface AgentSendOptions {
@@ -41,85 +38,24 @@ export class AgentError extends Error {
   }
 }
 
-export const createAzureAgent = <T>(
-  config: Omit<AgentConfig<T>, 'model'>,
-  deps: AgentDeps,
-): Agent<T> => {
-  const apiKey = getProviderApiKey('azure');
-  const resourceName = process.env.AZURE_OPENAI_RESOURCE_NAME;
-
-  if (!apiKey || !resourceName) {
-    throw new AgentError(
-      'Missing Azure OpenAI credentials. Please set AZURE_OPENAI_API_KEY and AZURE_OPENAI_RESOURCE_NAME environment variables.',
-      config.name,
-    );
-  }
-
-  const azure = createAzure({
-    apiKey,
-    resourceName,
-  });
-
-  return createAgent<T>(
-    {
-      ...config,
-      model: azure('gpt-4o'),
-    },
-    deps,
-  );
-};
-
-export const createOpenAIAgent = <T>(
-  config: Omit<AgentConfig<T>, 'model'> & { model?: LanguageModelV1 },
-  deps: AgentDeps,
-): Agent<T> => {
-  const apiKey = getProviderApiKey('openai');
-  
-  if (!apiKey) {
-    throw new AgentError(
-      'Missing OpenAI API key. Please set OPENAI_API_KEY environment variable or add it to config.',
-      config.name,
-    );
-  }
-
-  const openai = createOpenAI({
-    apiKey,
-  });
-
-  return createAgent<T>(
-    {
-      model: openai('gpt-4o'),
-      ...config,
-    },
-    deps,
-  );
-};
-
-//TODO: add better way to support different models
-
 interface AgentDeps {
   logger: Logger;
 }
 
-export const createAgent = <T>(config: AgentConfig<T>, deps: AgentDeps) => {
-  return new Agent<T>(config, deps);
-};
-
-// Export as BaseAgent for clarity when used in inheritance
-export { Agent as BaseAgent };
-
-export class Agent<T> {
+export class Agent {
+  private readonly _agent: VoltAgent<{ llm: VercelAIProvider }>; // Using any for now to avoid complex type issues
   private readonly logger: Logger;
   private readonly name: string;
   private readonly instructions: string;
-  private readonly outputSchema: z.Schema<T, z.ZodTypeDef, unknown> | Schema;
-  private readonly model: LanguageModelV1;
+  private readonly outputSchema: ZodType;
   private readonly maxRetries: number;
   private readonly temperature?: number;
   private readonly maxTokens?: number;
 
-  constructor(config: AgentConfig<T>, { logger }: AgentDeps) {
+  constructor(config: AgentConfig, { logger }: AgentDeps) {
     this.logger = logger.child({ agentName: config.name });
+
+    // Validate config
     if (!config.name?.trim()) {
       throw new AgentError('Agent name is required', config.name || 'unknown');
     }
@@ -133,17 +69,130 @@ export class Agent<T> {
       throw new AgentError('Model is required', config.name);
     }
 
+    // Store config for external access
     this.name = config.name;
     this.instructions = config.instructions;
     this.outputSchema = config.outputSchema;
-    this.model = config.model;
     this.maxRetries = config.maxRetries ?? 3;
     this.temperature = config.temperature ?? 0.7;
     this.maxTokens = config.maxTokens;
-    this.logger = this.logger.child({ agentName: config.name });
+
+    // Create VoltAgent hooks for logging integration
+    const hooks = createHooks({
+      onStart: async ({ agent, context }) => {
+        //TODO: add a metrics context tracker for hooks
+        this.logger.info(
+          {
+            startTime: new Date().toISOString(),
+            hookName: 'onStart',
+            operationId: context.operationId,
+            agentName: agent.name,
+          },
+          'VoltAgent operation started',
+        );
+      },
+      onEnd: async ({ agent, output, error, context }) => {
+        if (error) {
+          this.logger.error(
+            {
+              endTime: new Date().toISOString(),
+              hookName: 'onEnd',
+              operationId: context.operationId,
+              agentName: agent.name,
+              error,
+            },
+            'VoltAgent operation failed',
+          );
+        } else {
+          this.logger.info(
+            {
+              endTime: new Date().toISOString(),
+              hookName: 'onEnd',
+              operationId: context.operationId,
+              agentName: agent.name,
+              hasOutput: !!output,
+            },
+            'VoltAgent operation completed',
+          );
+        }
+      },
+      onToolStart: async ({ agent, tool, context }) => {
+        this.logger.info(
+          {
+            startTime: new Date().toISOString(),
+            hookName: 'onToolStart',
+            operationId: context.operationId,
+            agentName: agent.name,
+            toolName: tool.name,
+          },
+          'VoltAgent tool execution started',
+        );
+      },
+      onToolEnd: async ({ agent, tool, output, error, context }) => {
+        if (error) {
+          this.logger.error(
+            {
+              endTime: new Date().toISOString(),
+              hookName: 'onToolEnd',
+              operationId: context.operationId,
+              agentName: agent.name,
+              toolName: tool.name,
+              error,
+            },
+            'VoltAgent tool execution failed',
+          );
+        } else {
+          this.logger.info(
+            {
+              endTime: new Date().toISOString(),
+              hookName: 'onToolEnd',
+              operationId: context.operationId,
+              agentName: agent.name,
+              toolName: tool.name,
+              hasOutput: !!output,
+            },
+            'VoltAgent tool execution completed',
+          );
+        }
+      },
+    });
+
+    // Initialize VoltAgent with basic configuration
+    try {
+      this._agent = new VoltAgent({
+        name: config.name,
+        instructions: config.instructions,
+        llm: new VercelAIProvider(),
+        model: config.model,
+        hooks,
+        markdown: config.markdown ?? false,
+        // Keep it simple for now - advanced features can be added later
+        tools: [],
+        subAgents: [],
+      });
+
+      this.logger.info(
+        {
+          agentName: config.name,
+          markdownEnabled: config.markdown ?? false,
+        },
+        'Agent initialized with VoltAgent',
+      );
+    } catch (error) {
+      this.logger.error(
+        {
+          agentName: config.name,
+          error,
+        },
+        'Failed to initialize VoltAgent',
+      );
+
+      // For now, if VoltAgent fails, we'll also fail the agent initialization
+      throw error;
+    }
   }
 
-  async send(prompt: string, options?: AgentSendOptions): Promise<T> {
+  async send<T>(prompt: string, options?: AgentSendOptions): Promise<T> {
     if (!prompt?.trim()) {
       throw new AgentError('Prompt cannot be empty', this.name);
     }
@@ -152,35 +201,45 @@ export class Agent<T> {
     this.logger.info(
       {
         promptLength: prompt.length,
-        //log entire prompt for the time being so we can analyze and improve
-        //the agent's performance and user experience
         prompt,
-        stream: options?.stream ?? false,
+        options,
       },
       `Agent ${this.name} processing prompt`,
     );
 
     try {
       const response = await this.executeWithRetry(async () => {
-        return await generateObject({
-          model: this.model,
-          system: this.instructions,
-          prompt,
-          schema: this.outputSchema as unknown as Schema,
-          temperature: options?.temperature ?? this.temperature,
-          maxTokens: options?.maxTokens ?? this.maxTokens,
-          abortSignal: options?.signal,
-        });
+        if (this._agent) {
+          // Use agent framework if available
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            return await this._agent.generateObject(prompt, this.outputSchema as any, {
+              provider: {
+                temperature: options?.temperature ?? this.temperature,
+                maxTokens: options?.maxTokens ?? this.maxTokens,
+                onError: async (error: unknown) => {
+                  this.logger.error({ error }, 'Agent provider error');
+                },
+              },
+            });
+          } catch (voltError) {
+            this.logger.warn(
+              { error: voltError },
+              'Agent framework failed, falling back to direct AI SDK',
+            );
+            // Fallback to direct AI SDK usage
+            throw voltError;
+          }
+        } else {
+          throw new Error('Agent framework not available');
+        }
       }, this.maxRetries);
 
       const duration = Date.now() - startTime;
       this.logger.info(
         {
           duration,
-          //log entire response for the time being so we can analyze and improve
-          //the agent's performance
-          //and user experience
-          ...response,
+          hasObject: !!response.object,
         },
         `Agent ${this.name} completed successfully`,
       );
@@ -211,34 +270,39 @@ export class Agent<T> {
     this.logger.info(
       {
         promptLength: prompt.length,
-        //log entire prompt for the time being so we can analyze and improve
-        //the agent's performance and user experience
         prompt,
-        stream: options?.stream ?? false,
+        options,
       },
       `Agent ${this.name} processing text prompt`,
     );
 
     try {
       const response = await this.executeWithRetry(async () => {
-        return await generateText({
-          model: this.model,
-          system: this.instructions,
-          prompt,
-          temperature: options?.temperature ?? this.temperature,
-          maxTokens: options?.maxTokens ?? this.maxTokens,
-          abortSignal: options?.signal,
-        });
+        if (this._agent) {
+          try {
+            return await this._agent.generateText(prompt, {
+              provider: {
+                temperature: options?.temperature ?? this.temperature,
+                maxTokens: options?.maxTokens ?? this.maxTokens,
+                onError: async (error: unknown) => {
+                  this.logger.error({ error }, 'Agent provider error');
+                },
+              },
+            });
+          } catch (voltError) {
+            this.logger.warn({ error: voltError }, 'Agent framework failed for text generation');
+            throw voltError;
+          }
+        } else {
+          throw new Error('Agent framework not available');
+        }
       }, this.maxRetries);
 
       const duration = Date.now() - startTime;
       this.logger.info(
-        //log entire response for the time being so we can analyze and improve
-        //the agent's performance and user experience
         {
           duration,
-          usage: response.usage,
-          response,
+          textLength: response.text.length,
         },
         `Agent ${this.name} text generation completed`,
       );
@@ -260,7 +324,7 @@ export class Agent<T> {
     }
   }
 
-  async *streamObject(prompt: string, options?: AgentSendOptions): AsyncGenerator<Partial<T>> {
+  async *streamObject<T>(prompt: string, options?: AgentSendOptions): AsyncGenerator<Partial<T>> {
     if (!prompt?.trim()) {
       throw new AgentError('Prompt cannot be empty', this.name);
     }
@@ -269,43 +333,43 @@ export class Agent<T> {
     this.logger.info(
       {
         promptLength: prompt.length,
-        //log entire prompt for the time being so we can analyze and improve
-        //the agent's performance and user experience
         prompt,
-        stream: options?.stream ?? false,
       },
-      `Agent ${this.name} starting stream`,
+      `Agent ${this.name} starting object stream`,
     );
 
     try {
-      const { partialObjectStream } = streamObject({
-        model: this.model,
-        system: this.instructions,
-        prompt,
-        schema: this.outputSchema as unknown as Schema,
-        temperature: options?.temperature ?? this.temperature,
-        maxTokens: options?.maxTokens ?? this.maxTokens,
-        abortSignal: options?.signal,
-      });
-
-      for await (const partialObject of partialObjectStream) {
-        this.logger.info(
-          {
-            duration: Date.now() - startTime,
-            partialObject,
+      if (this._agent) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const response = await this._agent.streamObject(prompt, this.outputSchema as any, {
+          provider: {
+            temperature: options?.temperature ?? this.temperature,
+            maxTokens: options?.maxTokens ?? this.maxTokens,
+            onError: async (error: unknown) => {
+              this.logger.error({ error }, 'Agent stream error');
+            },
           },
-          `Agent ${this.name} streaming partial object`,
-        );
-        yield partialObject as Partial<T>;
+        });
+
+        for await (const partial of response.objectStream) {
+          this.logger.debug(
+            {
+              duration: Date.now() - startTime,
+              hasPartial: !!partial,
+            },
+            `Agent ${this.name} streaming partial object`,
+          );
+          yield partial as Partial<T>;
+        }
+      } else {
+        throw new AgentError('Agent framework not available for streaming', this.name);
       }
 
       this.logger.info(
         {
           duration: Date.now() - startTime,
-          //log entire response for the time being so we can analyze and improve
-          //the agent's performance and user experience
         },
-        `Agent ${this.name} stream completed`,
+        `Agent ${this.name} object stream completed`,
       );
     } catch (error) {
       this.logger.error(
@@ -313,10 +377,10 @@ export class Agent<T> {
           error,
           duration: Date.now() - startTime,
         },
-        `Agent ${this.name} stream failed`,
+        `Agent ${this.name} object stream failed`,
       );
       throw new AgentError(
-        `Failed to stream response: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to stream object response: ${error instanceof Error ? error.message : 'Unknown error'}`,
         this.name,
         error,
       );
@@ -332,33 +396,35 @@ export class Agent<T> {
     this.logger.info(
       {
         promptLength: prompt.length,
-        //log entire prompt for the time being so we can analyze and improve
-        //the agent's performance and user experience
         prompt,
-        stream: options?.stream ?? false,
       },
       `Agent ${this.name} starting text stream`,
     );
 
     try {
-      const { textStream } = streamText({
-        model: this.model,
-        system: this.instructions,
-        prompt,
-        temperature: options?.temperature ?? this.temperature,
-        maxTokens: options?.maxTokens ?? this.maxTokens,
-        abortSignal: options?.signal,
-      });
-
-      for await (const text of textStream) {
-        this.logger.info(
-          {
-            duration: Date.now() - startTime,
-            text,
+      if (this._agent) {
+        const response = await this._agent.streamText(prompt, {
+          provider: {
+            temperature: options?.temperature ?? this.temperature,
+            maxTokens: options?.maxTokens ?? this.maxTokens,
+            onError: async (error: unknown) => {
+              this.logger.error({ error }, 'Agent stream error');
+            },
           },
-          `Agent ${this.name} streaming text`,
-        );
-        yield text;
+        });
+
+        for await (const delta of response.textStream) {
+          this.logger.debug(
+            {
+              duration: Date.now() - startTime,
+              deltaLength: delta.length,
+            },
+            `Agent ${this.name} streaming text`,
+          );
+          yield delta;
+        }
+      } else {
+        throw new AgentError('Agent framework not available for streaming', this.name);
       }
 
       this.logger.info(
@@ -381,6 +447,27 @@ export class Agent<T> {
         error,
       );
     }
+  }
+
+  /**
+   * Get the underlying agent framework instance for advanced usage
+   * Note: May be null if agent framework failed to initialize
+   */
+  getUnderlyingAgent(): VoltAgent<{ llm: VercelAIProvider }> | null {
+    return this._agent;
+  }
+
+  // Existing API compatibility methods
+  getName(): string {
+    return this.name;
+  }
+
+  getInstructions(): string {
+    return this.instructions;
+  }
+
+  getSchema() {
+    return this.outputSchema;
   }
 
   private async executeWithRetry<R>(
@@ -410,16 +497,67 @@ export class Agent<T> {
       return this.executeWithRetry(fn, retriesLeft - 1, error);
     }
   }
-
-  getName(): string {
-    return this.name;
-  }
-
-  getInstructions(): string {
-    return this.instructions;
-  }
-
-  getSchema() {
-    return this.outputSchema;
-  }
 }
+
+// Factory functions for convenience
+export const createAgent = (config: AgentConfig, deps: AgentDeps) => {
+  return new Agent(config, deps);
+};
+
+export const createOpenAIAgent = (
+  config: Omit<AgentConfig, 'model'> & { model?: LanguageModelV1 },
+  deps: AgentDeps,
+): Agent => {
+  const apiKey = getProviderApiKey('openai');
+
+  if (!apiKey) {
+    throw new AgentError(
+      'Missing OpenAI API key. Please add api_key to providers.openai in config.',
+      config.name,
+    );
+  }
+
+  if (!config.model) {
+    throw new AgentError('Model must be provided for OpenAI agent', config.name);
+  }
+
+  return createAgent(
+    {
+      ...config,
+      model: config.model,
+    },
+    deps,
+  );
+};
+
+export const createAzureAgent = (
+  config: Omit<AgentConfig, 'model'> & { model: LanguageModelV1 },
+  deps: AgentDeps,
+): Agent => {
+  const conf = getConfig();
+  const azureConfig = conf.get('providers.azure');
+  const apiKey = getProviderApiKey('azure');
+  const resourceName = azureConfig?.resource_name;
+
+  if (!apiKey || !resourceName) {
+    throw new AgentError(
+      'Missing Azure OpenAI credentials. Please add api_key and resource_name to providers.azure in config.',
+      config.name,
+    );
+  }
+
+  return createAgent(
+    {
+      ...config,
+      model: config.model,
+    },
+    deps,
+  );
+};
+
+// Export as BaseAgent for clarity when used in inheritance
+export { Agent as BaseAgent };
+
+// Re-export VoltAgent types for future advanced usage
+export type { Tool, Memory, BaseRetriever } from '@voltagent/core';
+export { createTool } from '@voltagent/core';
