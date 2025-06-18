@@ -183,6 +183,9 @@ export class KnowledgeGraphManager {
         }
       }
       return undefined;
+    } catch (err) {
+      this.logger.error({ err }, 'Error getting node');
+      throw err;
     } finally {
       rl.close();
       fileStream.close();
@@ -199,6 +202,9 @@ export class KnowledgeGraphManager {
           yield node;
         }
       }
+    } catch (err) {
+      this.logger.error({ err }, 'Error streaming nodes');
+      throw err;
     } finally {
       rl.close();
       fileStream.close();
@@ -213,29 +219,29 @@ export class KnowledgeGraphManager {
     return nodes;
   }
 
-  async resume({ 
-    project, 
-    limit = 5, 
-    includeDiffs = 'latest' 
-  }: { 
-    project: string; 
+  async resume({
+    project,
+    limit = 5,
+    includeDiffs = 'latest',
+  }: {
+    project: string;
     limit?: number;
     includeDiffs?: 'all' | 'latest' | 'none';
   }): Promise<DagNode[]> {
     const nodes = await this.export({ project, limit });
-    
+
     // Handle diff inclusion based on includeDiffs parameter
     if (includeDiffs === 'none') {
       // Remove diff from all nodes
-      return nodes.map(node => ({ ...node, diff: undefined }));
+      return nodes.map((node) => ({ ...node, diff: undefined }));
     } else if (includeDiffs === 'latest') {
       // Only include diff for the most recent node (last in array)
       return nodes.map((node, index) => ({
         ...node,
-        diff: index === nodes.length - 1 ? node.diff : undefined
+        diff: index === nodes.length - 1 ? node.diff : undefined,
       }));
     }
-    
+
     // includeDiffs === 'all' - return nodes as is with all diffs
     return nodes;
   }
@@ -261,6 +267,9 @@ export class KnowledgeGraphManager {
         if (limit && nodes.length > limit) nodes.shift();
       }
       return nodes;
+    } catch (err) {
+      this.logger.error({ err }, 'Error exporting nodes');
+      throw err;
     } finally {
       rl.close();
       fileStream.close();
@@ -279,6 +288,9 @@ export class KnowledgeGraphManager {
         }
       }
       return Array.from(projects);
+    } catch (err) {
+      this.logger.error({ err }, 'Error listing projects');
+      throw err;
     } finally {
       rl.close();
       fileStream.close();
@@ -289,10 +301,13 @@ export class KnowledgeGraphManager {
   // Soft Delete Methods ---------------------------------------------------------
   // -----------------------------------------------------------------------------
 
-  async findDependentNodes(nodeIds: string[], project: string): Promise<Map<string, DependentNode[]>> {
+  async findDependentNodes(
+    nodeIds: string[],
+    project: string,
+  ): Promise<Map<string, DependentNode[]>> {
     const dependentsMap = new Map<string, DependentNode[]>();
-    nodeIds.forEach(id => dependentsMap.set(id, []));
-    
+    nodeIds.forEach((id) => dependentsMap.set(id, []));
+
     for await (const node of this.streamDagNodes(project)) {
       for (const nodeId of nodeIds) {
         if (node.parents.includes(nodeId)) {
@@ -307,22 +322,22 @@ export class KnowledgeGraphManager {
         }
       }
     }
-    
+
     return dependentsMap;
   }
 
   async findAffectedSummaryNodes(nodeIds: string[], project: string): Promise<SummaryNode[]> {
     const affectedSummaries: SummaryNode[] = [];
-    
+
     for await (const node of this.streamDagNodes(project)) {
       if (node.role === 'summary' && node.summarizedSegment) {
-        const hasDeletedNode = node.summarizedSegment.some(id => nodeIds.includes(id));
+        const hasDeletedNode = node.summarizedSegment.some((id) => nodeIds.includes(id));
         if (hasDeletedNode) {
           affectedSummaries.push(node as SummaryNode);
         }
       }
     }
-    
+
     return affectedSummaries;
   }
 
@@ -330,23 +345,23 @@ export class KnowledgeGraphManager {
     await fs.mkdir(this.backupDir, { recursive: true });
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupPath = path.join(this.backupDir, `knowledge_graph_${timestamp}.ndjson`);
-    
+
     await fs.copyFile(this.logFilePath, backupPath);
     this.logger.info(`[KnowledgeGraphManager] Created backup at ${backupPath}`);
-    
+
     return backupPath;
   }
 
   private async appendToDeletedLog(nodes: DeletedNode[]): Promise<void> {
-    const lines = nodes.map(node => JSON.stringify(node) + '\n').join('');
+    const lines = nodes.map((node) => JSON.stringify(node) + '\n').join('');
     await fs.appendFile(this.deletedLogFilePath, lines, 'utf8');
   }
 
   async softDeleteNodes(
-    nodeIds: string[], 
+    nodeIds: string[],
     project: string,
     reason?: string,
-    deletedBy?: string
+    deletedBy?: string,
   ): Promise<{
     deletedNodes: DeletedNode[];
     backupPath: string;
@@ -354,11 +369,11 @@ export class KnowledgeGraphManager {
   }> {
     // Create backup first
     const backupPath = await this.createBackup();
-    
+
     // Find nodes to delete
     const nodesToDelete: DagNode[] = [];
     const remainingNodes: DagNode[] = [];
-    
+
     for await (const node of this.streamDagNodes(project)) {
       if (nodeIds.includes(node.id)) {
         nodesToDelete.push(node);
@@ -366,26 +381,28 @@ export class KnowledgeGraphManager {
         remainingNodes.push(node);
       }
     }
-    
+
     // Convert to deleted nodes
-    const deletedNodes: DeletedNode[] = nodesToDelete.map(node => ({
+    const deletedNodes: DeletedNode[] = nodesToDelete.map((node) => ({
       ...node,
       deletedAt: new Date().toISOString(),
       deletedReason: reason,
       deletedBy: deletedBy,
     }));
-    
+
     // Append to deleted log
     await this.appendToDeletedLog(deletedNodes);
-    
+
     // Find affected summary nodes before rebuilding
     const affectedSummaries = await this.findAffectedSummaryNodes(nodeIds, project);
-    
+
     // Rebuild the main graph without deleted nodes
     await this.rebuildGraphWithoutDeleted(project, nodeIds);
-    
-    this.logger.info(`[KnowledgeGraphManager] Soft deleted ${deletedNodes.length} nodes from project ${project}`);
-    
+
+    this.logger.info(
+      `[KnowledgeGraphManager] Soft deleted ${deletedNodes.length} nodes from project ${project}`,
+    );
+
     return {
       deletedNodes,
       backupPath,
@@ -393,32 +410,38 @@ export class KnowledgeGraphManager {
     };
   }
 
-  private async rebuildGraphWithoutDeleted(project: string, deletedNodeIds: string[]): Promise<void> {
+  private async rebuildGraphWithoutDeleted(
+    project: string,
+    deletedNodeIds: string[],
+  ): Promise<void> {
     // Read all nodes from all projects
     const allNodes: DagNode[] = [];
     const fileStream = fsSync.createReadStream(this.logFilePath);
     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
-    
+
     try {
       for await (const line of rl) {
         const node = this.parseDagNode(line);
         if (node && !deletedNodeIds.includes(node.id)) {
           // Update parent/child references to exclude deleted nodes
-          node.parents = node.parents.filter(id => !deletedNodeIds.includes(id));
-          node.children = node.children.filter(id => !deletedNodeIds.includes(id));
+          node.parents = node.parents.filter((id) => !deletedNodeIds.includes(id));
+          node.children = node.children.filter((id) => !deletedNodeIds.includes(id));
           allNodes.push(node);
         }
       }
+    } catch (err) {
+      this.logger.error({ err }, 'Error rebuilding graph without deleted nodes');
+      throw err;
     } finally {
       rl.close();
       fileStream.close();
     }
-    
+
     // Write back all non-deleted nodes
     const tempPath = `${this.logFilePath}.tmp`;
-    const lines = allNodes.map(node => JSON.stringify(node) + '\n').join('');
+    const lines = allNodes.map((node) => JSON.stringify(node) + '\n').join('');
     await fs.writeFile(tempPath, lines, 'utf8');
-    
+
     // Atomic replace
     await fs.rename(tempPath, this.logFilePath);
   }
