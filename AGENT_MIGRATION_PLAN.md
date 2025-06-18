@@ -196,7 +196,11 @@ import { BaseAgent, createTool, type Tool } from './BaseAgent';
 
 **Quality Assurance Tasks**:
 
-- [ ] **Create unit tests** for CriticAgent and SummarizerAgent
+- [x] **Create unit tests** for CriticAgent and SummarizerAgent
+  - ✅ CriticAgent.test.ts: 20 comprehensive tests covering schema validation, constructor, reviewActorNode, error handling, and prompt building
+  - ✅ SummarizerAgent.test.ts: 24 comprehensive tests covering schema validation, constructor, summarizeNodes, legacy compatibility, error handling, and factory functions
+  - ✅ All tests passing: 82/82 test cases successful
+  - ✅ TypeScript compilation verified: `npx tsc --noEmit --skipLibCheck` passes
 - [ ] **Create integration tests** with ActorCriticEngine and KnowledgeGraph
 - [ ] **Performance comparison** between Python and TypeScript agents
 - [ ] **End-to-end testing** with full actor-critic workflow
