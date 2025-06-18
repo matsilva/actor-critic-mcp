@@ -28,9 +28,10 @@ import { BaseAgent, createTool, type Tool } from './BaseAgent';
 
 ### Phase 0: Configuration & Infrastructure
 
-**Status**: ⚠️ **PARTIALLY COMPLETE** - Missing foundational components
+**Status**: ✅ **COMPLETED** - All foundational components implemented
 
 #### ✅ Completed
+
 - [x] **Run migration script**: `npx ts-node scripts/migrations/migrate_fastagent_config.ts`
 - [x] **Review generated** `codeloops.config.json`
 - [x] **Verify LLM provider settings** migrated correctly (OpenAI, Anthropic, Azure)
@@ -39,56 +40,68 @@ import { BaseAgent, createTool, type Tool } from './BaseAgent';
 - [x] **Maintain backward compatibility** with existing AgentConfig interface
 - [x] **Add extension points** for VoltAgent features (tools, memory, sub-agents, etc.)
 
-#### ❌ Outstanding (BLOCKERS for Phase 1)
-- [ ] **Set file permissions** `chmod 600 codeloops.config.json` for API key security
-- [ ] **Implement `selectModel()` function** for dynamic model instance creation
-- [ ] **Define Zod output schemas** for CriticOutputSchema and SummaryOutputSchema
-- [ ] **Add AI SDK provider imports** (anthropic, openai, azure) for model creation
-- [ ] **Create model factory utilities** to bridge config system with AI SDK instances
-- [ ] **Test model instance creation** with available API keys
+#### ✅ Additional Completed Tasks
+
+- [x] **Set file permissions** `chmod 600 codeloops.config.json` for API key security
+- [x] **Implement `createModel()` function** for dynamic model instance creation
+- [x] **Define Zod output schemas** for CriticOutputSchema and SummaryOutputSchema (now collocated)
+- [x] **Add AI SDK provider imports** (anthropic, openai, azure) for model creation
+- [x] **Create model factory utilities** to bridge config system with AI SDK instances
+- [x] **Test model instance creation** with available API keys
 
 ### Phase 0.5: Missing Foundational Components
 
 **Status**: ✅ **COMPLETED** - Phase 1 blockers resolved
 
-**Files**: `src/config/models.ts`, `src/agents/schemas.ts`
+**Files**: `src/config/models.ts`, schemas now collocated in respective agent files
 
 - [x] **Implement `createModel()` function**:
+
   ```typescript
   function createModel(modelRef: string): LanguageModelV1 {
     // Parse model reference (format: "provider.model")
     const [provider, modelName] = modelRef.split('.');
     const modelConfig = getModelConfig(modelRef);
-    
+
     switch (provider) {
-      case 'anthropic': return anthropic(modelConfig.model.id);
-      case 'openai': return openai(modelConfig.model.id);
-      case 'azure': return azure(modelConfig.model.id, { resourceName });
-      case 'deepseek': return openai(modelConfig.model.id, { baseURL: 'https://api.deepseek.com/v1', apiKey });
-      case 'google': return openai(modelConfig.model.id, { baseURL: 'https://generativelanguage.googleapis.com/v1beta', apiKey });
-      case 'generic': return openai(modelConfig.model.id, { baseURL, apiKey });
+      case 'anthropic':
+        return anthropic(modelConfig.model.id);
+      case 'openai':
+        return openai(modelConfig.model.id);
+      case 'azure':
+        return azure(modelConfig.model.id, { resourceName });
+      case 'deepseek':
+        return openai(modelConfig.model.id, { baseURL: 'https://api.deepseek.com/v1', apiKey });
+      case 'google':
+        return openai(modelConfig.model.id, {
+          baseURL: 'https://generativelanguage.googleapis.com/v1beta',
+          apiKey,
+        });
+      case 'generic':
+        return openai(modelConfig.model.id, { baseURL, apiKey });
     }
   }
-  
+
   // Also includes:
   // - getModelReference(configPath: string): Get model ref from any config path
   // - getModelConfigFromPath(configPath: string): Get model settings from config
   ```
 
 - [x] **Define agent output schemas**:
+
   ```typescript
   export const CriticOutputSchema = z.object({
     verdict: z.enum(['approved', 'needs_revision', 'reject']),
     verdictReason: z.string().optional(),
     recommendations: z.array(z.string()).optional(),
   });
-  
+
   export const SummaryOutputSchema = z.object({
     summary: z.string(),
     keyPoints: z.array(z.string()),
     actionItems: z.array(z.string()).optional(),
   });
-  
+
   export type CriticResponse = z.infer<typeof CriticOutputSchema>;
   export type SummaryResponse = z.infer<typeof SummaryOutputSchema>;
   ```
@@ -100,38 +113,43 @@ import { BaseAgent, createTool, type Tool } from './BaseAgent';
 
 ### Phase 1: Critic Agent Implementation
 
-**Status**: 🚧 **READY TO START** - All blockers resolved
+**Status**: 🚧 **MOSTLY COMPLETE** - Implementation done, testing needed
 
 **Files**: `src/agents/CriticAgent.ts`
 
-**Prerequisites**: 
+**Prerequisites**:
+
 - ✅ BaseAgent VoltAgent integration complete
 - ✅ `createModel()` function implementation
-- ✅ CriticOutputSchema definition
+- ✅ CriticOutputSchema definition (collocated in CriticAgent.ts)
 - ✅ AI SDK provider imports
 
 **Implementation Tasks**:
-- [ ] **Create CriticAgent class** extending BaseAgent
-- [ ] **Implement dynamic model selection** using model reference from config
-- [ ] **Port critic instructions** from Python agent (`agents/critic/agent.py`)
-- [ ] **Add helper function** `reviewActorNode(nodeId: string, context: string)`
-- [ ] **Leverage VoltAgent hooks** for automatic telemetry tracking
-- [ ] **Test against existing Python agent** for output compatibility
+
+- [x] **Create CriticAgent class** extending BaseAgent
+- [x] **Implement dynamic model selection** using model reference from config
+- [x] **Port critic instructions** from Python agent (`agents/critic/agent.py`)
+- [x] **Add helper function** `reviewActorNode(actorNode: DagNode)` with proper typing
+- [x] **Leverage VoltAgent hooks** for automatic telemetry tracking
+- [x] **Schema collocation** - moved CriticOutputSchema into CriticAgent.ts
+- [ ] **Integrate into existing Critic.ts workflow**
 
 ### Phase 2: Summarizer Agent Implementation
 
-**Status**: ⏸️ **BLOCKED** - Waiting for Phase 0.5 and Phase 1 completion
+**Status**: 🚧 **READY TO START** - All prerequisites now met
 
 **Files**: `src/agents/SummarizerAgent.ts`
 
-**Prerequisites**: 
-- ❌ `selectModel()` function implementation
-- ❌ SummaryOutputSchema definition
-- ❌ Phase 1 CriticAgent completion (for pattern reference)
+**Prerequisites**:
+
+- ✅ `createModel()` function implementation (completed in Phase 0.5)
+- ✅ SummaryOutputSchema definition (to be collocated in SummarizerAgent.ts)
+- ✅ Phase 1 CriticAgent completion (implementation complete, provides pattern)
 
 **Implementation Tasks**:
+
 - [ ] **Create SummarizerAgent class** extending BaseAgent
-- [ ] **Implement dynamic model selection** using `selectModel('summarizer')`
+- [ ] **Implement dynamic model selection** using `createModel()` with config-driven model references
 - [ ] **Port summarization instructions** from Python agent (`agents/summarize/agent.py`)
 - [ ] **Add helper function** `summarizeNodes(nodes: DagNode[])`
 - [ ] **Leverage VoltAgent hooks** for automatic telemetry tracking
@@ -139,21 +157,24 @@ import { BaseAgent, createTool, type Tool } from './BaseAgent';
 
 ### Phase 3: Integration & Migration
 
-**Status**: ⏸️ **BLOCKED** - Waiting for Phase 1 and Phase 2 completion
+**Status**: ⏸️ **PARTIALLY READY** - CriticAgent ready for integration
 
 **Files**: Update existing `Critic.ts`, `Summarize.ts`, `ActorCriticEngine.ts`
 
-**Prerequisites**: 
-- ❌ CriticAgent implementation complete
+**Prerequisites**:
+
+- 🚧 CriticAgent implementation complete (needs testing and integration)
 - ❌ SummarizerAgent implementation complete
 - ❌ Both agents tested and verified
 
 **Current Integration Files**:
+
 - **`src/agents/Critic.ts`** - Currently uses `execa` subprocess calls to Python
 - **`src/agents/Summarize.ts`** - SummarizationAgent class with Python subprocess calls
 - **`src/engine/ActorCriticEngine.ts`** - Orchestrates workflow, needs agent integration updates
 
 **Implementation Tasks**:
+
 - [ ] **Update Critic.ts** to use new CriticAgent instead of Python subprocess
 - [ ] **Update Summarize.ts** to use new SummarizerAgent instead of Python subprocess
 - [ ] **Remove subprocess calls** (`execa` usage for Python agents)
@@ -166,12 +187,14 @@ import { BaseAgent, createTool, type Tool } from './BaseAgent';
 
 **Status**: ⏸️ **BLOCKED** - Waiting for Phase 3 completion
 
-**Prerequisites**: 
+**Prerequisites**:
+
 - ❌ All TypeScript agents implemented and integrated
 - ❌ Feature flag system working
 - ❌ Performance validation complete
 
 **Quality Assurance Tasks**:
+
 - [ ] **Create unit tests** for CriticAgent and SummarizerAgent
 - [ ] **Create integration tests** with ActorCriticEngine and KnowledgeGraph
 - [ ] **Performance comparison** between Python and TypeScript agents
@@ -181,6 +204,7 @@ import { BaseAgent, createTool, type Tool } from './BaseAgent';
 - [ ] **Documentation updates** for new agent architecture
 
 **Cleanup Tasks** (Only after validation):
+
 - [ ] **Set feature flag**: `"legacy_python_agents": false` in config
 - [ ] **Remove Python files**: Delete `agents/critic/` and `agents/summarize/` directories
 - [ ] **Remove Python dependencies** from package.json and requirements files
@@ -197,19 +221,25 @@ The BaseAgent now uses VoltAgent under the hood while maintaining the existing A
 export class Agent<T> {
   private readonly _agent: VoltAgent<any>; // Using any for now to avoid complex type issues
   private readonly logger: Logger;
-  
+
   constructor(config: AgentConfig<T>, { logger }: AgentDeps) {
     // Create VoltAgent hooks for logging integration
     const hooks = createHooks({
       onStart: async ({ agent, context }) => {
-        this.logger.info({
-          operationId: context.operationId,
-          agentName: agent.name,
-        }, 'VoltAgent operation started');
+        this.logger.info(
+          {
+            operationId: context.operationId,
+            agentName: agent.name,
+          },
+          'VoltAgent operation started',
+        );
       },
       onEnd: async ({ agent, output, error, context }) => {
         if (error) {
-          this.logger.error({ operationId: context.operationId, error }, 'VoltAgent operation failed');
+          this.logger.error(
+            { operationId: context.operationId, error },
+            'VoltAgent operation failed',
+          );
         } else {
           this.logger.info({ operationId: context.operationId }, 'VoltAgent operation completed');
         }
@@ -243,21 +273,25 @@ export class Agent<T> {
 
   // Main API methods
   async send(prompt: string, options?: AgentSendOptions): Promise<T> {
-    return await this._agent.generateObject(prompt, this.outputSchema, {
-      provider: {
-        temperature: options?.temperature ?? this.temperature,
-        maxTokens: options?.maxTokens ?? this.maxTokens,
-      },
-    }).then(response => response.object as T);
+    return await this._agent
+      .generateObject(prompt, this.outputSchema, {
+        provider: {
+          temperature: options?.temperature ?? this.temperature,
+          maxTokens: options?.maxTokens ?? this.maxTokens,
+        },
+      })
+      .then((response) => response.object as T);
   }
 
   async sendText(prompt: string, options?: AgentSendOptions): Promise<string> {
-    return await this._agent.generateText(prompt, {
-      provider: {
-        temperature: options?.temperature ?? this.temperature,
-        maxTokens: options?.maxTokens ?? this.maxTokens,
-      },
-    }).then(response => response.text);
+    return await this._agent
+      .generateText(prompt, {
+        provider: {
+          temperature: options?.temperature ?? this.temperature,
+          maxTokens: options?.maxTokens ?? this.maxTokens,
+        },
+      })
+      .then((response) => response.text);
   }
 }
 ```
@@ -298,7 +332,7 @@ export class CriticAgent extends Agent<CriticResponse> {
   constructor(deps: AgentDeps) {
     const config = getConfig();
     const modelRef = getModelReference('agents.critic.model') || config.get('default_model');
-    
+
     super(
       {
         name: 'critic',
@@ -329,8 +363,8 @@ The BaseAgent provides clear extension points for advanced VoltAgent capabilitie
 ```typescript
 // Tools - for external integrations
 const codeAnalysisTool = createTool({
-  name: "analyze_code",
-  description: "Analyze code quality and patterns",
+  name: 'analyze_code',
+  description: 'Analyze code quality and patterns',
   parameters: z.object({ code: z.string() }),
   execute: async ({ code }) => {
     // Tool implementation
@@ -339,7 +373,9 @@ const codeAnalysisTool = createTool({
 
 // Memory - for conversation persistence
 import { LibSQLStorage } from '@voltagent/core';
-const memory = new LibSQLStorage({ /* config */ });
+const memory = new LibSQLStorage({
+  /* config */
+});
 
 // Retriever - for RAG capabilities
 class CodebaseRetriever extends BaseRetriever {
@@ -349,13 +385,17 @@ class CodebaseRetriever extends BaseRetriever {
 }
 
 // Sub-agents - for task delegation
-const researchAgent = new BaseAgent({ /* config */ });
-const analysisAgent = new BaseAgent({ /* config */ });
+const researchAgent = new BaseAgent({
+  /* config */
+});
+const analysisAgent = new BaseAgent({
+  /* config */
+});
 
 // Enhanced agent with full VoltAgent capabilities
 const agent = new BaseAgent({
-  name: "Advanced Critic",
-  instructions: "...",
+  name: 'Advanced Critic',
+  instructions: '...',
   tools: [codeAnalysisTool],
   memory,
   retriever: new CodebaseRetriever(),
@@ -371,8 +411,8 @@ Control migration with feature flags in `codeloops.config.json`:
 ```json
 {
   "features": {
-    "legacy_python_agents": true,  // Currently TRUE - using Python agents
-    "telemetry_enabled": true      // VoltAgent hooks provide automatic telemetry
+    "legacy_python_agents": true, // Currently TRUE - using Python agents
+    "telemetry_enabled": true // VoltAgent hooks provide automatic telemetry
   }
 }
 ```
@@ -421,29 +461,34 @@ rm -rf agents/critic agents/summarize
 ## Timeline Estimate
 
 - **Phase 0** (Configuration & Infrastructure): ✅ COMPLETED
-- **Phase 0.5** (Missing Foundational Components): ✅ **COMPLETED** 
-- **Phase 1** (Critic Agent): 🚧 0.5 days (READY TO START)
-- **Phase 2** (Summarizer Agent): ⏸️ 0.5 days (BLOCKED)
+- **Phase 0.5** (Missing Foundational Components): ✅ **COMPLETED**
+- **Phase 1** (Critic Agent): 🚧 0.1 days remaining (MOSTLY COMPLETE - testing needed)
+- **Phase 2** (Summarizer Agent): 🚧 0.5 days (READY TO START)
 - **Phase 3** (Integration): ⏸️ 0.75 days (BLOCKED)
 - **Phase 4** (Testing & Cleanup): ⏸️ 0.5 days (BLOCKED)
 
-**Total**: 2.25 days remaining (0.75 days completed)
+**Total**: 1.85 days remaining (1.15 days completed)
 
-**Next Steps**: Begin Phase 1 - Critic Agent Implementation.
+**Next Steps**: Complete Phase 1 testing and integration, then begin Phase 2 - Summarizer Agent.
 
 ## Success Criteria
 
 ### ✅ Completed
+
 - [x] **Configuration migrated** from FastAgent YAML to CodeLoops JSON
 - [x] **VoltAgent integration** working with automatic telemetry
 - [x] **Extension points available** for tools, memory, sub-agents, retrievers
 - [x] **Backward compatibility maintained** with existing BaseAgent API
 
-### 🚧 In Progress (Phase 0.5)
-- [ ] **Foundation components implemented** (selectModel, schemas, model factories)
-- [ ] **Security hardening complete** (config file permissions)
+### 🚧 In Progress (Phase 1)
+
+- [x] **Foundation components implemented** (createModel, schemas collocated, model factories)
+- [x] **Security hardening complete** (config file permissions)
+- [x] **CriticAgent implementation** with VoltAgent integration
+- [ ] **CriticAgent testing and integration** with existing workflow
 
 ### ⏸️ Pending (Phases 1-4)
+
 - [ ] **All Python agents removed** and replaced with TypeScript equivalents
 - [ ] **Performance maintained or improved** compared to subprocess approach
 - [ ] **Full type safety** across agent interactions
@@ -470,26 +515,31 @@ If issues arise during migration:
 Now easily achievable with VoltAgent integration:
 
 ### Tools Integration
+
 - **Code Analysis Tools**: AST parsing, linting integration
 - **External APIs**: GitHub, JIRA, documentation systems
 - **File System Tools**: Read/write operations, git commands
 
 ### Memory & Context
+
 - **Conversation Persistence**: Full chat history across sessions
 - **Project Context**: Codebase understanding and patterns
 - **User Preferences**: Learning from user feedback
 
 ### Sub-Agents & Delegation
+
 - **Specialized Agents**: Research, analysis, documentation, testing
 - **Workflow Orchestration**: Complex multi-step processes
 - **Parallel Processing**: Concurrent task execution
 
 ### RAG Integration
+
 - **Codebase Knowledge**: Vector search across project files
 - **Documentation Access**: Real-time docs and API references
 - **Historical Context**: Past decisions and patterns
 
 ### Advanced Features
+
 - **Voice Integration**: Speech-to-text and text-to-speech
 - **Streaming Responses**: Real-time feedback and progress
 - **Custom Providers**: Integration with specialized AI models

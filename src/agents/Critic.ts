@@ -1,10 +1,7 @@
-import { execa } from 'execa';
-import { to } from 'await-to-js';
 import { v4 as uuid } from 'uuid';
 import { KnowledgeGraphManager, DagNode } from '../engine/KnowledgeGraph.ts';
 import { getInstance as getLogger } from '../logger.ts';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { CriticAgent } from './CriticAgent.ts';
 import { z } from 'zod';
 
 export const CriticSchema = {
@@ -41,7 +38,11 @@ function missingArtifactGuard(actorNode: DagNode): { needsFix: boolean; reason?:
 }
 
 export class Critic {
-  constructor(private readonly kg: KnowledgeGraphManager) {}
+  private readonly criticAgent: CriticAgent;
+
+  constructor(private readonly kg: KnowledgeGraphManager) {
+    this.criticAgent = new CriticAgent({ logger: getLogger() });
+  }
 
   async review({
     actorNodeId,
@@ -65,28 +66,15 @@ export class Critic {
     if (artifactGuard.reason) reason = artifactGuard.reason;
 
     if (verdict === 'approved') {
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = path.dirname(__filename);
-      const criticDir = path.resolve(__dirname, '..', '..', 'agents', 'critic');
-      const targetJson = JSON.stringify(target);
-      const [criticError, output] = await to(
-        execa('uv', ['run', 'agent.py', '--quiet', '--agent', 'default', '--message', targetJson], {
-          cwd: criticDir,
-        }),
-      );
-
-      if (criticError) {
-        throw criticError;
-      }
       try {
-        const json = JSON.parse(output.stdout) as {
-          verdict: DagNode['verdict'];
-          verdictReason?: string;
-        };
-        verdict = json.verdict;
-        reason = json.verdictReason;
+        const criticResponse = await this.criticAgent.reviewActorNode(target as DagNode);
+        verdict = (criticResponse as any).verdict;
+        reason = (criticResponse as any).verdictReason;
       } catch (err) {
-        getLogger().error({ err }, 'Failed to parse JSON from uv mcp-server-fetch');
+        getLogger().error({ err }, 'CriticAgent failed to review actor node');
+        // Fallback to needs_revision if critic agent fails
+        verdict = 'needs_revision';
+        reason = 'Critic agent evaluation failed';
       }
     }
 

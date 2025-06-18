@@ -1,18 +1,14 @@
-import { execa } from 'execa';
-import { to } from 'await-to-js';
-import path from 'node:path';
 import { getInstance as getLogger } from '../logger.ts';
-import { fileURLToPath } from 'node:url';
 import { v4 as uuid } from 'uuid';
 import { DagNode, KnowledgeGraphManager, SummaryNode } from '../engine/KnowledgeGraph.ts';
+import { SummarizerAgent } from './SummarizerAgent.ts';
 
 /**
- * SummarizationAgent provides an interface to the Python-based summarization agent.
- * It handles serialization/deserialization of node data and processes the agent's response.
- * It also manages the summarization logic for the knowledge graph.
+ * SummarizationAgent provides an interface to the TypeScript-based summarization agent.
+ * It handles summarization logic for the knowledge graph using the new SummarizerAgent.
  */
 export class SummarizationAgent {
-  private readonly agentPath: string;
+  private readonly summarizerAgent: SummarizerAgent;
 
   // Number of nodes after which to trigger summarization
   private static SUMMARIZATION_THRESHOLD = 20;
@@ -20,18 +16,11 @@ export class SummarizationAgent {
   /**
    * Creates a new SummarizationAgent.
    * @param knowledgeGraph The knowledge graph manager instance
-   * @param pythonCommand Python command to use (defaults to 'uv')
-   * @param pythonArgs Additional arguments for the Python command (defaults to ['run'])
    */
   constructor(
     private readonly knowledgeGraph: KnowledgeGraphManager,
-    private readonly pythonCommand: string = 'uv',
-    private readonly pythonArgs: string[] = ['run'],
   ) {
-    // Get the path to the summarize agent directory
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-    this.agentPath = path.resolve(__dirname, '..', '..', 'agents', 'summarize');
+    this.summarizerAgent = new SummarizerAgent({ logger: getLogger() });
   }
 
   /**
@@ -41,77 +30,21 @@ export class SummarizationAgent {
    */
   async summarize(nodes: DagNode[]): Promise<{ summary: string; error?: string }> {
     try {
-      // Serialize the nodes to JSON
-      const nodesJson = JSON.stringify(nodes);
-
       // Log input for debugging
-      getLogger().info({ nodesJson }, 'Summarization agent input');
+      getLogger().info({ nodeCount: nodes.length }, 'Summarization agent input');
 
-      // Call the Python agent using execa
-      const [execError, output] = await to(
-        execa(this.pythonCommand, [...this.pythonArgs, 'agent.py', '--quiet', '--summarize'], {
-          cwd: this.agentPath,
-          input: nodesJson,
-        }),
-      );
-
-      // Handle execution errors
-      if (execError) {
-        getLogger().error({ execError }, 'Summarization agent execution error');
-        return {
-          summary: '',
-          error: `Failed to execute summarization agent: ${execError.message}`,
-        };
-      }
-
-      // Handle stderr output
-      if (output.stderr) {
-        getLogger().error({ stderr: output.stderr }, 'Summarization agent stderr output');
-      }
-
-      // Log raw output for debugging
-      getLogger().info({ rawOutput: output.stdout }, 'Summarization agent raw output');
-
-      // Parse the response with improved error handling
-      let response;
-      try {
-        response = JSON.parse(output.stdout.trim());
-      } catch (parseError) {
-        const err = parseError as Error;
-        getLogger().error(
-          { parseError, rawOutput: output.stdout },
-          'Failed to parse summarization agent response',
-        );
-        return { summary: '', error: `Failed to parse JSON response: ${err.message}` };
-      }
-
-      // Check if response has the expected format
-      if (response.error) {
-        return { summary: '', error: response.error };
-      }
-
-      if (response.summary) {
-        return { summary: response.summary };
-      }
-
-      // If the response doesn't match the expected format
-      if (typeof response !== 'object' || response === null) {
-        return {
-          summary: output.stdout.trim(),
-          error: 'Response format not recognized, using raw output as summary',
-        };
-      }
-
-      // Fallback for unexpected valid JSON object response
-      return {
-        summary: '',
-        error: 'Unexpected response format: no summary or error provided',
-      };
+      // Use the TypeScript SummarizerAgent
+      const result = await this.summarizerAgent.summarize(nodes);
+      
+      getLogger().info({ summaryLength: result.summary.length }, 'Summarization agent output');
+      
+      return result;
     } catch (error) {
       const err = error as Error;
+      getLogger().error({ error: err }, 'Summarization agent error');
       return {
         summary: '',
-        error: `Unexpected error during summarization: ${err.message}`,
+        error: `Summarization failed: ${err.message}`,
       };
     }
   }
