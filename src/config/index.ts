@@ -18,13 +18,15 @@ const ModelConfigSchema = z.object({
   description: z.string().optional(),
 });
 
-const ProviderConfigSchema = z.object({
-  _comment: z.string().optional(),
-  api_key: z.string().optional(),
-  base_url: z.string().optional(),
-  resource_name: z.string().optional(),
-  models: z.record(ModelConfigSchema).optional(),
-}).passthrough(); // Allow additional provider-specific fields
+const ProviderConfigSchema = z
+  .object({
+    _comment: z.string().optional(),
+    api_key: z.string().optional(),
+    base_url: z.string().optional(),
+    resource_name: z.string().optional(),
+    models: z.record(ModelConfigSchema).optional(),
+  })
+  .passthrough(); // Allow additional provider-specific fields
 
 const AgentConfigSchema = z.object({
   enabled: z.boolean(),
@@ -109,13 +111,11 @@ let configInstance: Conf<CodeLoopsConfig> | null = null;
  */
 export function getConfig(): Conf<CodeLoopsConfig> {
   if (!configInstance) {
-    configInstance = new Conf<CodeLoopsConfig>({
+    const conf = new Conf<CodeLoopsConfig>({
       projectName: 'codeloops',
       configName: 'codeloops.config', // Name of the config file (without extension)
       fileExtension: 'json', // Config file extension
       cwd: process.cwd(), // Config file location - current working directory
-      //@ts-expect-error - Conf types don't align perfectly with zod schema
-      schema: ConfigSchema,
       clearInvalidConfig: false, // Don't auto-clear invalid configs to preserve user data
       accessPropertiesByDotNotation: true, // Enable path-based access like 'agents.critic.model'
       defaults: {
@@ -123,29 +123,29 @@ export function getConfig(): Conf<CodeLoopsConfig> {
         default_model: 'openai.gpt-4o-mini',
         providers: {
           anthropic: {
-            models: {}
+            models: {},
           },
           openai: {
-            models: {}
+            models: {},
           },
           azure: {
-            models: {}
+            models: {},
           },
           deepseek: {
-            models: {}
+            models: {},
           },
           google: {
-            models: {}
+            models: {},
           },
           openrouter: {
-            models: {}
+            models: {},
           },
           generic: {
-            models: {}
+            models: {},
           },
           tensorzero: {
-            models: {}
-          }
+            models: {},
+          },
         },
         agents: {
           critic: {
@@ -202,6 +202,18 @@ export function getConfig(): Conf<CodeLoopsConfig> {
         env_prefix: 'CODELOOPS',
       },
     });
+
+    // Validate the configuration using Zod after initialization
+    try {
+      const currentConfig = conf.store;
+      ConfigSchema.parse(currentConfig);
+    } catch (error) {
+      console.warn('Configuration validation failed, using defaults:', error);
+      // Reset to defaults if validation fails
+      conf.clear();
+    }
+
+    configInstance = conf;
   }
   return configInstance;
 }
@@ -209,7 +221,9 @@ export function getConfig(): Conf<CodeLoopsConfig> {
 /**
  * Helper function to get model configuration
  */
-export function getModelConfig(modelRef: string): { provider: string; model: z.infer<typeof ModelConfigSchema> } | null {
+export function getModelConfig(
+  modelRef: string,
+): { provider: string; model: z.infer<typeof ModelConfigSchema> } | null {
   const config = getConfig();
   const [provider, modelKey] = modelRef.split('.');
 
@@ -217,7 +231,9 @@ export function getModelConfig(modelRef: string): { provider: string; model: z.i
     return null;
   }
 
-  const providerConfig = config.get(`providers.${provider}`) as { models?: Record<string, unknown> } | undefined;
+  const providerConfig = config.get(`providers.${provider}`) as
+    | { models?: Record<string, unknown> }
+    | undefined;
   if (!providerConfig?.models) {
     return null;
   }
@@ -241,7 +257,9 @@ export function getProviderApiKey(provider: string): string | undefined {
 /**
  * Get provider configuration
  */
-export function getProviderConfig(provider: string): z.infer<typeof ProviderConfigSchema> | undefined {
+export function getProviderConfig(
+  provider: string,
+): z.infer<typeof ProviderConfigSchema> | undefined {
   const config = getConfig();
   return config.get(`providers.${provider}`) as z.infer<typeof ProviderConfigSchema> | undefined;
 }
@@ -249,7 +267,10 @@ export function getProviderConfig(provider: string): z.infer<typeof ProviderConf
 /**
  * Update a feature flag
  */
-export function updateFeatureFlag(flag: keyof z.infer<typeof FeaturesConfigSchema>, value: boolean): void {
+export function updateFeatureFlag(
+  flag: keyof z.infer<typeof FeaturesConfigSchema>,
+  value: boolean,
+): void {
   const config = getConfig();
   config.set(`features.${String(flag)}`, value);
 }
