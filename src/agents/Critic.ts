@@ -68,8 +68,8 @@ export class Critic {
     if (verdict === 'approved') {
       try {
         const criticResponse = await this.criticAgent.reviewActorNode(target as DagNode);
-        verdict = (criticResponse as any).verdict;
-        reason = (criticResponse as any).verdictReason;
+        verdict = criticResponse.verdict;
+        reason = criticResponse.verdictReason;
       } catch (err) {
         getLogger().error({ err }, 'CriticAgent failed to review actor node');
         // Fallback to needs_revision if critic agent fails

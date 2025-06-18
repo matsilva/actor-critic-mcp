@@ -99,7 +99,7 @@ Every \`thought\` **must** satisfy **all** of the following rules:
    * @param actorNode The actor node to review
    * @returns Promise<CriticResponse> with verdict and optional feedback
    */
-  async reviewActorNode<CriticResponse>(actorNode: DagNode): Promise<CriticResponse> {
+  async reviewActorNode(actorNode: DagNode): Promise<CriticResponse> {
     // Validate that the node is an actor node
     if (actorNode.role !== 'actor') {
       throw new Error(`Cannot review non-actor node. Node role: ${actorNode.role}`);
