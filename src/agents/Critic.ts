@@ -8,35 +8,6 @@ export const CriticSchema = {
   actorNodeId: z.string().describe('ID of the actor node to critique.'),
 };
 
-/**
- * FILE_RX — detects a file path or filename with a wide range of extensions.
- *
- * • Accepts relative or nested paths: `src/utils/index.ts`, `./foo/bar.py`
- * • Case‑insensitive
- * • Captures extension families:
- *   - Code:  ts, tsx, js, jsx, mjs, cjs, py, go, java, kt, swift, rb, c, cpp, h, hpp,
- *            cs, rs, php, scala, sh, bat, ps1
- *   - Markup / styles: html, htm, css, scss, sass, less, xml, svg
- *   - Config / data: json, yaml, yml, toml, sql, csv, lock
- *   - Docs: md, markdown, txt, rst
- *   - Assets: png, jpg, jpeg, gif, pdf
- */
-const FILE_RX =
-  /(?:^|\\s)([\\w./-]+\\.(?:ts|tsx|js|jsx|mjs|cjs|py|go|java|kt|swift|rb|c|cpp|h|hpp|cs|rs|php|scala|sh|bat|ps1|html?|css|scss|sass|less|xml|svg|json|ya?ml|toml|sql|csv|lock|md|markdown|rst|txt|png|jpe?g|gif|pdf))(?:\\s|$)/i;
-
-function missingArtifactGuard(actorNode: DagNode): { needsFix: boolean; reason?: string } {
-  const mentionsFile = FILE_RX.test(actorNode.thought);
-  const hasArtifacts = !!actorNode.artifacts?.length;
-  if (mentionsFile && !hasArtifacts) {
-    return {
-      needsFix: true,
-      reason:
-        'Thought references a file but provided no artifacts array.  Add an artifacts array with a durable link.',
-    };
-  }
-  return { needsFix: false };
-}
-
 export class Critic {
   private readonly criticAgent: CriticAgent;
 
@@ -61,9 +32,6 @@ export class Critic {
     let reason: DagNode['verdictReason'] | undefined;
 
     if ((target as DagNode).thought.trim() === '') verdict = 'needs_revision';
-    const artifactGuard = missingArtifactGuard(target as DagNode);
-    if (artifactGuard.needsFix) verdict = 'needs_revision';
-    if (artifactGuard.reason) reason = artifactGuard.reason;
 
     if (verdict === 'approved') {
       try {
