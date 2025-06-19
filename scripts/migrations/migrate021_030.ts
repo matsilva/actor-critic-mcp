@@ -14,7 +14,7 @@
 import fs from 'node:fs/promises';
 import * as fsSync from 'node:fs';
 import path from 'node:path';
-import { dataDir } from '../../src/config.ts';
+import { dataDir } from '../../src/config/index.ts';
 import { createLogger, getInstance as getLogger } from '../../src/logger.ts';
 import { extractProjectName } from '../../src/utils/project.ts';
 import { createInterface } from 'node:readline';

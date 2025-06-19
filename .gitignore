@@ -1,3 +1,4 @@
+.voltagent
 node_modules
 .DS_Store
 data/
@@ -7,3 +8,4 @@ agents/**/fastagent.config.yaml
 agents/**/fastagent.jsonl
 logs/*.log
 logs/*.log*
+codeloops.config.json

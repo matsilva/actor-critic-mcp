@@ -32,16 +32,19 @@ Get CodeLoops up and running in minutes:
 git clone https://github.com/matsilva/codeloops.git
 cd codeloops
 
-# Run the setup script
+# Install dependencies
+npm install
+
+# Configure your API keys (optional setup script)
 npm run setup
 ```
 
-The script automates:
+The setup script helps with:
 
-- Verifying prerequisites (Node.js, Python, uv).
-- Installing dependencies.
-- Configuring Python environments.
-- Prompting for API key setup for models like Anthropic or OpenAI.
+- Verifying prerequisites (Node.js).
+- Configuring API keys for models like Anthropic or OpenAI.
+
+Alternatively, you can manually configure your API keys in the `codeloops.config.json` file or via environment variables.
 
 > **Tip**: I’ve had great results with Anthropic’s Haiku 3.5, costing about $0.60 weekly. It’s a solid starting point.
 
@@ -52,6 +55,7 @@ If this script fails, see [install guide](./docs/INSTALL_GUIDE.md) for installin
 Connect your agent to the CodeLoops server by adding the MCP server configuration. CodeLoops supports both stdio and HTTP transports:
 
 #### Option 1: Stdio Transport (Default)
+
 ```json
 "mcp": {
   "servers": {
@@ -65,6 +69,7 @@ Connect your agent to the CodeLoops server by adding the MCP server configuratio
 ```
 
 #### Option 2: HTTP Transport
+
 ```json
 "mcp": {
   "servers": {
@@ -76,8 +81,8 @@ Connect your agent to the CodeLoops server by adding the MCP server configuratio
 }
 ```
 
-
 For HTTP transport, start the server first:
+
 ```bash
 npm run start:http
 # or with custom port/host
@@ -97,6 +102,7 @@ CodeLoops supports the following command-line options:
 - `--help`: Show help message
 
 **Examples:**
+
 ```bash
 # Start with stdio (default)
 npm start
@@ -140,38 +146,31 @@ CodeLoops provides tools to enable autonomous agent operation:
 4. **Summarize**: Use `summarize` to generate clear summaries.
 5. **Provide Feedback**: Offer human-in-the-loop input as needed to refine outcomes. YMMV depenting on how smart the coding agent is.
 
-CodeLoops leverages an actor-critic model with a knowledge graph, where the Critic can delegate to a chain of specialized agents for enhanced precision:
+CodeLoops leverages an actor-critic model with a knowledge graph, where the Critic can delegate to a chain of specialized agents for enhanced precision
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  AI Agent   │────▶│    Actor    │────▶│ Knowledge   │
-│             │◀────│             │◀────│ Graph       │
-└─────────────┘     └─────────────┘     └─────────────┘
-                           │                   ▲
-                           ▼                   │
-                    ┌─────────────┐            │
-                    │   Critic    │────────────┼───┐
-                    │             │            │   │
-                    └─────────────┘            │   │
-                           │                   │   │
-                           ▼                   │   ▼
-                    ┌─────────────┐     ┌─────────────┐
-                    │ Specialized │     │ Summarizer  │
-                    │ Agents      │     │             │
-                    │ (Duplicate  │     │             │
-                    │ Code,       │     │             │
-                    │ Interface,  │     │             │
-                    │ Best        │     │             │
-                    │ Practices,  │     │             │
-                    │ etc.)       │     │             │
-                    └─────────────┘     └─────────────┘
+```mermaid
+flowchart LR
+    A[AI Agent<br/>Actor]
+    B[CodeLoops<br/>MCP]
+    C[Knowledge<br/>Graph]
+    D[Critic<br/>Agent]
+    F[Summarizer<br/>Agent]
+    E[Specialized Agents <br /> #40;<i>Future</i>#41;]
+    A --> B
+    B --> D
+    D --> F
+    F <--> C
+    D <--> C
+    B --> A
+    D -- feedback --> B
 ```
 
-This architecture enables your agent to maintain context, refine decisions through specialized checks, and operate autonomously with greater reliability.
+This architecture enables your coding agent to maintain context, refine decisions through specialized checks, and operate autonomously with greater reliability.
 
 ### Need Help?
 
 - Check [GitHub issues](https://github.com/silvabyte/codeloops/issues).
+- Discord: [Join CodeLoops Discord](https://discord.gg/vZCWmr6X)
 - File a new issue with details.
 - **Email Me**: [mat@silvabyte.com](mailto:mat@silvabyte.com).
 - **X**: [Reach out on X](https://x.com/MatSilva).

@@ -1,4 +1,4 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer, ToolCallback } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { ActorCriticEngine, ActorThinkSchema } from '../engine/ActorCriticEngine.js';
 import { KnowledgeGraphManager } from '../engine/KnowledgeGraph.js';
@@ -16,6 +16,25 @@ interface ToolDependencies {
   engine: ActorCriticEngine;
   runOnce: (project: string) => void;
 }
+
+const handleToolError = (err: Error): ReturnType<ToolCallback> => {
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          {
+            error: err?.message,
+            stack: err?.stack,
+            name: err?.name,
+          },
+          null,
+          2,
+        ),
+      },
+    ],
+  };
+};
 
 // Utility function to load project
 const loadProjectOrThrow = async ({
@@ -100,25 +119,29 @@ export const registerTools = ({ server }: { server: McpServer }) => {
    * actor_think - Add a new thought node to the knowledge graph.
    */
   server.tool('actor_think', ACTOR_THINK_DESCRIPTION, ActorThinkSchema, async (args) => {
-    const { logger, engine, runOnce } = await getDeps();
-    const projectName = await loadProjectOrThrow({ logger, args, onProjectLoad: runOnce });
+    try {
+      const { logger, engine, runOnce } = await getDeps();
+      const projectName = await loadProjectOrThrow({ logger, args, onProjectLoad: runOnce });
 
-    // Auto-generate comprehensive git diff
-    const diff = await getGitDiff(logger);
+      // Auto-generate comprehensive git diff
+      const diff = await getGitDiff(logger);
 
-    const node = await engine.actorThink({
-      ...args,
-      project: projectName,
-      diff,
-    });
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(node, null, 2),
-        },
-      ],
-    };
+      const node = await engine.actorThink({
+        ...args,
+        project: projectName,
+        diff,
+      });
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(node, null, 2),
+          },
+        ],
+      };
+    } catch (err) {
+      return handleToolError(err as Error);
+    }
   });
 
   /**
@@ -132,24 +155,28 @@ export const registerTools = ({ server }: { server: McpServer }) => {
       projectContext: z.string().describe('Full path to the project directory.'),
     },
     async (a) => {
-      const { logger, engine, runOnce } = await getDeps();
-      const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(
-              await engine.criticReview({
-                actorNodeId: a.actorNodeId,
-                projectContext: a.projectContext,
-                project: projectName,
-              }),
-              null,
-              2,
-            ),
-          },
-        ],
-      };
+      try {
+        const { logger, engine, runOnce } = await getDeps();
+        const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                await engine.criticReview({
+                  actorNodeId: a.actorNodeId,
+                  projectContext: a.projectContext,
+                  project: projectName,
+                }),
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        return handleToolError(err as Error);
+      }
     },
   );
 
@@ -160,16 +187,20 @@ export const registerTools = ({ server }: { server: McpServer }) => {
       id: z.string().describe('ID of the node to retrieve.'),
     },
     async (a) => {
-      const { kg } = await getDeps();
-      const node = await kg.getNode(a.id);
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(node, null, 2),
-          },
-        ],
-      };
+      try {
+        const { kg } = await getDeps();
+        const node = await kg.getNode(a.id);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(node, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        return handleToolError(err as Error);
+      }
     },
   );
 
@@ -185,20 +216,26 @@ export const registerTools = ({ server }: { server: McpServer }) => {
       includeDiffs: z
         .enum(['all', 'latest', 'none'])
         .optional()
-        .default('latest')
-        .describe('Control diff inclusion: "all" includes all diffs, "latest" includes only the most recent diff, "none" excludes all diffs. Defaults to "latest" to avoid context overflow.'),
+        .default('none')
+        .describe(
+          'Control diff inclusion: "all" includes all diffs, "latest" includes only the most recent diff, "none" excludes all diffs. Defaults to "none" to avoid context overflow.',
+        ),
     },
     async (a) => {
-      const { logger, kg, runOnce } = await getDeps();
-      const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
-      const text = await kg.resume({
-        project: projectName,
-        limit: a.limit,
-        includeDiffs: a.includeDiffs || 'latest',
-      });
-      return {
-        content: [{ type: 'text', text: JSON.stringify(text, null, 2) }],
-      };
+      try {
+        const { logger, kg, runOnce } = await getDeps();
+        const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
+        const text = await kg.resume({
+          project: projectName,
+          limit: a.limit,
+          includeDiffs: a.includeDiffs || 'latest',
+        });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(text, null, 2) }],
+        };
+      } catch (err) {
+        return handleToolError(err as Error);
+      }
     },
   );
 
@@ -211,17 +248,21 @@ export const registerTools = ({ server }: { server: McpServer }) => {
       projectContext: z.string().describe('Full path to the project directory.'),
     },
     async (a) => {
-      const { logger, kg, runOnce } = await getDeps();
-      const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
-      const nodes = await kg.export({ project: projectName, limit: a.limit });
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(nodes, null, 2),
-          },
-        ],
-      };
+      try {
+        const { logger, kg, runOnce } = await getDeps();
+        const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
+        const nodes = await kg.export({ project: projectName, limit: a.limit });
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(nodes, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        return handleToolError(err as Error);
+      }
     },
   );
 
@@ -237,36 +278,40 @@ export const registerTools = ({ server }: { server: McpServer }) => {
         ),
     },
     async (a) => {
-      const { logger, kg } = await getDeps();
-      let activeProject: string | null = null;
-      if (a.projectContext) {
-        const projectName = extractProjectName(a.projectContext);
-        if (!projectName) {
-          throw new Error('Invalid projectContext');
+      try {
+        const { logger, kg } = await getDeps();
+        let activeProject: string | null = null;
+        if (a.projectContext) {
+          const projectName = extractProjectName(a.projectContext);
+          if (!projectName) {
+            throw new Error('Invalid projectContext');
+          }
+          activeProject = projectName;
         }
-        activeProject = projectName;
+        const projects = await kg.listProjects();
+
+        logger.info(
+          `[list_projects] Current project: ${activeProject}, Available projects: ${projects.join(', ')}`,
+        );
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  activeProject,
+                  projects,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        return handleToolError(err as Error);
       }
-      const projects = await kg.listProjects();
-
-      logger.info(
-        `[list_projects] Current project: ${activeProject}, Available projects: ${projects.join(', ')}`,
-      );
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(
-              {
-                activeProject,
-                projects,
-              },
-              null,
-              2,
-            ),
-          },
-        ],
-      };
     },
   );
 
@@ -294,107 +339,113 @@ export const registerTools = ({ server }: { server: McpServer }) => {
         .describe('Set to true to proceed with deletion after reviewing dependencies.'),
     },
     async (a) => {
-      const { logger, kg, runOnce } = await getDeps();
-      const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
+      try {
+        const { logger, kg, runOnce } = await getDeps();
+        const projectName = await loadProjectOrThrow({ logger, args: a, onProjectLoad: runOnce });
 
-      // Check if nodes exist
-      const nodeChecks = await Promise.all(
-        a.nodeIds.map(async (id) => {
-          const node = await kg.getNode(id);
-          return { id, exists: !!node, node };
-        }),
-      );
+        // Check if nodes exist
+        const nodeChecks = await Promise.all(
+          a.nodeIds.map(async (id) => {
+            const node = await kg.getNode(id);
+            return { id, exists: !!node, node };
+          }),
+        );
 
-      const nonExistentNodes = nodeChecks.filter((check) => !check.exists).map((check) => check.id);
-      if (nonExistentNodes.length > 0) {
-        throw new Error(`Nodes not found: ${nonExistentNodes.join(', ')}`);
-      }
-
-      // Filter nodes by project
-      const projectNodes = nodeChecks.filter((check) => check.node?.project === projectName);
-      const wrongProjectNodes = nodeChecks
-        .filter((check) => check.node?.project !== projectName)
-        .map((check) => check.id);
-
-      if (wrongProjectNodes.length > 0) {
-        throw new Error(`Nodes not in project ${projectName}: ${wrongProjectNodes.join(', ')}`);
-      }
-
-      if (a.checkDependents && !a.confirm) {
-        // Check for dependent nodes
-        const dependentsMap = await kg.findDependentNodes(a.nodeIds, projectName);
-        const affectedSummaries = await kg.findAffectedSummaryNodes(a.nodeIds, projectName);
-
-        const hasDependents = Array.from(dependentsMap.values()).some((deps) => deps.length > 0);
-        const hasSummaries = affectedSummaries.length > 0;
-
-        if (hasDependents || hasSummaries) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(
-                  {
-                    action: 'confirmation_required',
-                    nodesToDelete: projectNodes.map((check) => ({
-                      id: check.id,
-                      thought: check.node?.thought,
-                      role: check.node?.role,
-                      tags: check.node?.tags,
-                    })),
-                    dependentNodes: Object.fromEntries(dependentsMap),
-                    affectedSummaries: affectedSummaries.map((node) => ({
-                      id: node.id,
-                      thought: node.thought,
-                      summarizedSegment: node.summarizedSegment,
-                    })),
-                    message:
-                      'These nodes have dependencies or are referenced in summaries. Set confirm=true to proceed with deletion.',
-                  },
-                  null,
-                  2,
-                ),
-              },
-            ],
-          };
+        const nonExistentNodes = nodeChecks
+          .filter((check) => !check.exists)
+          .map((check) => check.id);
+        if (nonExistentNodes.length > 0) {
+          throw new Error(`Nodes not found: ${nonExistentNodes.join(', ')}`);
         }
+
+        // Filter nodes by project
+        const projectNodes = nodeChecks.filter((check) => check.node?.project === projectName);
+        const wrongProjectNodes = nodeChecks
+          .filter((check) => check.node?.project !== projectName)
+          .map((check) => check.id);
+
+        if (wrongProjectNodes.length > 0) {
+          throw new Error(`Nodes not in project ${projectName}: ${wrongProjectNodes.join(', ')}`);
+        }
+
+        if (a.checkDependents && !a.confirm) {
+          // Check for dependent nodes
+          const dependentsMap = await kg.findDependentNodes(a.nodeIds, projectName);
+          const affectedSummaries = await kg.findAffectedSummaryNodes(a.nodeIds, projectName);
+
+          const hasDependents = Array.from(dependentsMap.values()).some((deps) => deps.length > 0);
+          const hasSummaries = affectedSummaries.length > 0;
+
+          if (hasDependents || hasSummaries) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(
+                    {
+                      action: 'confirmation_required',
+                      nodesToDelete: projectNodes.map((check) => ({
+                        id: check.id,
+                        thought: check.node?.thought,
+                        role: check.node?.role,
+                        tags: check.node?.tags,
+                      })),
+                      dependentNodes: Object.fromEntries(dependentsMap),
+                      affectedSummaries: affectedSummaries.map((node) => ({
+                        id: node.id,
+                        thought: node.thought,
+                        summarizedSegment: node.summarizedSegment,
+                      })),
+                      message:
+                        'These nodes have dependencies or are referenced in summaries. Set confirm=true to proceed with deletion.',
+                    },
+                    null,
+                    2,
+                  ),
+                },
+              ],
+            };
+          }
+        }
+
+        // Proceed with deletion
+        const result = await kg.softDeleteNodes(a.nodeIds, projectName, a.reason, 'mcp-tool');
+
+        logger.info(
+          `[delete_thoughts] Successfully deleted ${result.deletedNodes.length} nodes from project ${projectName}`,
+        );
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  action: 'deletion_completed',
+                  deletedNodes: result.deletedNodes.map((node) => ({
+                    id: node.id,
+                    thought: node.thought,
+                    role: node.role,
+                    deletedAt: node.deletedAt,
+                    deletedReason: node.deletedReason,
+                  })),
+                  backupPath: result.backupPath,
+                  affectedSummaries: result.affectedSummaries.map((node) => ({
+                    id: node.id,
+                    thought: node.thought,
+                    summarizedSegment: node.summarizedSegment,
+                  })),
+                  message: `Successfully deleted ${result.deletedNodes.length} nodes. Backup created at ${result.backupPath}`,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        return handleToolError(err as Error);
       }
-
-      // Proceed with deletion
-      const result = await kg.softDeleteNodes(a.nodeIds, projectName, a.reason, 'mcp-tool');
-
-      logger.info(
-        `[delete_thoughts] Successfully deleted ${result.deletedNodes.length} nodes from project ${projectName}`,
-      );
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(
-              {
-                action: 'deletion_completed',
-                deletedNodes: result.deletedNodes.map((node) => ({
-                  id: node.id,
-                  thought: node.thought,
-                  role: node.role,
-                  deletedAt: node.deletedAt,
-                  deletedReason: node.deletedReason,
-                })),
-                backupPath: result.backupPath,
-                affectedSummaries: result.affectedSummaries.map((node) => ({
-                  id: node.id,
-                  thought: node.thought,
-                  summarizedSegment: node.summarizedSegment,
-                })),
-                message: `Successfully deleted ${result.deletedNodes.length} nodes. Backup created at ${result.backupPath}`,
-              },
-              null,
-              2,
-            ),
-          },
-        ],
-      };
     },
   );
 };
