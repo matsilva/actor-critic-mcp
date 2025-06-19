@@ -25,7 +25,7 @@
   ],
   "author": "Mat Silva <mat@silvabyte.com>",
   "license": "ISC",
-  "description": "CodeLoops: A feedback-driven system to improve coding agents through actor-critic loops",
+  "description": "CodeLoops: A TypeScript-based feedback system to improve coding agents through actor-critic loops with integrated knowledge graph memory",
   "devDependencies": {
     "@commitlint/cli": "^19.8.0",
     "@commitlint/config-conventional": "^19.8.0",
